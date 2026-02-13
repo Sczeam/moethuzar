@@ -58,3 +58,11 @@ pnpm dev
 Health check endpoint:
 
 - `GET /api/health/db`
+
+## API Endpoints (Current)
+
+- `GET /api/cart`
+- `POST /api/cart` (body: `{ "variantId": "uuid", "quantity": 1 }`)
+- `PATCH /api/cart` (body: `{ "variantId": "uuid", "quantity": 2 }`)
+- `DELETE /api/cart` (body: `{ "variantId": "uuid" }`)
+- `POST /api/checkout` (COD checkout payload)
