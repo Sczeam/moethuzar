@@ -66,3 +66,16 @@ Health check endpoint:
 - `PATCH /api/cart` (body: `{ "variantId": "uuid", "quantity": 2 }`)
 - `DELETE /api/cart` (body: `{ "variantId": "uuid" }`)
 - `POST /api/checkout` (COD checkout payload)
+- `GET /api/admin/orders` (optional query `?status=PENDING`)
+- `GET /api/admin/orders/[orderId]`
+- `PATCH /api/admin/orders/[orderId]/status` (body: `{ "toStatus": "CONFIRMED", "note": "..." }`)
+
+Admin endpoints currently require header:
+
+- `x-admin-user-id: <AdminUser.id>`
+
+## Test
+
+```bash
+pnpm test
+```

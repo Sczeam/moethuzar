@@ -1,4 +1,4 @@
-import { PrismaClient, ProductStatus } from "@prisma/client";
+import { PrismaClient, ProductStatus, UserRole } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
@@ -38,6 +38,22 @@ async function main() {
       create: category,
     });
   }
+
+  await prisma.adminUser.upsert({
+    where: { email: "admin@moethuzar.local" },
+    update: {
+      fullName: "Moethuzar Admin",
+      isActive: true,
+      role: UserRole.ADMIN,
+    },
+    create: {
+      authUserId: "11111111-1111-1111-1111-111111111111",
+      email: "admin@moethuzar.local",
+      fullName: "Moethuzar Admin",
+      isActive: true,
+      role: UserRole.ADMIN,
+    },
+  });
 
   const tshirtCategory = await prisma.category.findUniqueOrThrow({
     where: { slug: "t-shirts" },
