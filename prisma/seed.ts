@@ -3,6 +3,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 async function main() {
+  const adminAuthUserId =
+    process.env.ADMIN_AUTH_USER_ID ?? "11111111-1111-1111-1111-111111111111";
+
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set.");
@@ -47,7 +50,7 @@ async function main() {
       role: UserRole.ADMIN,
     },
     create: {
-      authUserId: "11111111-1111-1111-1111-111111111111",
+      authUserId: adminAuthUserId,
       email: "admin@moethuzar.local",
       fullName: "Moethuzar Admin",
       isActive: true,

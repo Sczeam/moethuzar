@@ -19,6 +19,13 @@ DATABASE_URL="postgresql://..."
 
 # Used by Prisma migrations (direct DB URL recommended)
 DIRECT_URL="postgresql://..."
+
+# Supabase Auth config (for admin Bearer token verification)
+SUPABASE_URL="https://<project-ref>.supabase.co"
+SUPABASE_ANON_KEY="..."
+
+# Optional: make seed admin user map to your real Supabase Auth user id
+ADMIN_AUTH_USER_ID="11111111-1111-1111-1111-111111111111"
 ```
 
 If your password has special characters (`@`, `#`, `*`, etc), URL-encode it.
@@ -70,9 +77,9 @@ Health check endpoint:
 - `GET /api/admin/orders/[orderId]`
 - `PATCH /api/admin/orders/[orderId]/status` (body: `{ "toStatus": "CONFIRMED", "note": "..." }`)
 
-Admin endpoints currently require header:
+Admin endpoints require:
 
-- `x-admin-user-id: <AdminUser.id>`
+- `Authorization: Bearer <supabase_access_token>`
 
 ## Test
 
