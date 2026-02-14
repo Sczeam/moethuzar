@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { ADMIN_ACCESS_TOKEN_COOKIE } from "@/lib/constants/auth";
+import { updateSession } from "@/lib/supabase/proxy";
 
 function isAdminPath(pathname: string): boolean {
   return pathname === "/admin" || pathname.startsWith("/admin/");
@@ -10,26 +10,25 @@ function isAdminLoginPath(pathname: string): boolean {
   return pathname === "/admin/login";
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const { response, user } = await updateSession(request);
 
   if (!isAdminPath(pathname)) {
-    return NextResponse.next();
+    return response;
   }
 
-  const hasAdminToken = Boolean(request.cookies.get(ADMIN_ACCESS_TOKEN_COOKIE)?.value);
-
-  if (!hasAdminToken && !isAdminLoginPath(pathname)) {
+  if (!user && !isAdminLoginPath(pathname)) {
     const loginUrl = new URL("/admin/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (hasAdminToken && isAdminLoginPath(pathname)) {
+  if (user && isAdminLoginPath(pathname)) {
     return NextResponse.redirect(new URL("/admin/orders", request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

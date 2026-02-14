@@ -1,9 +1,5 @@
-import { getSupabaseClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import { AppError } from "@/server/errors";
-import {
-  ADMIN_ACCESS_TOKEN_COOKIE,
-  ADMIN_REFRESH_TOKEN_COOKIE,
-} from "@/lib/constants/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
@@ -46,7 +42,7 @@ function errorResponse(error: unknown) {
 export async function POST(request: Request) {
   try {
     const payload = loginSchema.parse(await request.json());
-    const supabase = getSupabaseClient();
+    const supabase = await createClient();
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: payload.email,
@@ -66,35 +62,13 @@ export async function POST(request: Request) {
       throw new AppError("Admin account is not allowed.", 403, "FORBIDDEN");
     }
 
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
         ok: true,
         adminUser,
       },
       { status: 200 }
     );
-
-    response.cookies.set({
-      name: ADMIN_ACCESS_TOKEN_COOKIE,
-      value: data.session.access_token,
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: data.session.expires_in,
-    });
-
-    response.cookies.set({
-      name: ADMIN_REFRESH_TOKEN_COOKIE,
-      value: data.session.refresh_token,
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
-
-    return response;
   } catch (error) {
     return errorResponse(error);
   }

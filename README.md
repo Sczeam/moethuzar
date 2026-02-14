@@ -20,9 +20,9 @@ DATABASE_URL="postgresql://..."
 # Used by Prisma migrations (direct DB URL recommended)
 DIRECT_URL="postgresql://..."
 
-# Supabase Auth config (for admin Bearer token verification)
-SUPABASE_URL="https://<project-ref>.supabase.co"
-SUPABASE_ANON_KEY="..."
+# Supabase SSR/Auth config (official Next.js SSR pattern)
+NEXT_PUBLIC_SUPABASE_URL="https://<project-ref>.supabase.co"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="..."
 
 # Optional: make seed admin user map to your real Supabase Auth user id
 ADMIN_AUTH_USER_ID="11111111-1111-1111-1111-111111111111"
@@ -83,15 +83,14 @@ Health check endpoint:
 - `GET /api/admin/orders/[orderId]`
 - `PATCH /api/admin/orders/[orderId]/status` (body: `{ "toStatus": "CONFIRMED", "note": "..." }`)
 
-Admin endpoints require:
-
-- `Authorization: Bearer <supabase_access_token>`
+Admin auth uses Supabase SSR session cookies (`@supabase/ssr`).
+Admin endpoints can also accept `Authorization: Bearer <supabase_access_token>`.
 
 Admin web login:
 
 - Use `/admin/login` with a Supabase Auth user mapped to `AdminUser.authUserId`
-- Session cookie is set by `/api/admin/auth/login`
-- `/admin/*` routes are protected by `proxy.ts`
+- Session is managed by Supabase SSR helpers in `lib/supabase/*`
+- `/admin/*` routes are protected via `proxy.ts` + `updateSession`
 
 Customer pages:
 
