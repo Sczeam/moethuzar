@@ -67,6 +67,7 @@ export default function AdminOrderDetailPage() {
   const orderId = params.orderId;
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [statusText, setStatusText] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [selectedTransition, setSelectedTransition] = useState<OrderStatus | null>(null);
@@ -74,10 +75,14 @@ export default function AdminOrderDetailPage() {
   const router = useRouter();
 
   const loadOrder = useCallback(async () => {
+    setLoadError("");
     const response = await fetch(`/api/admin/orders/${orderId}`);
     const data = await response.json();
     if (!response.ok || !data.ok) {
-      setStatusText(data.error ?? "Failed to load order.");
+      setLoadError(data.error ?? "Failed to load order.");
+      setStatusText(
+        typeof data?.requestId === "string" ? `Request ID: ${data.requestId}` : "Please retry."
+      );
       setLoading(false);
       return;
     }
@@ -100,6 +105,30 @@ export default function AdminOrderDetailPage() {
     }
     return statusTransitions[order.status];
   }, [order]);
+
+  const transitionImpactText = useMemo(() => {
+    if (!selectedTransition) {
+      return null;
+    }
+
+    if (selectedTransition === "CANCELLED") {
+      return "Cancelling will restore reserved inventory and mark this order as cancelled.";
+    }
+
+    if (selectedTransition === "CONFIRMED") {
+      return "Confirmation keeps inventory reserved and signals phone confirmation complete.";
+    }
+
+    if (selectedTransition === "DELIVERING") {
+      return "Use this when the package has left for delivery.";
+    }
+
+    if (selectedTransition === "DELIVERED") {
+      return "Mark delivered only after successful handoff and COD collection.";
+    }
+
+    return null;
+  }, [selectedTransition]);
 
   async function updateStatus() {
     if (!selectedTransition) {
@@ -174,7 +203,25 @@ export default function AdminOrderDetailPage() {
 
       {loading ? <p className="text-charcoal">Loading order...</p> : null}
 
-      {!loading && order ? (
+      {!loading && loadError ? (
+        <section className="vintage-panel border-seal-wax/40 p-5">
+          <h2 className="text-xl font-semibold text-ink">Unable to load order</h2>
+          <p className="mt-2 text-sm text-charcoal">{loadError}</p>
+          {statusText ? <p className="mt-1 text-xs text-charcoal/80">{statusText}</p> : null}
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              void loadOrder();
+            }}
+            className="btn-primary mt-4"
+          >
+            Retry
+          </button>
+        </section>
+      ) : null}
+
+      {!loading && !loadError && order ? (
         <div className="space-y-6">
           <section className="vintage-panel p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -288,6 +335,17 @@ export default function AdminOrderDetailPage() {
                   Confirm transition: <span className="font-semibold">{order.status}</span> to{" "}
                   <span className="font-semibold">{selectedTransition}</span>
                 </p>
+                {transitionImpactText ? (
+                  <p
+                    className={`mt-2 rounded-md px-3 py-2 text-xs ${
+                      selectedTransition === "CANCELLED"
+                        ? "border border-seal-wax/40 bg-seal-wax/10 text-seal-wax"
+                        : "border border-sepia-border bg-paper-light text-charcoal"
+                    }`}
+                  >
+                    {transitionImpactText}
+                  </p>
+                ) : null}
 
                 <label className="mt-3 block text-xs font-medium text-charcoal">
                   Transition note {selectedTransition === "CANCELLED" ? "(Required)" : "(Optional)"}
@@ -343,6 +401,9 @@ export default function AdminOrderDetailPage() {
                   {entry.note ? <p className="mt-1 text-xs">{entry.note}</p> : null}
                 </div>
               ))}
+              {order.history.length === 0 ? (
+                <p className="text-sm text-charcoal">No status history yet.</p>
+              ) : null}
             </div>
           </section>
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { orderStatusBadgeClass, type UiOrderStatus } from "@/lib/constants/order-status-ui";
 
@@ -21,6 +21,7 @@ const statuses = ["ALL", "PENDING", "CONFIRMED", "DELIVERING", "DELIVERED", "CAN
 export default function OrdersClient({ statusFilter }: { statusFilter: string }) {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [statusText, setStatusText] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -28,22 +29,30 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
     return statuses.includes(statusFilter) ? statusFilter : "ALL";
   }, [statusFilter]);
 
-  useEffect(() => {
-    (async () => {
-      const query = normalizedStatus !== "ALL" ? `?status=${normalizedStatus}` : "";
-      const response = await fetch(`/api/admin/orders${query}`);
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to load orders.");
-        setLoading(false);
-        return;
-      }
-
-      setOrders(data.orders);
-      setStatusText("");
+  const loadOrders = useCallback(async () => {
+    const query = normalizedStatus !== "ALL" ? `?status=${normalizedStatus}` : "";
+    const response = await fetch(`/api/admin/orders${query}`);
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      setLoadError(data.error ?? "Failed to load orders.");
+      setStatusText(
+        typeof data?.requestId === "string" ? `Request ID: ${data.requestId}` : "Please retry."
+      );
       setLoading(false);
-    })();
+      return;
+    }
+
+    setOrders(data.orders);
+    setStatusText("");
+    setLoadError("");
+    setLoading(false);
   }, [normalizedStatus]);
+
+  useEffect(() => {
+    void (async () => {
+      await loadOrders();
+    })();
+  }, [loadOrders]);
 
   async function onLogout() {
     await fetch("/api/admin/auth/logout", { method: "POST" });
@@ -82,9 +91,28 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
         })}
       </div>
 
-      {loading ? <p className="text-charcoal">Loading orders...</p> : null}
+      {loading ? (
+        <div className="vintage-panel p-4">
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="h-8 animate-pulse rounded bg-sepia-border/35" />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
-      {!loading ? (
+      {!loading && loadError ? (
+        <div className="vintage-panel border-seal-wax/40 p-5">
+          <h2 className="text-xl font-semibold text-ink">Unable to load orders</h2>
+          <p className="mt-2 text-sm text-charcoal">{loadError}</p>
+          {statusText ? <p className="mt-1 text-xs text-charcoal/80">{statusText}</p> : null}
+          <button type="button" onClick={() => void loadOrders()} className="btn-primary mt-4">
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !loadError ? (
         <div className="overflow-x-auto vintage-panel">
           <table className="min-w-full text-sm">
             <thead className="bg-parchment text-left text-charcoal">
@@ -135,7 +163,7 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
         </div>
       ) : null}
 
-      {statusText ? <p className="mt-4 text-sm text-seal-wax">{statusText}</p> : null}
+      {statusText && !loadError ? <p className="mt-4 text-sm text-seal-wax">{statusText}</p> : null}
     </main>
   );
 }

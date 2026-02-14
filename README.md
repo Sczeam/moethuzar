@@ -99,6 +99,36 @@ Customer pages:
 - `/cart` cart
 - `/checkout` COD checkout
 - `/order/success/[orderCode]` order confirmation
+- `/order/track` order lookup page
+
+## Admin Bootstrap (Supabase + Prisma)
+
+Your admin login must satisfy both checks:
+
+1. Supabase Auth user metadata includes admin role:
+   - `raw_app_meta_data.role = "admin"`
+   - `raw_app_meta_data.roles` contains `"admin"`
+2. Prisma `AdminUser` has matching `authUserId` and `isActive = true`.
+
+Example SQL (Supabase SQL editor):
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin","roles":["admin"]}'::jsonb
+where email = 'admin@yourdomain.com';
+```
+
+Then ensure `AdminUser.authUserId` matches that user ID.
+
+## Reliability Notes
+
+- Cart token is rotated after successful checkout to prevent converted-cart reuse.
+- Cart/session cookie parsing is tolerant to malformed cookie values.
+- API error responses include `requestId` for debugging and server log correlation.
+
+## Manual QA
+
+- `docs/mvp-qa-checklist.md`
 
 ## Test
 

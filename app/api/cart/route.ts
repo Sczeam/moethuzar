@@ -1,52 +1,17 @@
 import { attachCartCookie, resolveCartSession } from "@/lib/cart-session";
+import { routeErrorResponse } from "@/lib/api/route-error";
 import {
   addCartItemSchema,
   removeCartItemSchema,
   setCartItemQuantitySchema,
 } from "@/lib/validation/cart";
-import { AppError } from "@/server/errors";
 import {
   addCartItem,
   getCartByToken,
   removeCartItem,
   setCartItemQuantity,
 } from "@/server/services/cart.service";
-import { ZodError } from "zod";
 import { NextResponse } from "next/server";
-
-function errorResponse(error: unknown) {
-  if (error instanceof ZodError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: "VALIDATION_ERROR",
-        error: "Invalid request payload.",
-        issues: error.issues,
-      },
-      { status: 400 }
-    );
-  }
-
-  if (error instanceof AppError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: error.code,
-        error: error.message,
-      },
-      { status: error.status }
-    );
-  }
-
-  return NextResponse.json(
-    {
-      ok: false,
-      code: "INTERNAL_ERROR",
-      error: "Unexpected server error.",
-    },
-    { status: 500 }
-  );
-}
 
 export async function GET(request: Request) {
   try {
@@ -60,7 +25,7 @@ export async function GET(request: Request) {
 
     return response;
   } catch (error) {
-    return errorResponse(error);
+    return routeErrorResponse(error, { request, route: "api/cart#GET" });
   }
 }
 
@@ -77,7 +42,7 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
-    return errorResponse(error);
+    return routeErrorResponse(error, { request, route: "api/cart#POST" });
   }
 }
 
@@ -94,7 +59,7 @@ export async function PATCH(request: Request) {
 
     return response;
   } catch (error) {
-    return errorResponse(error);
+    return routeErrorResponse(error, { request, route: "api/cart#PATCH" });
   }
 }
 
@@ -111,6 +76,6 @@ export async function DELETE(request: Request) {
 
     return response;
   } catch (error) {
-    return errorResponse(error);
+    return routeErrorResponse(error, { request, route: "api/cart#DELETE" });
   }
 }

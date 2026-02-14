@@ -1,45 +1,11 @@
 import { attachCartCookie, resolveCartSession } from "@/lib/cart-session";
+import { routeErrorResponse } from "@/lib/api/route-error";
 import { checkoutSchema } from "@/lib/validation/checkout";
-import { AppError } from "@/server/errors";
 import { createOrderFromCart } from "@/server/services/order.service";
 import { NextResponse } from "next/server";
-import { z, ZodError } from "zod";
+import { z } from "zod";
 
 const idempotencyKeySchema = z.string().uuid();
-
-function errorResponse(error: unknown) {
-  if (error instanceof ZodError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: "VALIDATION_ERROR",
-        error: "Invalid checkout payload.",
-        issues: error.issues,
-      },
-      { status: 400 }
-    );
-  }
-
-  if (error instanceof AppError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: error.code,
-        error: error.message,
-      },
-      { status: error.status }
-    );
-  }
-
-  return NextResponse.json(
-    {
-      ok: false,
-      code: "INTERNAL_ERROR",
-      error: "Unexpected server error.",
-    },
-    { status: 500 }
-  );
-}
 
 export async function POST(request: Request) {
   try {
@@ -63,6 +29,6 @@ export async function POST(request: Request) {
     attachCartCookie(response, crypto.randomUUID());
     return response;
   } catch (error) {
-    return errorResponse(error);
+    return routeErrorResponse(error, { request, route: "api/checkout#POST" });
   }
 }

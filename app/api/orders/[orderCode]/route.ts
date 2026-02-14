@@ -1,5 +1,6 @@
 import { getPublicOrderByCode } from "@/server/services/public-order.service";
 import { normalizeOrderCode } from "@/lib/order-code";
+import { routeErrorResponse } from "@/lib/api/route-error";
 import { NextResponse } from "next/server";
 
 function toPriceString(value: unknown): string {
@@ -56,10 +57,10 @@ export async function GET(
         },
       }
     );
-  } catch {
-    return NextResponse.json(
-      { ok: false, code: "INTERNAL_ERROR", error: "Unexpected server error." },
-      { status: 500 }
-    );
+  } catch (error) {
+    return routeErrorResponse(error, {
+      request: _request,
+      route: "api/orders/[orderCode]#GET",
+    });
   }
 }
