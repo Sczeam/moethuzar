@@ -1,40 +1,40 @@
 import { prisma } from "@/lib/prisma";
-import { getSupabaseClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import { AppError } from "@/server/errors";
+import type { AdminUser } from "@prisma/client";
 
-function extractBearerToken(request: Request): string {
-  const authorization = request.headers.get("authorization");
-  if (!authorization) {
-    throw new AppError("Missing authorization header.", 401, "UNAUTHORIZED");
-  }
-
-  const [scheme, token] = authorization.split(" ");
-  if (scheme !== "Bearer" || !token) {
-    throw new AppError("Invalid authorization header.", 401, "UNAUTHORIZED");
-  }
-
-  return token;
+async function findActiveAdminByAuthId(authUserId: string): Promise<AdminUser | null> {
+  return prisma.adminUser.findUnique({
+    where: { authUserId },
+  });
 }
 
-export async function requireAdminUserId(request: Request): Promise<string> {
-  const token = extractBearerToken(request);
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase.auth.getUser(token);
+export async function requireAdminUser(request: Request): Promise<AdminUser> {
+  const supabase = await createClient();
+  const authorization = request.headers.get("authorization");
+  const bearerToken = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length)
+    : null;
+
+  const { data, error } = bearerToken
+    ? await supabase.auth.getUser(bearerToken)
+    : await supabase.auth.getUser();
 
   if (error || !data.user) {
     throw new AppError("Invalid access token.", 401, "UNAUTHORIZED");
   }
 
   const authUserId = data.user.id;
-
-  const adminUser = await prisma.adminUser.findUnique({
-    where: { authUserId },
-    select: { id: true, isActive: true },
-  });
+  const adminUser = await findActiveAdminByAuthId(authUserId);
 
   if (!adminUser || !adminUser.isActive) {
     throw new AppError("Invalid admin identity.", 403, "FORBIDDEN");
   }
 
+  return adminUser;
+}
+
+export async function requireAdminUserId(request: Request): Promise<string> {
+  const adminUser = await requireAdminUser(request);
   return adminUser.id;
 }
