@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logWarn } from "@/lib/observability";
 import { rateLimiter, type RateLimitResult } from "@/server/security/rate-limiter";
 
 type PolicyName = "checkout" | "publicOrderLookup" | "adminLogin";
@@ -67,6 +68,15 @@ export function rateLimitOrResponse(
   }
 
   const requestId = getRequestId(request);
+  logWarn({
+    event: "security.rate_limited",
+    policy: policyName,
+    method: request.method,
+    path: new URL(request.url).pathname,
+    ip,
+    requestId,
+    retryAfterSec: result.retryAfterSec,
+  });
 
   return NextResponse.json(
     {

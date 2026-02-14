@@ -43,7 +43,7 @@
 - ORM: Prisma
 - Database: Supabase Postgres
 - Payment: Cash on Delivery only
-- File storage (product images): Supabase Storage
+- File storage (product images): Cloudflare R2
 - Validation: Zod
 - Styling: Tailwind CSS
 

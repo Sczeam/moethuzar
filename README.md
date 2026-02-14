@@ -2,6 +2,8 @@
 
 Foundation scope and standards:
 - `docs/foundation-mvp.md`
+- Launch operations runbook:
+  - `docs/launch-ops-runbook.md`
 
 ## Prerequisites
 
@@ -72,6 +74,7 @@ pnpm dev
 Health check endpoint:
 
 - `GET /api/health/db`
+- `GET /api/health/ready`
 
 ## API Endpoints (Current)
 

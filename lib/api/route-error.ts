@@ -1,4 +1,5 @@
 import { AppError } from "@/server/errors";
+import { logError } from "@/lib/observability";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
@@ -58,18 +59,15 @@ export function routeErrorResponse(error: unknown, options: RouteErrorOptions) {
   const requestId = getRequestId(options.request);
   const payload = toErrorPayload(error);
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      route: options.route,
-      method: options.request.method,
-      requestId,
-      code: payload.logCode,
-      status: payload.status,
-      details: options.details ?? null,
-      timestamp: new Date().toISOString(),
-    })
-  );
+  logError({
+    event: "api.route_error",
+    route: options.route,
+    method: options.request.method,
+    requestId,
+    code: payload.logCode,
+    status: payload.status,
+    details: options.details ?? null,
+  });
 
   return NextResponse.json(
     {
