@@ -5,10 +5,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 const menuLinks = [
-  { href: "/", label: "Storefront" },
+  { href: "/", label: "Home" },
   { href: "/cart", label: "Cart" },
   { href: "/order/track", label: "Track Order" },
-  { href: "/admin", label: "Admin Panel" },
 ];
 
 function IconMenu() {
