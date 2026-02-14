@@ -1,4 +1,6 @@
 import { getPublicOrderByCode } from "@/server/services/public-order.service";
+import { normalizeOrderCode } from "@/lib/order-code";
+import { routeErrorResponse } from "@/lib/api/route-error";
 import { NextResponse } from "next/server";
 
 function toPriceString(value: unknown): string {
@@ -14,7 +16,16 @@ export async function GET(
   context: { params: Promise<{ orderCode: string }> }
 ) {
   try {
-    const { orderCode } = await context.params;
+    const { orderCode: rawOrderCode } = await context.params;
+    const orderCode = normalizeOrderCode(rawOrderCode);
+
+    if (!orderCode) {
+      return NextResponse.json(
+        { ok: false, code: "INVALID_ORDER_CODE", error: "Invalid order code format." },
+        { status: 400 }
+      );
+    }
+
     const order = await getPublicOrderByCode(orderCode);
 
     if (!order) {
@@ -39,12 +50,17 @@ export async function GET(
           })),
         },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
     );
-  } catch {
-    return NextResponse.json(
-      { ok: false, code: "INTERNAL_ERROR", error: "Unexpected server error." },
-      { status: 500 }
-    );
+  } catch (error) {
+    return routeErrorResponse(error, {
+      request: _request,
+      route: "api/orders/[orderCode]#GET",
+    });
   }
 }

@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { orderStatusBadgeClass, type UiOrderStatus } from "@/lib/constants/order-status-ui";
 
 type OrderItem = {
   id: string;
   orderCode: string;
-  status: string;
+  status: UiOrderStatus;
   customerName: string;
   customerPhone: string;
   totalAmount: string;
@@ -20,6 +21,7 @@ const statuses = ["ALL", "PENDING", "CONFIRMED", "DELIVERING", "DELIVERED", "CAN
 export default function OrdersClient({ statusFilter }: { statusFilter: string }) {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [statusText, setStatusText] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -27,22 +29,30 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
     return statuses.includes(statusFilter) ? statusFilter : "ALL";
   }, [statusFilter]);
 
-  useEffect(() => {
-    (async () => {
-      const query = normalizedStatus !== "ALL" ? `?status=${normalizedStatus}` : "";
-      const response = await fetch(`/api/admin/orders${query}`);
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to load orders.");
-        setLoading(false);
-        return;
-      }
-
-      setOrders(data.orders);
-      setStatusText("");
+  const loadOrders = useCallback(async () => {
+    const query = normalizedStatus !== "ALL" ? `?status=${normalizedStatus}` : "";
+    const response = await fetch(`/api/admin/orders${query}`);
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      setLoadError(data.error ?? "Failed to load orders.");
+      setStatusText(
+        typeof data?.requestId === "string" ? `Request ID: ${data.requestId}` : "Please retry."
+      );
       setLoading(false);
-    })();
+      return;
+    }
+
+    setOrders(data.orders);
+    setStatusText("");
+    setLoadError("");
+    setLoading(false);
   }, [normalizedStatus]);
+
+  useEffect(() => {
+    void (async () => {
+      await loadOrders();
+    })();
+  }, [loadOrders]);
 
   async function onLogout() {
     await fetch("/api/admin/auth/logout", { method: "POST" });
@@ -51,13 +61,13 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="vintage-shell">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold text-zinc-900">Orders</h1>
+        <h1 className="text-4xl font-semibold text-ink">Orders</h1>
         <button
           type="button"
           onClick={() => void onLogout()}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+          className="btn-secondary"
         >
           Logout
         </button>
@@ -71,8 +81,8 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
             <Link
               key={status}
               href={href}
-              className={`rounded-md px-3 py-1.5 text-sm ${
-                active ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-700"
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${
+                active ? "bg-teak-brown text-paper-light" : "bg-paper-light text-charcoal"
               }`}
             >
               {status}
@@ -81,12 +91,31 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
         })}
       </div>
 
-      {loading ? <p className="text-zinc-600">Loading orders...</p> : null}
+      {loading ? (
+        <div className="vintage-panel p-4">
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="h-8 animate-pulse rounded bg-sepia-border/35" />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
-      {!loading ? (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+      {!loading && loadError ? (
+        <div className="vintage-panel border-seal-wax/40 p-5">
+          <h2 className="text-xl font-semibold text-ink">Unable to load orders</h2>
+          <p className="mt-2 text-sm text-charcoal">{loadError}</p>
+          {statusText ? <p className="mt-1 text-xs text-charcoal/80">{statusText}</p> : null}
+          <button type="button" onClick={() => void loadOrders()} className="btn-primary mt-4">
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !loadError ? (
+        <div className="overflow-x-auto vintage-panel">
           <table className="min-w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-zinc-600">
+            <thead className="bg-parchment text-left text-charcoal">
               <tr>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Customer</th>
@@ -97,17 +126,25 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
             </thead>
             <tbody>
               {orders.map((order) => (
-                <tr key={order.id} className="border-t border-zinc-100">
+                <tr key={order.id} className="border-t border-sepia-border/60">
                   <td className="px-4 py-3">
-                    <Link href={`/admin/orders/${order.id}`} className="font-medium underline">
+                    <Link href={`/admin/orders/${order.id}`} className="font-semibold underline">
                       {order.orderCode}
                     </Link>
                   </td>
                   <td className="px-4 py-3">
                     <p>{order.customerName}</p>
-                    <p className="text-zinc-500">{order.customerPhone}</p>
+                    <p className="text-charcoal/80">{order.customerPhone}</p>
                   </td>
-                  <td className="px-4 py-3">{order.status}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(
+                        order.status
+                      )}`}
+                    >
+                      {order.status}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     {Number(order.totalAmount).toLocaleString()} {order.currency}
                   </td>
@@ -116,7 +153,7 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
               ))}
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-charcoal">
                     No orders found.
                   </td>
                 </tr>
@@ -126,7 +163,7 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
         </div>
       ) : null}
 
-      {statusText ? <p className="mt-4 text-sm text-red-700">{statusText}</p> : null}
+      {statusText && !loadError ? <p className="mt-4 text-sm text-seal-wax">{statusText}</p> : null}
     </main>
   );
 }

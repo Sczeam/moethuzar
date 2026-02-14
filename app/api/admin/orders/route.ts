@@ -1,39 +1,9 @@
+import { routeErrorResponse } from "@/lib/api/route-error";
 import { requireAdminUserId } from "@/server/auth/admin";
-import { AppError } from "@/server/errors";
 import { listOrders } from "@/server/services/admin-order.service";
 import { OrderStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
-
-function errorResponse(error: unknown) {
-  if (error instanceof ZodError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: "VALIDATION_ERROR",
-        error: "Invalid request payload.",
-        issues: error.issues,
-      },
-      { status: 400 }
-    );
-  }
-
-  if (error instanceof AppError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: error.code,
-        error: error.message,
-      },
-      { status: error.status }
-    );
-  }
-
-  return NextResponse.json(
-    { ok: false, code: "INTERNAL_ERROR", error: "Unexpected server error." },
-    { status: 500 }
-  );
-}
+import { AppError } from "@/server/errors";
 
 export async function GET(request: Request) {
   try {
@@ -53,6 +23,6 @@ export async function GET(request: Request) {
     const orders = await listOrders(status);
     return NextResponse.json({ ok: true, orders }, { status: 200 });
   } catch (error) {
-    return errorResponse(error);
+    return routeErrorResponse(error, { request, route: "api/admin/orders#GET" });
   }
 }

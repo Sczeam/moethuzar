@@ -72,8 +72,55 @@ type CreateOrderResult = {
 
 export async function createOrderFromCart(
   guestToken: string,
-  input: CheckoutInput
+  input: CheckoutInput,
+  options?: { idempotencyKey?: string }
 ): Promise<CreateOrderResult> {
+  if (options?.idempotencyKey) {
+    const existingOrder = await prisma.order.findUnique({
+      where: { idempotencyKey: options.idempotencyKey },
+      include: {
+        address: true,
+        items: true,
+      },
+    });
+
+    if (existingOrder) {
+      return {
+        id: existingOrder.id,
+        orderCode: existingOrder.orderCode,
+        status: existingOrder.status,
+        currency: existingOrder.currency,
+        subtotalAmount: toPriceString(existingOrder.subtotalAmount),
+        deliveryFeeAmount: toPriceString(existingOrder.deliveryFeeAmount),
+        totalAmount: toPriceString(existingOrder.totalAmount),
+        customerName: existingOrder.customerName,
+        customerPhone: existingOrder.customerPhone,
+        customerEmail: existingOrder.customerEmail,
+        customerNote: existingOrder.customerNote,
+        createdAt: existingOrder.createdAt,
+        items: existingOrder.items.map((item) => ({
+          id: item.id,
+          productName: item.productName,
+          variantName: item.variantName,
+          sku: item.sku,
+          unitPrice: toPriceString(item.unitPrice),
+          quantity: item.quantity,
+          lineTotal: toPriceString(item.lineTotal),
+        })),
+        address: existingOrder.address
+          ? {
+              country: existingOrder.address.country,
+              stateRegion: existingOrder.address.stateRegion,
+              townshipCity: existingOrder.address.townshipCity,
+              addressLine1: existingOrder.address.addressLine1,
+              addressLine2: existingOrder.address.addressLine2,
+              postalCode: existingOrder.address.postalCode,
+            }
+          : null,
+      };
+    }
+  }
+
   const maxAttempts = 3;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -141,6 +188,7 @@ export async function createOrderFromCart(
         const created = await tx.order.create({
           data: {
             orderCode,
+            idempotencyKey: options?.idempotencyKey,
             status: OrderStatus.PENDING,
             currency: cart.currency,
             subtotalAmount: subtotalAmount.toFixed(2),
@@ -152,7 +200,7 @@ export async function createOrderFromCart(
             customerNote: normalizeOptionalText(input.customerNote),
             address: {
               create: {
-                country: "Myanmar",
+                country: input.country,
                 stateRegion: input.stateRegion.trim(),
                 townshipCity: input.townshipCity.trim(),
                 addressLine1: input.addressLine1.trim(),
@@ -271,6 +319,57 @@ export async function createOrderFromCart(
           : null,
       };
     } catch (error) {
+      const isIdempotencyConflict =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002" &&
+        options?.idempotencyKey;
+
+      if (isIdempotencyConflict) {
+        const existingOrder = await prisma.order.findUnique({
+          where: { idempotencyKey: options?.idempotencyKey },
+          include: {
+            address: true,
+            items: true,
+          },
+        });
+
+        if (existingOrder) {
+          return {
+            id: existingOrder.id,
+            orderCode: existingOrder.orderCode,
+            status: existingOrder.status,
+            currency: existingOrder.currency,
+            subtotalAmount: toPriceString(existingOrder.subtotalAmount),
+            deliveryFeeAmount: toPriceString(existingOrder.deliveryFeeAmount),
+            totalAmount: toPriceString(existingOrder.totalAmount),
+            customerName: existingOrder.customerName,
+            customerPhone: existingOrder.customerPhone,
+            customerEmail: existingOrder.customerEmail,
+            customerNote: existingOrder.customerNote,
+            createdAt: existingOrder.createdAt,
+            items: existingOrder.items.map((item) => ({
+              id: item.id,
+              productName: item.productName,
+              variantName: item.variantName,
+              sku: item.sku,
+              unitPrice: toPriceString(item.unitPrice),
+              quantity: item.quantity,
+              lineTotal: toPriceString(item.lineTotal),
+            })),
+            address: existingOrder.address
+              ? {
+                  country: existingOrder.address.country,
+                  stateRegion: existingOrder.address.stateRegion,
+                  townshipCity: existingOrder.address.townshipCity,
+                  addressLine1: existingOrder.address.addressLine1,
+                  addressLine2: existingOrder.address.addressLine2,
+                  postalCode: existingOrder.address.postalCode,
+                }
+              : null,
+          };
+        }
+      }
+
       const isUniqueOrderCodeConflict =
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002";

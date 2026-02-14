@@ -38,9 +38,9 @@ export default function LoginForm({ nextPath }: { nextPath: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full rounded-xl border border-zinc-200 bg-white p-6">
-      <h1 className="text-2xl font-bold text-zinc-900">Admin Login</h1>
-      <p className="mt-2 text-sm text-zinc-600">Sign in with your admin credentials.</p>
+    <form onSubmit={onSubmit} className="w-full vintage-panel p-6">
+      <h1 className="text-3xl font-semibold text-ink">Admin Login</h1>
+      <p className="mt-2 text-sm text-charcoal">Sign in with your admin credentials.</p>
 
       <div className="mt-6 space-y-3">
         <input
@@ -49,7 +49,7 @@ export default function LoginForm({ nextPath }: { nextPath: string }) {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="Email"
-          className="w-full rounded-md border border-zinc-300 px-3 py-2"
+          className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
         />
         <input
           type="password"
@@ -57,19 +57,19 @@ export default function LoginForm({ nextPath }: { nextPath: string }) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="Password"
-          className="w-full rounded-md border border-zinc-300 px-3 py-2"
+          className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
         />
       </div>
 
       <button
         type="submit"
         disabled={submitting}
-        className="mt-5 w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+        className="btn-primary mt-5 w-full disabled:opacity-60"
       >
         {submitting ? "Signing in..." : "Sign In"}
       </button>
 
-      {statusText ? <p className="mt-4 text-sm text-red-700">{statusText}</p> : null}
+      {statusText ? <p className="mt-4 text-sm text-seal-wax">{statusText}</p> : null}
     </form>
   );
 }

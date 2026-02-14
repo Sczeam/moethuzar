@@ -5,7 +5,7 @@ import type {
   SetCartItemQuantityInput,
 } from "@/lib/validation/cart";
 import { AppError } from "@/server/errors";
-import { ProductStatus } from "@prisma/client";
+import { CartStatus, ProductStatus } from "@prisma/client";
 
 const cartInclude = {
   items: {
@@ -115,16 +115,42 @@ export async function addCartItem(guestToken: string, input: AddCartItemInput) {
   const variant = await loadActiveVariantOrThrow(input.variantId);
 
   const cart = await prisma.$transaction(async (tx) => {
-    const activeCart = await tx.cart.upsert({
+    const existingCart = await tx.cart.findUnique({
       where: { guestToken },
-      update: {},
-      create: { guestToken },
+      select: { id: true, status: true },
     });
+
+    let activeCartId: string;
+
+    if (!existingCart) {
+      const createdCart = await tx.cart.create({
+        data: {
+          guestToken,
+          status: CartStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+      activeCartId = createdCart.id;
+    } else {
+      activeCartId = existingCart.id;
+
+      if (existingCart.status !== CartStatus.ACTIVE) {
+        await tx.cart.update({
+          where: { id: existingCart.id },
+          data: { status: CartStatus.ACTIVE },
+        });
+
+        // Defensive cleanup when reusing a previously converted/abandoned cart token.
+        await tx.cartItem.deleteMany({
+          where: { cartId: existingCart.id },
+        });
+      }
+    }
 
     const existing = await tx.cartItem.findUnique({
       where: {
         cartId_variantId: {
-          cartId: activeCart.id,
+          cartId: activeCartId,
           variantId: input.variantId,
         },
       },
@@ -145,7 +171,7 @@ export async function addCartItem(guestToken: string, input: AddCartItemInput) {
     await tx.cartItem.upsert({
       where: {
         cartId_variantId: {
-          cartId: activeCart.id,
+          cartId: activeCartId,
           variantId: input.variantId,
         },
       },
@@ -154,7 +180,7 @@ export async function addCartItem(guestToken: string, input: AddCartItemInput) {
         price: snapshotPrice,
       },
       create: {
-        cartId: activeCart.id,
+        cartId: activeCartId,
         variantId: input.variantId,
         quantity: input.quantity,
         price: snapshotPrice,
@@ -162,7 +188,7 @@ export async function addCartItem(guestToken: string, input: AddCartItemInput) {
     });
 
     return tx.cart.findUniqueOrThrow({
-      where: { id: activeCart.id },
+      where: { id: activeCartId },
       include: cartInclude,
     });
   });

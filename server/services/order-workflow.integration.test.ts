@@ -116,18 +116,45 @@ describeIfDatabase("order workflow integration", () => {
   });
 
   it("creates order from cart and decrements inventory", async () => {
-    const order = await createOrderFromCart(guestToken, {
-      customerName: "Test Customer",
-      customerPhone: "0912345678",
-      stateRegion: "Yangon",
-      townshipCity: "Sanchaung",
-      addressLine1: "No. 1, Test Street",
-      deliveryFeeAmount: 0,
-      customerEmail: "",
-      customerNote: "",
-      addressLine2: "",
-      postalCode: "",
-    });
+    const idempotencyKey = crypto.randomUUID();
+    const order = await createOrderFromCart(
+      guestToken,
+      {
+        country: "Myanmar",
+        customerName: "Test Customer",
+        customerPhone: "0912345678",
+        stateRegion: "Yangon Region",
+        townshipCity: "Sanchaung",
+        addressLine1: "No. 1, Test Street",
+        deliveryFeeAmount: 0,
+        customerEmail: "",
+        customerNote: "",
+        addressLine2: "",
+        postalCode: "",
+      },
+      { idempotencyKey }
+    );
+
+    const replayed = await createOrderFromCart(
+      guestToken,
+      {
+        country: "Myanmar",
+        customerName: "Test Customer",
+        customerPhone: "0912345678",
+        stateRegion: "Yangon Region",
+        townshipCity: "Sanchaung",
+        addressLine1: "No. 1, Test Street",
+        deliveryFeeAmount: 0,
+        customerEmail: "",
+        customerNote: "",
+        addressLine2: "",
+        postalCode: "",
+      },
+      { idempotencyKey }
+    );
+
+    expect(replayed.id).toBe(order.id);
+    expect(replayed.orderCode).toBe(order.orderCode);
 
     orderId = order.id;
 
@@ -149,6 +176,56 @@ describeIfDatabase("order workflow integration", () => {
 
     expect(confirmedLogs.length).toBe(1);
     expect(confirmedLogs[0].quantity).toBe(-2);
+  });
+
+  it("returns stable stock-conflict error code when inventory is insufficient", async () => {
+    const insufficientGuestToken = `it-cart-insufficient-${suffix}`;
+
+    await prisma.cart.create({
+      data: {
+        guestToken: insufficientGuestToken,
+        status: enums.CartStatus.ACTIVE,
+        currency: "MMK",
+        items: {
+          create: {
+            variantId,
+            quantity: 999,
+            price: "100.00",
+          },
+        },
+      },
+    });
+
+    await expect(
+      createOrderFromCart(insufficientGuestToken, {
+        country: "Myanmar",
+        customerName: "Stock Conflict",
+        customerPhone: "0999999999",
+        stateRegion: "Yangon Region",
+        townshipCity: "Sanchaung",
+        addressLine1: "No. 99, Conflict Street",
+        deliveryFeeAmount: 0,
+        customerEmail: "",
+        customerNote: "",
+        addressLine2: "",
+        postalCode: "",
+      })
+    ).rejects.toMatchObject({
+      code: "INSUFFICIENT_STOCK",
+    });
+
+    await prisma.cartItem.deleteMany({
+      where: {
+        cart: {
+          guestToken: insufficientGuestToken,
+        },
+      },
+    });
+    await prisma.cart.deleteMany({
+      where: {
+        guestToken: insufficientGuestToken,
+      },
+    });
   });
 
   it("restores inventory on cancellation and blocks repeated cancellation", async () => {
