@@ -149,6 +149,7 @@ export default function CatalogClient() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [openingProductId, setOpeningProductId] = useState<string | null>(null);
   const [uploadingCreateImage, setUploadingCreateImage] = useState(false);
   const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const [adjustingVariantId, setAdjustingVariantId] = useState<string | null>(null);
@@ -259,18 +260,33 @@ export default function CatalogClient() {
   }
 
   async function openProduct(productId: string) {
-    const response = await fetch(`/api/admin/catalog/${productId}`);
-    const data = await response.json();
-    if (!response.ok || !data.ok) {
-      setStatusText(data.error ?? "Failed to load product details.");
-      return;
+    setOpeningProductId(productId);
+    const localProduct = products.find((product) => product.id === productId);
+    if (localProduct) {
+      setEditingProductId(productId);
+      setEditingProduct(applyProductToDraft(localProduct));
+      setInventoryDeltaByVariant({});
+      setInventoryNoteByVariant({});
     }
 
-    setEditingProductId(productId);
-    setEditingProduct(applyProductToDraft(data.product));
-    setInventoryDeltaByVariant({});
-    setInventoryNoteByVariant({});
-    setStatusText("");
+    try {
+      const response = await fetch(`/api/admin/catalog/${productId}`);
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        setStatusText(data.error ?? "Failed to load product details.");
+        return;
+      }
+
+      setEditingProductId(productId);
+      setEditingProduct(applyProductToDraft(data.product));
+      setInventoryDeltaByVariant({});
+      setInventoryNoteByVariant({});
+      setStatusText("");
+    } catch {
+      setStatusText("Unexpected error while loading product details.");
+    } finally {
+      setOpeningProductId(null);
+    }
   }
 
   async function submitCreate(event: React.FormEvent<HTMLFormElement>) {
@@ -593,9 +609,10 @@ export default function CatalogClient() {
                         <button
                           type="button"
                           className="btn-secondary"
+                          disabled={openingProductId === product.id}
                           onClick={() => void openProduct(product.id)}
                         >
-                          Edit
+                          {openingProductId === product.id ? "Opening..." : "Edit"}
                         </button>
                       </td>
                     </tr>
