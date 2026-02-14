@@ -118,6 +118,10 @@ export default function ProductView({ product }: ProductViewProps) {
     if (normalized.includes("black")) return "bg-[#1f1f1f]";
     if (normalized.includes("white") || normalized.includes("cream"))
       return "bg-[#ece6da]";
+    if (normalized.includes("yellow") || normalized.includes("gold"))
+      return "bg-[#d7b55a]";
+    if (normalized.includes("pink") || normalized.includes("rose"))
+      return "bg-[#d68a97]";
     if (normalized.includes("navy")) return "bg-[#2e3f5a]";
     if (normalized.includes("blue")) return "bg-[#4e6f92]";
     if (normalized.includes("red") || normalized.includes("maroon"))

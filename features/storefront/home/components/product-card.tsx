@@ -7,17 +7,30 @@ type ProductCardProps = {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const cover = product.images[0]?.url;
+  const hoverImage = product.images[1]?.url;
 
   return (
-    <article className="overflow-hidden border-r border-b border-sepia-border bg-paper-light">
-      <div className="aspect-[4/5] bg-parchment">
+    <article className="group overflow-hidden border-r border-b border-sepia-border bg-paper-light">
+      <div className="relative aspect-[4/5] bg-parchment">
         {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={cover}
-            alt={product.name}
-            className="h-full w-full object-cover grayscale-[30%]"
-          />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={cover}
+              alt={product.name}
+              className={`h-full w-full object-cover grayscale-[30%] transition-opacity duration-300 ${
+                hoverImage ? "group-hover:opacity-0" : ""
+              }`}
+            />
+            {hoverImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={hoverImage}
+                alt={`${product.name} alternate view`}
+                className="absolute inset-0 h-full w-full object-cover grayscale-[30%] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+              />
+            ) : null}
+          </>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-charcoal">
             No image
