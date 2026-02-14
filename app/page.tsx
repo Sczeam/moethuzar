@@ -31,9 +31,14 @@ export default async function HomePage() {
       <section>
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-3xl font-semibold text-ink">Latest Products</h2>
-          <Link href="/cart" className="btn-secondary">
-            View Cart
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/order/track" className="btn-secondary">
+              Track Order
+            </Link>
+            <Link href="/cart" className="btn-secondary">
+              View Cart
+            </Link>
+          </div>
         </div>
 
         {hasLoadError ? (

@@ -1,14 +1,26 @@
 import { formatMoney } from "@/lib/format";
+import LiveStatus from "@/components/order/live-status";
+import { normalizeOrderCode } from "@/lib/order-code";
 import { getPublicOrderByCode } from "@/server/services/public-order.service";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 export default async function OrderSuccessPage({
   params,
 }: {
   params: Promise<{ orderCode: string }>;
 }) {
-  const { orderCode } = await params;
+  const { orderCode: rawOrderCode } = await params;
+  const orderCode = normalizeOrderCode(rawOrderCode);
+
+  if (!orderCode) {
+    notFound();
+  }
+
+  if (rawOrderCode !== orderCode) {
+    redirect(`/order/success/${orderCode}`);
+  }
+
   const order = await getPublicOrderByCode(orderCode);
 
   if (!order) {
@@ -23,8 +35,29 @@ export default async function OrderSuccessPage({
         </p>
         <h1 className="mt-2 text-4xl font-semibold text-ink">Thank you for your order.</h1>
         <p className="mt-2 text-charcoal">Order code: {order.orderCode}</p>
-        <p className="mt-1 text-charcoal">Status: {order.status}</p>
+        <p className="mt-1 text-charcoal">
+          Payment method: <span className="font-semibold">Cash on delivery (COD)</span>
+        </p>
+        <p className="mt-1 text-charcoal">
+          Please keep your phone available. Our team will call to confirm your order.
+        </p>
       </div>
+
+      <div className="mt-8">
+        <LiveStatus orderCode={order.orderCode} initialStatus={order.status} />
+      </div>
+
+      <section className="mt-8 vintage-panel p-5">
+        <h2 className="text-lg font-semibold">Delivery Details</h2>
+        <p className="mt-3 text-sm text-charcoal">
+          Customer: {order.customerName} ({order.customerPhone})
+        </p>
+        {order.customerNote ? (
+          <p className="mt-2 rounded-md bg-parchment p-3 text-sm text-charcoal">
+            Note: {order.customerNote}
+          </p>
+        ) : null}
+      </section>
 
       <section className="mt-8 vintage-panel p-5">
         <h2 className="text-lg font-semibold">Items</h2>
@@ -57,9 +90,14 @@ export default async function OrderSuccessPage({
         </div>
       </section>
 
-      <Link href="/" className="mt-6 inline-block btn-secondary">
-        Back to Home
-      </Link>
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Link href="/" className="btn-secondary">
+          Back to Home
+        </Link>
+        <Link href="/order/track" className="btn-secondary">
+          Track Another Order
+        </Link>
+      </div>
     </main>
   );
 }
