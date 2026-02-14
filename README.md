@@ -73,6 +73,12 @@ Health check endpoint:
 - `PATCH /api/cart` (body: `{ "variantId": "uuid", "quantity": 2 }`)
 - `DELETE /api/cart` (body: `{ "variantId": "uuid" }`)
 - `POST /api/checkout` (COD checkout payload)
+- `GET /api/products`
+- `GET /api/products/[slug]`
+- `GET /api/orders/[orderCode]`
+- `POST /api/admin/auth/login`
+- `POST /api/admin/auth/logout`
+- `GET /api/admin/auth/me`
 - `GET /api/admin/orders` (optional query `?status=PENDING`)
 - `GET /api/admin/orders/[orderId]`
 - `PATCH /api/admin/orders/[orderId]/status` (body: `{ "toStatus": "CONFIRMED", "note": "..." }`)
@@ -80,6 +86,20 @@ Health check endpoint:
 Admin endpoints require:
 
 - `Authorization: Bearer <supabase_access_token>`
+
+Admin web login:
+
+- Use `/admin/login` with a Supabase Auth user mapped to `AdminUser.authUserId`
+- Session cookie is set by `/api/admin/auth/login`
+- `/admin/*` routes are protected by `proxy.ts`
+
+Customer pages:
+
+- `/` product listing
+- `/products/[slug]` product detail
+- `/cart` cart
+- `/checkout` COD checkout
+- `/order/success/[orderCode]` order confirmation
 
 ## Test
 
