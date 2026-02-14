@@ -1,8 +1,14 @@
 "use client";
 
 import { formatMoney } from "@/lib/format";
+import {
+  MM_COUNTRIES,
+  MM_STATES_AND_DIVISIONS,
+  PRIORITY_CITIES,
+  YANGON_TOWNSHIPS,
+} from "@/lib/constants/mm-locations";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type CartData = {
@@ -17,6 +23,7 @@ type CartData = {
 };
 
 type CheckoutForm = {
+  country: string;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -29,6 +36,7 @@ type CheckoutForm = {
 };
 
 const initialForm: CheckoutForm = {
+  country: "Myanmar",
   customerName: "",
   customerPhone: "",
   customerEmail: "",
@@ -40,12 +48,16 @@ const initialForm: CheckoutForm = {
   postalCode: "",
 };
 
+type FieldErrors = Partial<Record<keyof CheckoutForm, string>>;
+
 export default function CheckoutPage() {
   const [cart, setCart] = useState<CartData | null>(null);
   const [form, setForm] = useState<CheckoutForm>(initialForm);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [statusText, setStatusText] = useState("");
+  const idempotencyKeyRef = useRef<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -67,18 +79,71 @@ export default function CheckoutPage() {
   const isCartEmpty = useMemo(() => !cart || cart.items.length === 0, [cart]);
 
   function onChange<K extends keyof CheckoutForm>(key: K, value: CheckoutForm[K]) {
+    setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function validateForm(): FieldErrors {
+    const errors: FieldErrors = {};
+
+    if (form.customerName.trim().length < 2) {
+      errors.customerName = "Please enter a valid full name.";
+    }
+
+    if (!/^[0-9+\-\s()]{6,30}$/.test(form.customerPhone.trim())) {
+      errors.customerPhone = "Please enter a valid phone number.";
+    }
+
+    if (form.customerEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(form.customerEmail.trim())) {
+        errors.customerEmail = "Please enter a valid email address.";
+      }
+    }
+
+    if (!form.country) {
+      errors.country = "Country is required.";
+    }
+    if (!form.stateRegion) {
+      errors.stateRegion = "State / Division is required.";
+    }
+    if (!form.townshipCity) {
+      errors.townshipCity = "Township / City is required.";
+    }
+    if (form.addressLine1.trim().length < 4) {
+      errors.addressLine1 = "Address line 1 must be at least 4 characters.";
+    }
+
+    return errors;
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting) {
+      return;
+    }
+
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setStatusText("Please fix the highlighted fields.");
+      return;
+    }
+
+    setFieldErrors({});
     setSubmitting(true);
     setStatusText("");
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = crypto.randomUUID();
+    }
 
     try {
       const response = await fetch("/api/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-idempotency-key": idempotencyKeyRef.current,
+        },
         body: JSON.stringify({
           ...form,
           deliveryFeeAmount: 0,
@@ -87,7 +152,21 @@ export default function CheckoutPage() {
 
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to place order.");
+        if (Array.isArray(data.issues)) {
+          const nextFieldErrors: FieldErrors = {};
+          for (const issue of data.issues) {
+            const pathKey = issue?.path?.[0];
+            if (typeof pathKey === "string" && pathKey in form) {
+              nextFieldErrors[pathKey as keyof CheckoutForm] = issue.message;
+            }
+          }
+          setFieldErrors(nextFieldErrors);
+        }
+        if (data?.code === "INSUFFICIENT_STOCK") {
+          setStatusText("Some items are out of stock. Please review your cart.");
+        } else {
+          setStatusText(data.error ?? "Failed to place order.");
+        }
         return;
       }
 
@@ -130,6 +209,9 @@ export default function CheckoutPage() {
             onChange={(event) => onChange("customerName", event.target.value)}
             className="w-full rounded-md border border-zinc-300 px-3 py-2"
           />
+          {fieldErrors.customerName ? (
+            <p className="text-xs text-red-700">{fieldErrors.customerName}</p>
+          ) : null}
           <input
             required
             placeholder="Phone Number"
@@ -137,26 +219,72 @@ export default function CheckoutPage() {
             onChange={(event) => onChange("customerPhone", event.target.value)}
             className="w-full rounded-md border border-zinc-300 px-3 py-2"
           />
+          {fieldErrors.customerPhone ? (
+            <p className="text-xs text-red-700">{fieldErrors.customerPhone}</p>
+          ) : null}
           <input
             placeholder="Email (optional)"
             value={form.customerEmail}
             onChange={(event) => onChange("customerEmail", event.target.value)}
             className="w-full rounded-md border border-zinc-300 px-3 py-2"
           />
-          <input
+          {fieldErrors.customerEmail ? (
+            <p className="text-xs text-red-700">{fieldErrors.customerEmail}</p>
+          ) : null}
+          <select
             required
-            placeholder="State / Region"
+            value={form.country}
+            onChange={(event) => onChange("country", event.target.value)}
+            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+          >
+            {MM_COUNTRIES.map((country) => (
+              <option key={country} value={country}>
+                {country}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.country ? <p className="text-xs text-red-700">{fieldErrors.country}</p> : null}
+          <select
+            required
             value={form.stateRegion}
             onChange={(event) => onChange("stateRegion", event.target.value)}
             className="w-full rounded-md border border-zinc-300 px-3 py-2"
-          />
-          <input
+          >
+            <option value="">Select State / Division</option>
+            {MM_STATES_AND_DIVISIONS.map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.stateRegion ? (
+            <p className="text-xs text-red-700">{fieldErrors.stateRegion}</p>
+          ) : null}
+          <select
             required
-            placeholder="Township / City"
             value={form.townshipCity}
             onChange={(event) => onChange("townshipCity", event.target.value)}
             className="w-full rounded-md border border-zinc-300 px-3 py-2"
-          />
+          >
+            <option value="">Select Township / City</option>
+            <optgroup label="Yangon Townships">
+              {YANGON_TOWNSHIPS.map((township) => (
+                <option key={township} value={township}>
+                  {township}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Priority Cities">
+              {PRIORITY_CITIES.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+          {fieldErrors.townshipCity ? (
+            <p className="text-xs text-red-700">{fieldErrors.townshipCity}</p>
+          ) : null}
           <input
             required
             placeholder="Address Line 1"
@@ -164,6 +292,9 @@ export default function CheckoutPage() {
             onChange={(event) => onChange("addressLine1", event.target.value)}
             className="w-full rounded-md border border-zinc-300 px-3 py-2"
           />
+          {fieldErrors.addressLine1 ? (
+            <p className="text-xs text-red-700">{fieldErrors.addressLine1}</p>
+          ) : null}
           <input
             placeholder="Address Line 2"
             value={form.addressLine2}

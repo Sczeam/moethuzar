@@ -3,7 +3,9 @@ import { checkoutSchema } from "@/lib/validation/checkout";
 import { AppError } from "@/server/errors";
 import { createOrderFromCart } from "@/server/services/order.service";
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
+
+const idempotencyKeySchema = z.string().uuid();
 
 function errorResponse(error: unknown) {
   if (error instanceof ZodError) {
@@ -43,7 +45,11 @@ export async function POST(request: Request) {
   try {
     const session = resolveCartSession(request);
     const payload = checkoutSchema.parse(await request.json());
-    const order = await createOrderFromCart(session.token, payload);
+    const idempotencyHeader = request.headers.get("x-idempotency-key");
+    const idempotencyKey = idempotencyHeader
+      ? idempotencyKeySchema.parse(idempotencyHeader)
+      : undefined;
+    const order = await createOrderFromCart(session.token, payload, { idempotencyKey });
 
     return NextResponse.json(
       {

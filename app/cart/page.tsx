@@ -2,6 +2,7 @@
 
 import { formatMoney } from "@/lib/format";
 import Link from "next/link";
+import { useRef } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 type CartItem = {
@@ -36,6 +37,25 @@ export default function CartPage() {
   const [cart, setCart] = useState<CartData | null>(null);
   const [statusText, setStatusText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [busyVariants, setBusyVariants] = useState<Record<string, boolean>>({});
+  const requestVersionRef = useRef(0);
+
+  function getUserFacingError(data: unknown, fallback: string) {
+    if (!data || typeof data !== "object") {
+      return fallback;
+    }
+
+    const errorData = data as { code?: string; error?: string };
+    if (errorData.code === "INSUFFICIENT_STOCK") {
+      return "Requested quantity is greater than available stock.";
+    }
+
+    if (errorData.code === "VARIANT_NOT_FOUND" || errorData.code === "VARIANT_UNAVAILABLE") {
+      return "This variant is no longer available.";
+    }
+
+    return errorData.error ?? fallback;
+  }
 
   async function loadCart() {
     const response = await fetch("/api/cart");
@@ -57,33 +77,100 @@ export default function CartPage() {
   }, []);
 
   async function updateQuantity(variantId: string, quantity: number) {
-    const response = await fetch("/api/cart", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ variantId, quantity }),
-    });
-    const data = await response.json();
-    if (response.ok && data.ok) {
-      setCart(data.cart);
-      setStatusText("");
+    if (!cart || busyVariants[variantId]) {
       return;
     }
-    setStatusText(data.error ?? "Failed to update cart.");
+
+    const previousCart = cart;
+    setBusyVariants((prev) => ({ ...prev, [variantId]: true }));
+
+    const nextQuantity = Number.isFinite(quantity) ? Math.max(1, Math.min(20, quantity)) : 1;
+    requestVersionRef.current += 1;
+    const version = requestVersionRef.current;
+
+    setCart({
+      ...previousCart,
+      items: previousCart.items.map((item) =>
+        item.variant.id === variantId
+          ? {
+              ...item,
+              quantity: nextQuantity,
+              lineTotal: (Number(item.unitPrice) * nextQuantity).toFixed(2),
+            }
+          : item
+      ),
+      subtotalAmount: previousCart.items
+        .reduce((acc, item) => {
+          if (item.variant.id === variantId) {
+            return acc + Number(item.unitPrice) * nextQuantity;
+          }
+          return acc + Number(item.lineTotal);
+        }, 0)
+        .toFixed(2),
+    });
+
+    try {
+      const response = await fetch("/api/cart", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variantId, quantity: nextQuantity }),
+      });
+      const data = await response.json();
+      if (response.ok && data.ok && version === requestVersionRef.current) {
+        setCart(data.cart);
+        setStatusText("");
+      } else if (version === requestVersionRef.current) {
+        setCart(previousCart);
+        setStatusText(getUserFacingError(data, "Failed to update cart."));
+      }
+    } catch {
+      setCart(previousCart);
+      setStatusText("Unexpected error while updating cart.");
+    } finally {
+      setBusyVariants((prev) => ({ ...prev, [variantId]: false }));
+    }
   }
 
   async function removeItem(variantId: string) {
-    const response = await fetch("/api/cart", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ variantId }),
-    });
-    const data = await response.json();
-    if (response.ok && data.ok) {
-      setCart(data.cart);
-      setStatusText("");
+    if (!cart || busyVariants[variantId]) {
       return;
     }
-    setStatusText(data.error ?? "Failed to remove item.");
+
+    const previousCart = cart;
+    setBusyVariants((prev) => ({ ...prev, [variantId]: true }));
+
+    const removed = previousCart.items.find((item) => item.variant.id === variantId);
+    setCart({
+      ...previousCart,
+      items: previousCart.items.filter((item) => item.variant.id !== variantId),
+      subtotalAmount: (
+        Number(previousCart.subtotalAmount) - (removed ? Number(removed.lineTotal) : 0)
+      ).toFixed(2),
+      itemCount: previousCart.items
+        .filter((item) => item.variant.id !== variantId)
+        .reduce((acc, item) => acc + item.quantity, 0),
+    });
+
+    try {
+      const response = await fetch("/api/cart", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variantId }),
+      });
+      const data = await response.json();
+      if (response.ok && data.ok) {
+        setCart(data.cart);
+        setStatusText("");
+      } else {
+        setCart(previousCart);
+        setStatusText(getUserFacingError(data, "Failed to remove item."));
+      }
+    } catch {
+      setCart(previousCart);
+      setStatusText("Unexpected error while removing item.");
+    } finally {
+      setBusyVariants((prev) => ({ ...prev, [variantId]: false }));
+    }
   }
 
   const hasItems = useMemo(() => Boolean(cart && cart.items.length > 0), [cart]);
@@ -139,6 +226,7 @@ export default function CartPage() {
                   min={1}
                   max={20}
                   value={item.quantity}
+                  disabled={Boolean(busyVariants[item.variant.id])}
                   onChange={(event) =>
                     void updateQuantity(item.variant.id, Number(event.target.value))
                   }
@@ -149,8 +237,9 @@ export default function CartPage() {
                 </p>
                 <button
                   type="button"
+                  disabled={Boolean(busyVariants[item.variant.id])}
                   onClick={() => void removeItem(item.variant.id)}
-                  className="text-xs text-red-600 underline"
+                  className="text-xs text-red-600 underline disabled:opacity-50"
                 >
                   Remove
                 </button>
