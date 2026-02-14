@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { orderStatusBadgeClass, type UiOrderStatus } from "@/lib/constants/order-status-ui";
 
@@ -16,48 +16,113 @@ type OrderItem = {
   createdAt: string;
 };
 
-const statuses = ["ALL", "PENDING", "CONFIRMED", "DELIVERING", "DELIVERED", "CANCELLED"];
+type PaginationMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
-export default function OrdersClient({ statusFilter }: { statusFilter: string }) {
-  const [orders, setOrders] = useState<OrderItem[]>([]);
-  const [statusText, setStatusText] = useState("");
-  const [loadError, setLoadError] = useState("");
-  const [loading, setLoading] = useState(true);
+const statuses = ["ALL", "PENDING", "CONFIRMED", "DELIVERING", "DELIVERED", "CANCELLED"] as const;
+
+function buildOrdersQuery(params: {
+  status: string;
+  q: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+}) {
+  const searchParams = new URLSearchParams();
+  if (params.status !== "ALL") {
+    searchParams.set("status", params.status);
+  }
+  if (params.q.trim()) {
+    searchParams.set("q", params.q.trim());
+  }
+  if (params.from.trim()) {
+    searchParams.set("from", params.from.trim());
+  }
+  if (params.to.trim()) {
+    searchParams.set("to", params.to.trim());
+  }
+  searchParams.set("page", String(params.page));
+  searchParams.set("pageSize", String(params.pageSize));
+  return searchParams.toString();
+}
+
+export default function OrdersClient({
+  statusFilter,
+  q,
+  from,
+  to,
+  page,
+  pageSize,
+  orders,
+  pagination,
+}: {
+  statusFilter: string;
+  q: string;
+  from: string;
+  to: string;
+  page: string;
+  pageSize: string;
+  orders: OrderItem[];
+  pagination: PaginationMeta;
+}) {
   const router = useRouter();
+  const [searchText, setSearchText] = useState(q);
+  const [fromDate, setFromDate] = useState(from);
+  const [toDate, setToDate] = useState(to);
 
   const normalizedStatus = useMemo(() => {
-    return statuses.includes(statusFilter) ? statusFilter : "ALL";
+    return statuses.includes(statusFilter as (typeof statuses)[number]) ? statusFilter : "ALL";
   }, [statusFilter]);
 
-  const loadOrders = useCallback(async () => {
-    const query = normalizedStatus !== "ALL" ? `?status=${normalizedStatus}` : "";
-    const response = await fetch(`/api/admin/orders${query}`);
-    const data = await response.json();
-    if (!response.ok || !data.ok) {
-      setLoadError(data.error ?? "Failed to load orders.");
-      setStatusText(
-        typeof data?.requestId === "string" ? `Request ID: ${data.requestId}` : "Please retry."
-      );
-      setLoading(false);
-      return;
-    }
+  const pageNumber = Number.parseInt(page, 10) || pagination.page;
+  const pageSizeNumber = Number.parseInt(pageSize, 10) || pagination.pageSize;
 
-    setOrders(data.orders);
-    setStatusText("");
-    setLoadError("");
-    setLoading(false);
-  }, [normalizedStatus]);
-
-  useEffect(() => {
-    void (async () => {
-      await loadOrders();
-    })();
-  }, [loadOrders]);
+  function pushState(next: {
+    status?: string;
+    q?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const query = buildOrdersQuery({
+      status: next.status ?? normalizedStatus,
+      q: next.q ?? searchText,
+      from: next.from ?? fromDate,
+      to: next.to ?? toDate,
+      page: next.page ?? pageNumber,
+      pageSize: next.pageSize ?? pageSizeNumber,
+    });
+    router.push(`/admin/orders${query ? `?${query}` : ""}`);
+  }
 
   async function onLogout() {
     await fetch("/api/admin/auth/logout", { method: "POST" });
     router.push("/admin/login");
     router.refresh();
+  }
+
+  function onExportCsv() {
+    const params = new URLSearchParams();
+    if (normalizedStatus !== "ALL") {
+      params.set("status", normalizedStatus);
+    }
+    if (searchText.trim()) {
+      params.set("q", searchText.trim());
+    }
+    if (fromDate.trim()) {
+      params.set("from", fromDate.trim());
+    }
+    if (toDate.trim()) {
+      params.set("to", toDate.trim());
+    }
+    params.set("format", "csv");
+    window.location.href = `/api/admin/orders?${params.toString()}`;
   }
 
   return (
@@ -68,107 +133,147 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
           <Link href="/admin/catalog" className="btn-secondary">
             Catalog
           </Link>
-          <button
-            type="button"
-            onClick={() => void onLogout()}
-            className="btn-secondary"
-          >
+          <button type="button" onClick={onExportCsv} className="btn-secondary">
+            Export CSV
+          </button>
+          <button type="button" onClick={() => void onLogout()} className="btn-secondary">
             Logout
           </button>
         </div>
       </div>
 
+      <form
+        className="mb-5 grid gap-2 rounded-lg border border-sepia-border bg-paper-light p-3 sm:grid-cols-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          pushState({ q: searchText, from: fromDate, to: toDate, page: 1 });
+        }}
+      >
+        <input
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
+          placeholder="Search code/name/phone"
+          className="rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm"
+        />
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(event) => setFromDate(event.target.value)}
+          className="rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm"
+        />
+        <input
+          type="date"
+          value={toDate}
+          onChange={(event) => setToDate(event.target.value)}
+          className="rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm"
+        />
+        <select
+          value={pageSizeNumber}
+          onChange={(event) => {
+            const nextSize = Number.parseInt(event.target.value, 10) || 20;
+            pushState({ pageSize: nextSize, page: 1 });
+          }}
+          className="rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm"
+        >
+          <option value={10}>10 / page</option>
+          <option value={20}>20 / page</option>
+          <option value={50}>50 / page</option>
+        </select>
+        <button type="submit" className="btn-primary">
+          Apply Filters
+        </button>
+      </form>
+
       <div className="mb-5 flex flex-wrap gap-2">
         {statuses.map((status) => {
           const active = status === normalizedStatus;
-          const href = status === "ALL" ? "/admin/orders" : `/admin/orders?status=${status}`;
           return (
-            <Link
+            <button
               key={status}
-              href={href}
+              type="button"
+              onClick={() => pushState({ status, page: 1 })}
               className={`rounded-md px-3 py-1.5 text-sm font-semibold ${
                 active ? "bg-teak-brown text-paper-light" : "bg-paper-light text-charcoal"
               }`}
             >
               {status}
-            </Link>
+            </button>
           );
         })}
       </div>
 
-      {loading ? (
-        <div className="vintage-panel p-4">
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div key={index} className="h-8 animate-pulse rounded bg-sepia-border/35" />
+      <div className="overflow-x-auto vintage-panel">
+        <table className="min-w-full text-sm">
+          <thead className="bg-parchment text-left text-charcoal">
+            <tr>
+              <th className="px-4 py-3">Order</th>
+              <th className="px-4 py-3">Customer</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Total</th>
+              <th className="px-4 py-3">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order) => (
+              <tr key={order.id} className="border-t border-sepia-border/60">
+                <td className="px-4 py-3">
+                  <Link href={`/admin/orders/${order.id}`} className="font-semibold underline">
+                    {order.orderCode}
+                  </Link>
+                </td>
+                <td className="px-4 py-3">
+                  <p>{order.customerName}</p>
+                  <p className="text-charcoal/80">{order.customerPhone}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(
+                      order.status
+                    )}`}
+                  >
+                    {order.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  {Number(order.totalAmount).toLocaleString()} {order.currency}
+                </td>
+                <td className="px-4 py-3">{new Date(order.createdAt).toLocaleString()}</td>
+              </tr>
             ))}
-          </div>
-        </div>
-      ) : null}
+            {orders.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-charcoal">
+                  No orders found.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
 
-      {!loading && loadError ? (
-        <div className="vintage-panel border-seal-wax/40 p-5">
-          <h2 className="text-xl font-semibold text-ink">Unable to load orders</h2>
-          <p className="mt-2 text-sm text-charcoal">{loadError}</p>
-          {statusText ? <p className="mt-1 text-xs text-charcoal/80">{statusText}</p> : null}
-          <button type="button" onClick={() => void loadOrders()} className="btn-primary mt-4">
-            Retry
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-charcoal">
+          Page {pagination.page} of {pagination.totalPages} ({pagination.total} orders)
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="btn-secondary disabled:opacity-60"
+            disabled={pagination.page <= 1}
+            onClick={() => pushState({ page: pagination.page - 1 })}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            className="btn-secondary disabled:opacity-60"
+            disabled={pagination.page >= pagination.totalPages}
+            onClick={() => pushState({ page: pagination.page + 1 })}
+          >
+            Next
           </button>
         </div>
-      ) : null}
-
-      {!loading && !loadError ? (
-        <div className="overflow-x-auto vintage-panel">
-          <table className="min-w-full text-sm">
-            <thead className="bg-parchment text-left text-charcoal">
-              <tr>
-                <th className="px-4 py-3">Order</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order.id} className="border-t border-sepia-border/60">
-                  <td className="px-4 py-3">
-                    <Link href={`/admin/orders/${order.id}`} className="font-semibold underline">
-                      {order.orderCode}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p>{order.customerName}</p>
-                    <p className="text-charcoal/80">{order.customerPhone}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(
-                        order.status
-                      )}`}
-                    >
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {Number(order.totalAmount).toLocaleString()} {order.currency}
-                  </td>
-                  <td className="px-4 py-3">{new Date(order.createdAt).toLocaleString()}</td>
-                </tr>
-              ))}
-              {orders.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-charcoal">
-                    No orders found.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      {statusText && !loadError ? <p className="mt-4 text-sm text-seal-wax">{statusText}</p> : null}
+      </div>
     </main>
   );
 }
