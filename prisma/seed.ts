@@ -1,8 +1,11 @@
-import { PrismaClient, ProductStatus } from "@prisma/client";
+import { PrismaClient, ProductStatus, UserRole } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 async function main() {
+  const adminAuthUserId =
+    process.env.ADMIN_AUTH_USER_ID ?? "11111111-1111-1111-1111-111111111111";
+
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set.");
@@ -38,6 +41,22 @@ async function main() {
       create: category,
     });
   }
+
+  await prisma.adminUser.upsert({
+    where: { email: "admin@moethuzar.local" },
+    update: {
+      fullName: "Moethuzar Admin",
+      isActive: true,
+      role: UserRole.ADMIN,
+    },
+    create: {
+      authUserId: adminAuthUserId,
+      email: "admin@moethuzar.local",
+      fullName: "Moethuzar Admin",
+      isActive: true,
+      role: UserRole.ADMIN,
+    },
+  });
 
   const tshirtCategory = await prisma.category.findUniqueOrThrow({
     where: { slug: "t-shirts" },

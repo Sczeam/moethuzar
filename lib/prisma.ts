@@ -7,17 +7,28 @@ const globalForPrisma = globalThis as unknown as {
   prismaPool: Pool | undefined;
 };
 
-const connectionString = process.env.DATABASE_URL;
+const rawConnectionString = process.env.DATABASE_URL;
 
-if (!connectionString) {
+if (!rawConnectionString) {
   throw new Error("DATABASE_URL is not set.");
 }
+
+const dbUrl = new URL(rawConnectionString);
+if (
+  dbUrl.searchParams.get("sslmode") === "require" &&
+  !dbUrl.searchParams.has("uselibpqcompat")
+) {
+  dbUrl.searchParams.set("uselibpqcompat", "true");
+}
+
+const sslBypass = process.env.PGSSL_REJECT_UNAUTHORIZED === "false";
 
 const pool =
   globalForPrisma.prismaPool ??
   new Pool({
-    connectionString,
+    connectionString: dbUrl.toString(),
     max: 10,
+    ssl: sslBypass ? { rejectUnauthorized: false } : undefined,
   });
 
 const adapter = new PrismaPg(pool);
