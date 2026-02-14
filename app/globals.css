@@ -46,12 +46,20 @@ h6 {
 }
 
 @layer components {
+  .font-cooper-display {
+    font-family: var(--font-cooper-black), "Cooper Black", "Bookman Old Style", "Times New Roman", serif;
+  }
+
+  .site-section {
+    @apply py-8 sm:py-10;
+  }
+
   .vintage-shell {
     @apply mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8;
   }
 
   .vintage-panel {
-    @apply rounded-xl border border-sepia-border bg-paper-light;
+    @apply rounded-xl border border-sepia-border bg-paper-light shadow-[0_6px_20px_rgba(37,30,24,0.06)];
   }
 
   .vintage-muted {
@@ -64,6 +72,18 @@ h6 {
 
   .btn-secondary {
     @apply rounded-md border border-sepia-border bg-parchment px-4 py-2 text-sm font-semibold text-charcoal transition hover:border-antique-brass hover:text-ink;
+  }
+
+  .field-input {
+    @apply w-full rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm text-ink outline-none transition focus:border-antique-brass focus:ring-2 focus:ring-antique-brass/30;
+  }
+
+  .field-select {
+    @apply w-full appearance-none rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm text-ink outline-none transition focus:border-antique-brass focus:ring-2 focus:ring-antique-brass/30;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-semibold text-charcoal;
   }
 
   .status-pill {
