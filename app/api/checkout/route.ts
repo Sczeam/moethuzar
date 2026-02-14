@@ -1,6 +1,8 @@
 import { attachCartCookie, resolveCartSession } from "@/lib/cart-session";
 import { routeErrorResponse } from "@/lib/api/route-error";
+import { logInfo } from "@/lib/observability";
 import { checkoutSchema } from "@/lib/validation/checkout";
+import { rateLimitOrResponse } from "@/server/security/rate-limit";
 import { createOrderFromCart } from "@/server/services/order.service";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -9,6 +11,11 @@ const idempotencyKeySchema = z.string().uuid();
 
 export async function POST(request: Request) {
   try {
+    const limitedResponse = rateLimitOrResponse(request, "checkout");
+    if (limitedResponse) {
+      return limitedResponse;
+    }
+
     const session = resolveCartSession(request);
     const payload = checkoutSchema.parse(await request.json());
     const idempotencyHeader = request.headers.get("x-idempotency-key");
@@ -16,6 +23,14 @@ export async function POST(request: Request) {
       ? idempotencyKeySchema.parse(idempotencyHeader)
       : undefined;
     const order = await createOrderFromCart(session.token, payload, { idempotencyKey });
+    logInfo({
+      event: "order.checkout_created",
+      orderId: order.id,
+      orderCode: order.orderCode,
+      status: order.status,
+      itemCount: order.items.length,
+      currency: order.currency,
+    });
 
     const response = NextResponse.json(
       {

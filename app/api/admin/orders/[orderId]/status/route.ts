@@ -1,4 +1,5 @@
 import { routeErrorResponse } from "@/lib/api/route-error";
+import { logInfo } from "@/lib/observability";
 import {
   adminOrderStatusUpdateSchema,
   orderIdParamSchema,
@@ -21,6 +22,13 @@ export async function PATCH(
       adminUserId,
       toStatus: payload.toStatus,
       note: payload.note,
+    });
+    logInfo({
+      event: "admin.order_status_updated",
+      orderId: order.id,
+      orderCode: order.orderCode,
+      toStatus: payload.toStatus,
+      adminUserId,
     });
 
     return NextResponse.json({ ok: true, order }, { status: 200 });

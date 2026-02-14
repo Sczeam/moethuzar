@@ -24,3 +24,9 @@
 - Place one order, then add new item again; ensure cart works after checkout.
 - Trigger malformed cookie scenario (or stale browser cookies) and ensure cart still loads.
 - Confirm API error responses include request ID in JSON when failures happen.
+
+## Launch Readiness
+
+- Confirm `/api/health/ready` returns `200` in deployed environment.
+- Verify rate limiting works for checkout/order lookup/admin login (returns `429` on abuse).
+- Verify CI is green (`lint`, `test`, `build`) before merge to `master`.

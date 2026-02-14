@@ -53,11 +53,11 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && userIsAdmin && isAdminUnauthorizedPath(pathname)) {
-    return NextResponse.redirect(new URL("/admin/orders", request.url));
+    return NextResponse.redirect(new URL("/admin/catalog", request.url));
   }
 
   if (user && isAdminLoginPath(pathname)) {
-    return NextResponse.redirect(new URL("/admin/orders", request.url));
+    return NextResponse.redirect(new URL("/admin/catalog", request.url));
   }
 
   return response;

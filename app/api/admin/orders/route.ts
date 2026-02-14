@@ -1,27 +1,86 @@
 import { routeErrorResponse } from "@/lib/api/route-error";
+import { adminOrdersListQuerySchema } from "@/lib/validation/admin-order";
 import { requireAdminUserId } from "@/server/auth/admin";
-import { listOrders } from "@/server/services/admin-order.service";
-import { OrderStatus } from "@prisma/client";
+import { listOrders, listOrdersForCsv } from "@/server/services/admin-order.service";
 import { NextResponse } from "next/server";
-import { AppError } from "@/server/errors";
+
+function escapeCsv(value: string): string {
+  const safeValue = value.replace(/"/g, '""');
+  return `"${safeValue}"`;
+}
+
+function formatCsvDate(value: Date): string {
+  return value.toISOString();
+}
 
 export async function GET(request: Request) {
   try {
     await requireAdminUserId(request);
 
     const { searchParams } = new URL(request.url);
-    const statusParam = searchParams.get("status");
+    const query = adminOrdersListQuerySchema.parse({
+      status:
+        searchParams.get("status") === "ALL"
+          ? undefined
+          : searchParams.get("status") ?? undefined,
+      q: searchParams.get("q") ?? undefined,
+      from: searchParams.get("from") ?? undefined,
+      to: searchParams.get("to") ?? undefined,
+      page: searchParams.get("page") ?? undefined,
+      pageSize: searchParams.get("pageSize") ?? undefined,
+      format: searchParams.get("format") ?? undefined,
+    });
 
-    let status: OrderStatus | undefined;
-    if (statusParam) {
-      if (!Object.values(OrderStatus).includes(statusParam as OrderStatus)) {
-        throw new AppError("Invalid order status filter.", 400, "INVALID_STATUS");
-      }
-      status = statusParam as OrderStatus;
+    if (query.format === "csv") {
+      const exportOrders = await listOrdersForCsv({
+        status: query.status,
+        q: query.q,
+        from: query.from,
+        to: query.to,
+        format: query.format,
+      });
+
+      const headers = [
+        "Order Code",
+        "Status",
+        "Customer Name",
+        "Phone",
+        "Total Amount",
+        "Currency",
+        "State / Region",
+        "Township / City",
+        "Created At",
+      ];
+
+      const rows = exportOrders.map((order) =>
+        [
+          order.orderCode,
+          order.status,
+          order.customerName,
+          order.customerPhone,
+          order.totalAmount.toString(),
+          order.currency,
+          order.address?.stateRegion ?? "",
+          order.address?.townshipCity ?? "",
+          formatCsvDate(order.createdAt),
+        ]
+          .map((value) => escapeCsv(String(value)))
+          .join(",")
+      );
+
+      const csv = [headers.map(escapeCsv).join(","), ...rows].join("\n");
+
+      return new NextResponse(csv, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": 'attachment; filename="orders-export.csv"',
+        },
+      });
     }
 
-    const orders = await listOrders(status);
-    return NextResponse.json({ ok: true, orders }, { status: 200 });
+    const data = await listOrders(query);
+    return NextResponse.json({ ok: true, ...data }, { status: 200 });
   } catch (error) {
     return routeErrorResponse(error, { request, route: "api/admin/orders#GET" });
   }
