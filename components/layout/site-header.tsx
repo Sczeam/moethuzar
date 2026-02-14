@@ -1,7 +1,8 @@
 "use client";
 
+import gsap from "gsap";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const menuLinks = [
   { href: "/", label: "Storefront" },
@@ -16,6 +17,15 @@ function IconMenu() {
       <path d="M4 7h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
       <path d="M4 12h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
       <path d="M4 17h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconClose() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" aria-hidden>
+      <path d="M6 6l12 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M18 6l-12 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
@@ -51,17 +61,80 @@ type SiteHeaderProps = {
 
 export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
   const [open, setOpen] = useState(false);
+  const overlayRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const linkRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+
+  useEffect(() => {
+    if (!overlayRef.current || !panelRef.current) {
+      return;
+    }
+
+    gsap.set(overlayRef.current, { autoAlpha: 0 });
+    gsap.set(panelRef.current, { x: 32, autoAlpha: 0 });
+    gsap.set(linkRefs.current, { x: 8, autoAlpha: 0 });
+  }, []);
+
+  useEffect(() => {
+    if (!overlayRef.current || !panelRef.current) {
+      return;
+    }
+
+    if (open) {
+      gsap.to(overlayRef.current, {
+        autoAlpha: 1,
+        duration: 0.2,
+        ease: "power1.out",
+      });
+      gsap.to(panelRef.current, {
+        x: 0,
+        autoAlpha: 1,
+        duration: 0.28,
+        ease: "power2.out",
+      });
+      gsap.to(linkRefs.current, {
+        x: 0,
+        autoAlpha: 1,
+        duration: 0.2,
+        stagger: 0.04,
+        delay: 0.06,
+        ease: "power2.out",
+      });
+      return;
+    }
+
+    gsap.to(linkRefs.current, {
+      x: 8,
+      autoAlpha: 0,
+      duration: 0.12,
+      stagger: 0.02,
+      ease: "power1.in",
+    });
+    gsap.to(panelRef.current, {
+      x: 20,
+      autoAlpha: 0,
+      duration: 0.18,
+      ease: "power1.in",
+      delay: 0.03,
+    });
+    gsap.to(overlayRef.current, {
+      autoAlpha: 0,
+      duration: 0.18,
+      ease: "power1.in",
+    });
+  }, [open]);
 
   return (
     <>
       <aside className="fixed right-0 top-0 z-50 flex h-[170px] w-[64px] flex-col items-center border-l border-b border-sepia-border/70 bg-teak-brown text-paper-light sm:h-[190px] sm:w-[68px]">
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => setOpen((current) => !current)}
           className="mt-2 inline-flex h-12 w-12 items-center justify-center rounded-md text-paper-light transition hover:bg-paper-light/10 sm:mt-3 sm:h-[52px] sm:w-[52px]"
-          aria-label="Open navigation menu"
+          aria-label={open ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={open}
         >
-          <IconMenu />
+          {open ? <IconClose /> : <IconMenu />}
         </button>
         <button
           type="button"
@@ -80,50 +153,47 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         </Link>
       </aside>
 
-      {open ? (
-        <div className="fixed inset-0 z-40">
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-ink/45"
-            aria-label="Close navigation menu"
-          />
+      <div className={`fixed inset-0 z-40 ${open ? "pointer-events-auto" : "pointer-events-none"}`}>
+        <button
+          ref={overlayRef}
+          type="button"
+          onClick={() => setOpen(false)}
+          className="absolute inset-0 bg-ink/45"
+          aria-label="Close navigation menu"
+        />
 
-          <div className="absolute right-[64px] top-0 h-screen w-[min(90vw,420px)] border-l border-sepia-border/60 bg-teak-brown p-10 text-paper-light sm:right-[68px]">
-            <div className="flex items-center justify-between">
-              <p className="text-sm uppercase tracking-[0.22em] text-aged-gold">Moethuzar</p>
-              <button
-                type="button"
+        <div
+          ref={panelRef}
+          className="absolute right-[64px] top-0 h-screen w-[min(90vw,420px)] border-l border-sepia-border/60 bg-teak-brown p-10 text-paper-light sm:right-[68px]"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-sm uppercase tracking-[0.22em] text-aged-gold">Moethuzar</p>
+          </div>
+
+          <nav className="mt-10 grid gap-4">
+            {menuLinks.map((item, index) => (
+              <Link
+                key={item.href}
+                href={item.href}
                 onClick={() => setOpen(false)}
-                className="rounded-md px-2 py-1 text-2xl leading-none text-paper-light transition hover:bg-paper-light/10"
-                aria-label="Close menu"
+                ref={(element) => {
+                  linkRefs.current[index] = element;
+                }}
+                className="text-4xl font-semibold text-paper-light transition hover:text-aged-gold sm:text-5xl"
               >
-                x
-              </button>
-            </div>
+                {item.label}
+              </Link>
+            ))}
+          </nav>
 
-            <nav className="mt-10 grid gap-4">
-              {menuLinks.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setOpen(false)}
-                  className="text-4xl font-semibold text-paper-light transition hover:text-aged-gold sm:text-5xl"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-
-            <div className="mt-10 border-t border-paper-light/30 pt-6">
-              <p className="text-xs uppercase tracking-[0.2em] text-aged-gold">Search</p>
-              <p className="mt-2 text-sm text-paper-light/80">
-                Use Track Order for order lookup. Product keyword search will be added in a later phase.
-              </p>
-            </div>
+          <div className="mt-10 border-t border-paper-light/30 pt-6">
+            <p className="text-xs uppercase tracking-[0.2em] text-aged-gold">Search</p>
+            <p className="mt-2 text-sm text-paper-light/80">
+              Use Track Order for order lookup. Product keyword search will be added in a later phase.
+            </p>
           </div>
         </div>
-      ) : null}
+      </div>
     </>
   );
 }

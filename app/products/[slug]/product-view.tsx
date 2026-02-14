@@ -267,7 +267,7 @@ export default function ProductView({ product }: ProductViewProps) {
 
           <div className="border-t border-sepia-border/80 pt-4">
             <div className="flex items-stretch gap-2">
-              <div className="h-12 w-[92px] border border-sepia-border bg-parchment px-3 py-1.5">
+              <div className="h-12 w-23 border border-sepia-border bg-parchment px-3 py-1.5">
                 <label className="block text-[8px] font-semibold uppercase tracking-[0.06em] text-charcoal">
                   Qty
                 </label>
