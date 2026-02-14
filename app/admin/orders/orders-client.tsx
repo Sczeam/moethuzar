@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { orderStatusBadgeClass, type UiOrderStatus } from "@/lib/constants/order-status-ui";
 
 type OrderItem = {
   id: string;
   orderCode: string;
-  status: string;
+  status: UiOrderStatus;
   customerName: string;
   customerPhone: string;
   totalAmount: string;
@@ -99,7 +100,7 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
               {orders.map((order) => (
                 <tr key={order.id} className="border-t border-zinc-100">
                   <td className="px-4 py-3">
-                    <Link href={`/admin/orders/${order.id}`} className="font-medium underline">
+                    <Link href={`/admin/orders/${order.id}`} className="font-semibold underline">
                       {order.orderCode}
                     </Link>
                   </td>
@@ -107,7 +108,15 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
                     <p>{order.customerName}</p>
                     <p className="text-zinc-500">{order.customerPhone}</p>
                   </td>
-                  <td className="px-4 py-3">{order.status}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(
+                        order.status
+                      )}`}
+                    >
+                      {order.status}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     {Number(order.totalAmount).toLocaleString()} {order.currency}
                   </td>
