@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { getActiveProductBySlug } from "@/server/services/product.service";
 import ProductView from "./product-view";
 
+type ActiveProduct = NonNullable<Awaited<ReturnType<typeof getActiveProductBySlug>>>;
+type ActiveProductImage = ActiveProduct["images"][number];
+type ActiveProductVariant = ActiveProduct["variants"][number];
+
 export default async function ProductPage({
   params,
 }: {
@@ -22,12 +26,12 @@ export default async function ProductPage({
         description: product.description,
         currency: product.currency,
         basePrice: product.price.toString(),
-        images: product.images.map((image) => ({
+        images: product.images.map((image: ActiveProductImage) => ({
           id: image.id,
           url: image.url,
           alt: image.alt,
         })),
-        variants: product.variants.map((variant) => ({
+        variants: product.variants.map((variant: ActiveProductVariant) => ({
           id: variant.id,
           sku: variant.sku,
           name: variant.name,
