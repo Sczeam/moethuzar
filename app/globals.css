@@ -1,26 +1,72 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-parchment: #e6daca;
+  --color-paper-light: #f1e8da;
+  --color-ink: #251e18;
+  --color-charcoal: #3b332b;
+  --color-antique-brass: #b08d3a;
+  --color-aged-gold: #c8a45a;
+  --color-seal-wax: #7a2e2a;
+  --color-sepia-border: #cbb79f;
+  --color-teak-brown: #6b4b2a;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--color-parchment);
+  --color-foreground: var(--color-ink);
+  --color-parchment: var(--color-parchment);
+  --color-paper-light: var(--color-paper-light);
+  --color-ink: var(--color-ink);
+  --color-charcoal: var(--color-charcoal);
+  --color-antique-brass: var(--color-antique-brass);
+  --color-aged-gold: var(--color-aged-gold);
+  --color-seal-wax: var(--color-seal-wax);
+  --color-sepia-border: var(--color-sepia-border);
+  --color-teak-brown: var(--color-teak-brown);
+  --font-sans: var(--font-libre-baskerville);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at 10% 10%, rgb(200 164 90 / 12%) 0%, transparent 28%),
+    radial-gradient(circle at 90% 20%, rgb(176 141 58 / 10%) 0%, transparent 32%),
+    var(--color-parchment);
+  color: var(--color-ink);
+  font-family: var(--font-libre-baskerville), serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-cormorant), serif;
+}
+
+@layer components {
+  .vintage-shell {
+    @apply mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8;
+  }
+
+  .vintage-panel {
+    @apply rounded-xl border border-sepia-border bg-paper-light;
+  }
+
+  .vintage-muted {
+    @apply text-sm text-charcoal/85;
+  }
+
+  .btn-primary {
+    @apply rounded-md border border-antique-brass bg-antique-brass px-4 py-2 text-sm font-semibold text-ink transition hover:bg-aged-gold;
+  }
+
+  .btn-secondary {
+    @apply rounded-md border border-sepia-border bg-parchment px-4 py-2 text-sm font-semibold text-charcoal transition hover:border-antique-brass hover:text-ink;
+  }
+
+  .status-pill {
+    @apply inline-flex rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
 }

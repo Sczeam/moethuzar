@@ -179,15 +179,15 @@ export default function CheckoutPage() {
   }
 
   if (loading) {
-    return <main className="mx-auto max-w-4xl px-4 py-10">Loading checkout...</main>;
+    return <main className="vintage-shell max-w-4xl">Loading checkout...</main>;
   }
 
   if (isCartEmpty || !cart) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-10">
-        <h1 className="text-2xl font-bold">Checkout</h1>
-        <p className="mt-3 text-zinc-600">Your cart is empty.</p>
-        <Link href="/" className="mt-4 inline-block text-sm underline">
+      <main className="vintage-shell max-w-4xl">
+        <h1 className="text-3xl font-semibold">Checkout</h1>
+        <p className="mt-3 text-charcoal">Your cart is empty.</p>
+        <Link href="/" className="mt-4 inline-block btn-secondary">
           Back to products
         </Link>
       </main>
@@ -195,11 +195,11 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="mb-6 text-3xl font-bold text-zinc-900">Checkout</h1>
+    <main className="vintage-shell max-w-5xl">
+      <h1 className="mb-6 text-4xl font-semibold text-ink">Checkout</h1>
 
       <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
-        <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-zinc-200 p-5">
+        <form onSubmit={onSubmit} className="space-y-4 vintage-panel p-5">
           <h2 className="text-lg font-semibold">Billing Information</h2>
 
           <input
@@ -207,35 +207,29 @@ export default function CheckoutPage() {
             placeholder="Full Name"
             value={form.customerName}
             onChange={(event) => onChange("customerName", event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           />
-          {fieldErrors.customerName ? (
-            <p className="text-xs text-red-700">{fieldErrors.customerName}</p>
-          ) : null}
+          {fieldErrors.customerName ? <p className="text-xs text-seal-wax">{fieldErrors.customerName}</p> : null}
           <input
             required
             placeholder="Phone Number"
             value={form.customerPhone}
             onChange={(event) => onChange("customerPhone", event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           />
-          {fieldErrors.customerPhone ? (
-            <p className="text-xs text-red-700">{fieldErrors.customerPhone}</p>
-          ) : null}
+          {fieldErrors.customerPhone ? <p className="text-xs text-seal-wax">{fieldErrors.customerPhone}</p> : null}
           <input
             placeholder="Email (optional)"
             value={form.customerEmail}
             onChange={(event) => onChange("customerEmail", event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           />
-          {fieldErrors.customerEmail ? (
-            <p className="text-xs text-red-700">{fieldErrors.customerEmail}</p>
-          ) : null}
+          {fieldErrors.customerEmail ? <p className="text-xs text-seal-wax">{fieldErrors.customerEmail}</p> : null}
           <select
             required
             value={form.country}
             onChange={(event) => onChange("country", event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           >
             {MM_COUNTRIES.map((country) => (
               <option key={country} value={country}>
@@ -243,12 +237,12 @@ export default function CheckoutPage() {
               </option>
             ))}
           </select>
-          {fieldErrors.country ? <p className="text-xs text-red-700">{fieldErrors.country}</p> : null}
+          {fieldErrors.country ? <p className="text-xs text-seal-wax">{fieldErrors.country}</p> : null}
           <select
             required
             value={form.stateRegion}
             onChange={(event) => onChange("stateRegion", event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           >
             <option value="">Select State / Division</option>
             {MM_STATES_AND_DIVISIONS.map((state) => (
@@ -257,14 +251,12 @@ export default function CheckoutPage() {
               </option>
             ))}
           </select>
-          {fieldErrors.stateRegion ? (
-            <p className="text-xs text-red-700">{fieldErrors.stateRegion}</p>
-          ) : null}
+          {fieldErrors.stateRegion ? <p className="text-xs text-seal-wax">{fieldErrors.stateRegion}</p> : null}
           <select
             required
             value={form.townshipCity}
             onChange={(event) => onChange("townshipCity", event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           >
             <option value="">Select Township / City</option>
             <optgroup label="Yangon Townships">
@@ -282,48 +274,44 @@ export default function CheckoutPage() {
               ))}
             </optgroup>
           </select>
-          {fieldErrors.townshipCity ? (
-            <p className="text-xs text-red-700">{fieldErrors.townshipCity}</p>
-          ) : null}
+          {fieldErrors.townshipCity ? <p className="text-xs text-seal-wax">{fieldErrors.townshipCity}</p> : null}
           <input
             required
             placeholder="Address Line 1"
             value={form.addressLine1}
             onChange={(event) => onChange("addressLine1", event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           />
-          {fieldErrors.addressLine1 ? (
-            <p className="text-xs text-red-700">{fieldErrors.addressLine1}</p>
-          ) : null}
+          {fieldErrors.addressLine1 ? <p className="text-xs text-seal-wax">{fieldErrors.addressLine1}</p> : null}
           <input
             placeholder="Address Line 2"
             value={form.addressLine2}
             onChange={(event) => onChange("addressLine2", event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           />
           <input
             placeholder="Postal Code"
             value={form.postalCode}
             onChange={(event) => onChange("postalCode", event.target.value)}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           />
           <textarea
             placeholder="Order note (optional)"
             value={form.customerNote}
             onChange={(event) => onChange("customerNote", event.target.value)}
-            className="min-h-24 w-full rounded-md border border-zinc-300 px-3 py-2"
+            className="min-h-24 w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
           />
 
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            className="btn-primary disabled:opacity-60"
           >
             {submitting ? "Placing order..." : "Place Order (Cash on Delivery)"}
           </button>
         </form>
 
-        <aside className="rounded-xl border border-zinc-200 p-5">
+        <aside className="vintage-panel p-5">
           <h2 className="text-lg font-semibold">Order Summary</h2>
           <div className="mt-4 space-y-3">
             {cart.items.map((item) => (
@@ -335,14 +323,14 @@ export default function CheckoutPage() {
               </div>
             ))}
           </div>
-          <div className="mt-6 flex items-center justify-between border-t border-zinc-200 pt-4">
+          <div className="mt-6 flex items-center justify-between border-t border-sepia-border pt-4">
             <p className="font-semibold">Subtotal</p>
             <p className="font-semibold">{formatMoney(cart.subtotalAmount, cart.currency)}</p>
           </div>
         </aside>
       </div>
 
-      {statusText ? <p className="mt-4 text-sm text-red-700">{statusText}</p> : null}
+      {statusText ? <p className="mt-4 text-sm text-seal-wax">{statusText}</p> : null}
     </main>
   );
 }

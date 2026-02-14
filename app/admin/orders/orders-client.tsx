@@ -52,13 +52,13 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="vintage-shell">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold text-zinc-900">Orders</h1>
+        <h1 className="text-4xl font-semibold text-ink">Orders</h1>
         <button
           type="button"
           onClick={() => void onLogout()}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+          className="btn-secondary"
         >
           Logout
         </button>
@@ -72,8 +72,8 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
             <Link
               key={status}
               href={href}
-              className={`rounded-md px-3 py-1.5 text-sm ${
-                active ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-700"
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${
+                active ? "bg-teak-brown text-paper-light" : "bg-paper-light text-charcoal"
               }`}
             >
               {status}
@@ -82,12 +82,12 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
         })}
       </div>
 
-      {loading ? <p className="text-zinc-600">Loading orders...</p> : null}
+      {loading ? <p className="text-charcoal">Loading orders...</p> : null}
 
       {!loading ? (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <div className="overflow-x-auto vintage-panel">
           <table className="min-w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-zinc-600">
+            <thead className="bg-parchment text-left text-charcoal">
               <tr>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Customer</th>
@@ -98,7 +98,7 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
             </thead>
             <tbody>
               {orders.map((order) => (
-                <tr key={order.id} className="border-t border-zinc-100">
+                <tr key={order.id} className="border-t border-sepia-border/60">
                   <td className="px-4 py-3">
                     <Link href={`/admin/orders/${order.id}`} className="font-semibold underline">
                       {order.orderCode}
@@ -106,7 +106,7 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
                   </td>
                   <td className="px-4 py-3">
                     <p>{order.customerName}</p>
-                    <p className="text-zinc-500">{order.customerPhone}</p>
+                    <p className="text-charcoal/80">{order.customerPhone}</p>
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -125,7 +125,7 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
               ))}
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-charcoal">
                     No orders found.
                   </td>
                 </tr>
@@ -135,7 +135,7 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
         </div>
       ) : null}
 
-      {statusText ? <p className="mt-4 text-sm text-red-700">{statusText}</p> : null}
+      {statusText ? <p className="mt-4 text-sm text-seal-wax">{statusText}</p> : null}
     </main>
   );
 }

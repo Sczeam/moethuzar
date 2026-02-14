@@ -151,9 +151,9 @@ export default function AdminOrderDetailPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="vintage-shell max-w-5xl">
       <div className="mb-6 flex items-center justify-between">
-        <Link href="/admin/orders" className="text-sm text-zinc-600 underline">
+        <Link href="/admin/orders" className="btn-secondary">
           Back to Orders
         </Link>
         <button
@@ -166,17 +166,17 @@ export default function AdminOrderDetailPage() {
               setLoading(false);
             })();
           }}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+          className="btn-secondary"
         >
           Refresh
         </button>
       </div>
 
-      {loading ? <p className="text-zinc-600">Loading order...</p> : null}
+      {loading ? <p className="text-charcoal">Loading order...</p> : null}
 
       {!loading && order ? (
         <div className="space-y-6">
-          <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <section className="vintage-panel p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-bold">{order.orderCode}</h1>
@@ -188,7 +188,7 @@ export default function AdminOrderDetailPage() {
                   >
                     {order.status}
                   </span>
-                  <p className="text-sm text-zinc-600">
+                  <p className="text-sm text-charcoal">
                     Total: {Number(order.totalAmount).toLocaleString()} {order.currency}
                   </p>
                 </div>
@@ -196,25 +196,25 @@ export default function AdminOrderDetailPage() {
               <button
                 type="button"
                 onClick={() => void copyText(order.orderCode, "Order code copied.")}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium"
+                className="btn-secondary text-xs"
               >
                 Copy Order Code
               </button>
             </div>
           </section>
 
-          <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <section className="vintage-panel p-5">
             <h2 className="text-lg font-semibold">Customer</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <p className="font-medium">{order.customerName}</p>
-                <p className="text-sm text-zinc-600">{order.customerPhone}</p>
-                {order.customerEmail ? <p className="text-sm text-zinc-600">{order.customerEmail}</p> : null}
+                <p className="text-sm text-charcoal">{order.customerPhone}</p>
+                {order.customerEmail ? <p className="text-sm text-charcoal">{order.customerEmail}</p> : null}
               </div>
               <div className="flex flex-wrap items-start justify-end gap-2">
                 <a
                   href={`tel:${order.customerPhone}`}
-                  className="rounded-md bg-zinc-900 px-3 py-2 text-xs font-medium text-white"
+                  className="btn-primary text-xs"
                 >
                   Call Customer
                 </a>
@@ -223,27 +223,27 @@ export default function AdminOrderDetailPage() {
                   onClick={() =>
                     void copyText(order.customerPhone, "Customer phone copied to clipboard.")
                   }
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium"
+                  className="btn-secondary text-xs"
                 >
                   Copy Phone
                 </button>
               </div>
             </div>
             {order.address ? (
-              <p className="mt-3 text-sm text-zinc-700">
+              <p className="mt-3 text-sm text-charcoal">
                 {order.address.addressLine1}
                 {order.address.addressLine2 ? `, ${order.address.addressLine2}` : ""},{" "}
                 {order.address.townshipCity}, {order.address.stateRegion}
               </p>
             ) : null}
             {order.customerNote ? (
-              <p className="mt-3 rounded-md bg-zinc-50 p-3 text-sm text-zinc-700">
+              <p className="mt-3 rounded-md bg-parchment p-3 text-sm text-charcoal">
                 Customer note: {order.customerNote}
               </p>
             ) : null}
           </section>
 
-          <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <section className="vintage-panel p-5">
             <h2 className="text-lg font-semibold">Items</h2>
             <div className="mt-3 space-y-2">
               {order.items.map((item) => (
@@ -258,7 +258,7 @@ export default function AdminOrderDetailPage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <section className="vintage-panel p-5">
             <h2 className="text-lg font-semibold">Update Status</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {availableTransitions.map((status) => (
@@ -272,30 +272,30 @@ export default function AdminOrderDetailPage() {
                       setTransitionNote("");
                     }
                   }}
-                  className="rounded-md bg-zinc-900 px-3 py-2 text-sm text-white disabled:opacity-60"
+                  className="btn-primary disabled:opacity-60"
                 >
                   {transitionLabel(status)}
                 </button>
               ))}
               {availableTransitions.length === 0 ? (
-                <p className="text-sm text-zinc-500">No further transitions available.</p>
+                <p className="text-sm text-charcoal">No further transitions available.</p>
               ) : null}
             </div>
 
             {selectedTransition ? (
-              <div className="mt-4 rounded-lg border border-zinc-300 bg-zinc-50 p-4">
+              <div className="mt-4 rounded-lg border border-sepia-border bg-parchment p-4">
                 <p className="text-sm font-medium">
                   Confirm transition: <span className="font-semibold">{order.status}</span> to{" "}
                   <span className="font-semibold">{selectedTransition}</span>
                 </p>
 
-                <label className="mt-3 block text-xs font-medium text-zinc-700">
+                <label className="mt-3 block text-xs font-medium text-charcoal">
                   Transition note {selectedTransition === "CANCELLED" ? "(Required)" : "(Optional)"}
                 </label>
                 <textarea
                   value={transitionNote}
                   onChange={(event) => setTransitionNote(event.target.value)}
-                  className="mt-1 min-h-20 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                  className="mt-1 min-h-20 w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
                   placeholder={
                     selectedTransition === "CANCELLED"
                       ? "Reason for cancellation"
@@ -308,7 +308,7 @@ export default function AdminOrderDetailPage() {
                     type="button"
                     disabled={updatingStatus}
                     onClick={() => void updateStatus()}
-                    className="rounded-md bg-zinc-900 px-3 py-2 text-sm text-white disabled:opacity-60"
+                    className="btn-primary disabled:opacity-60"
                   >
                     {updatingStatus ? "Updating..." : "Confirm Status Update"}
                   </button>
@@ -319,7 +319,7 @@ export default function AdminOrderDetailPage() {
                       setSelectedTransition(null);
                       setTransitionNote("");
                     }}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                    className="btn-secondary"
                   >
                     Cancel
                   </button>
@@ -328,18 +328,18 @@ export default function AdminOrderDetailPage() {
             ) : null}
           </section>
 
-          <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <section className="vintage-panel p-5">
             <h2 className="text-lg font-semibold">Status Timeline</h2>
             <div className="mt-3 space-y-3">
               {order.history.map((entry) => (
                 <div
                   key={entry.id}
-                  className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
+                  className="rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm text-charcoal"
                 >
                   <p>
                     {entry.fromStatus ?? "START"} {"->"} {entry.toStatus}
                   </p>
-                  <p className="text-xs text-zinc-500">{new Date(entry.createdAt).toLocaleString()}</p>
+                  <p className="text-xs text-charcoal/80">{new Date(entry.createdAt).toLocaleString()}</p>
                   {entry.note ? <p className="mt-1 text-xs">{entry.note}</p> : null}
                 </div>
               ))}
@@ -348,7 +348,7 @@ export default function AdminOrderDetailPage() {
         </div>
       ) : null}
 
-      {statusText ? <p className="mt-4 text-sm text-zinc-800">{statusText}</p> : null}
+      {statusText ? <p className="mt-4 text-sm text-charcoal">{statusText}</p> : null}
     </main>
   );
 }

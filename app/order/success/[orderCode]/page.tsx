@@ -16,22 +16,22 @@ export default async function OrderSuccessPage({
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">
+    <main className="vintage-shell max-w-4xl">
+      <div className="vintage-panel border-antique-brass p-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-teak-brown">
           Order Placed
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-zinc-900">Thank you for your order.</h1>
-        <p className="mt-2 text-zinc-700">Order code: {order.orderCode}</p>
-        <p className="mt-1 text-zinc-700">Status: {order.status}</p>
+        <h1 className="mt-2 text-4xl font-semibold text-ink">Thank you for your order.</h1>
+        <p className="mt-2 text-charcoal">Order code: {order.orderCode}</p>
+        <p className="mt-1 text-charcoal">Status: {order.status}</p>
       </div>
 
-      <section className="mt-8 rounded-xl border border-zinc-200 p-5">
+      <section className="mt-8 vintage-panel p-5">
         <h2 className="text-lg font-semibold">Items</h2>
         <div className="mt-4 space-y-3">
           {order.items.map((item) => (
             <div key={item.id} className="flex items-start justify-between">
-              <p className="text-sm text-zinc-800">
+              <p className="text-sm text-charcoal">
                 {item.productName}
                 {item.variantName ? ` (${item.variantName})` : ""} x {item.quantity}
               </p>
@@ -41,7 +41,7 @@ export default async function OrderSuccessPage({
             </div>
           ))}
         </div>
-        <div className="mt-6 border-t border-zinc-200 pt-4">
+        <div className="mt-6 border-t border-sepia-border pt-4">
           <div className="flex justify-between text-sm">
             <p>Subtotal</p>
             <p>{formatMoney(order.subtotalAmount.toString(), order.currency)}</p>
@@ -57,7 +57,7 @@ export default async function OrderSuccessPage({
         </div>
       </section>
 
-      <Link href="/" className="mt-6 inline-block text-sm text-zinc-700 underline">
+      <Link href="/" className="mt-6 inline-block btn-secondary">
         Back to Home
       </Link>
     </main>

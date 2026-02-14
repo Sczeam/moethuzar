@@ -176,18 +176,18 @@ export default function CartPage() {
   const hasItems = useMemo(() => Boolean(cart && cart.items.length > 0), [cart]);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <main className="vintage-shell max-w-5xl">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-zinc-900">Your Cart</h1>
-        <Link href="/" className="text-sm text-zinc-600 underline">
+        <h1 className="text-4xl font-semibold text-ink">Your Cart</h1>
+        <Link href="/" className="btn-secondary">
           Continue shopping
         </Link>
       </div>
 
-      {loading ? <p className="text-zinc-600">Loading cart...</p> : null}
+      {loading ? <p className="text-charcoal">Loading cart...</p> : null}
 
       {!loading && !hasItems ? (
-        <p className="rounded-xl border border-dashed border-zinc-300 p-8 text-zinc-600">
+        <p className="vintage-panel border-dashed p-8 text-charcoal">
           Your cart is empty.
         </p>
       ) : null}
@@ -197,9 +197,9 @@ export default function CartPage() {
           {cart.items.map((item) => (
             <article
               key={item.id}
-              className="grid gap-4 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-[96px_1fr_auto]"
+              className="grid gap-4 vintage-panel p-4 sm:grid-cols-[96px_1fr_auto]"
             >
-              <div className="h-24 w-24 overflow-hidden rounded-md bg-zinc-100">
+              <div className="h-24 w-24 overflow-hidden rounded-md bg-parchment">
                 {item.variant.product.images[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -214,8 +214,8 @@ export default function CartPage() {
                 <Link href={`/products/${item.variant.product.slug}`} className="font-semibold">
                   {item.variant.product.name}
                 </Link>
-                <p className="text-sm text-zinc-600">{item.variant.name}</p>
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-charcoal">{item.variant.name}</p>
+                <p className="text-sm text-charcoal">
                   {formatMoney(item.unitPrice, cart.currency)}
                 </p>
               </div>
@@ -230,7 +230,7 @@ export default function CartPage() {
                   onChange={(event) =>
                     void updateQuantity(item.variant.id, Number(event.target.value))
                   }
-                  className="w-20 rounded-md border border-zinc-300 px-2 py-1 text-sm"
+                  className="w-20 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-sm text-ink"
                 />
                 <p className="text-sm font-semibold">
                   {formatMoney(item.lineTotal, cart.currency)}
@@ -239,7 +239,7 @@ export default function CartPage() {
                   type="button"
                   disabled={Boolean(busyVariants[item.variant.id])}
                   onClick={() => void removeItem(item.variant.id)}
-                  className="text-xs text-red-600 underline disabled:opacity-50"
+                  className="text-xs text-seal-wax underline disabled:opacity-50"
                 >
                   Remove
                 </button>
@@ -247,7 +247,7 @@ export default function CartPage() {
             </article>
           ))}
 
-          <div className="flex items-center justify-between rounded-xl bg-zinc-100 p-4">
+          <div className="flex items-center justify-between vintage-panel p-4">
             <p className="font-medium">Subtotal</p>
             <p className="text-lg font-bold">{formatMoney(cart.subtotalAmount, cart.currency)}</p>
           </div>
@@ -255,7 +255,7 @@ export default function CartPage() {
           <div className="flex justify-end">
             <Link
               href="/checkout"
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+              className="btn-primary"
             >
               Proceed to Checkout
             </Link>
@@ -263,7 +263,7 @@ export default function CartPage() {
         </div>
       ) : null}
 
-      {statusText ? <p className="mt-4 text-sm text-zinc-700">{statusText}</p> : null}
+      {statusText ? <p className="mt-4 text-sm text-charcoal">{statusText}</p> : null}
     </main>
   );
 }

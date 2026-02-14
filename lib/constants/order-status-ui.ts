@@ -8,16 +8,16 @@ export type UiOrderStatus =
 export function orderStatusBadgeClass(status: UiOrderStatus): string {
   switch (status) {
     case "PENDING":
-      return "bg-amber-100 text-amber-800";
+      return "bg-antique-brass/20 text-teak-brown";
     case "CONFIRMED":
-      return "bg-sky-100 text-sky-800";
+      return "bg-aged-gold/25 text-teak-brown";
     case "DELIVERING":
-      return "bg-indigo-100 text-indigo-800";
+      return "bg-teak-brown/15 text-ink";
     case "DELIVERED":
-      return "bg-emerald-100 text-emerald-800";
+      return "bg-antique-brass/30 text-ink";
     case "CANCELLED":
-      return "bg-rose-100 text-rose-800";
+      return "bg-seal-wax/15 text-seal-wax";
     default:
-      return "bg-zinc-100 text-zinc-700";
+      return "bg-paper-light text-charcoal";
   }
 }
