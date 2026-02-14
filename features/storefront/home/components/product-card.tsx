@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { formatMoney } from "@/lib/format";
 import type { StorefrontProduct } from "@/features/storefront/home/types";
 
 type ProductCardProps = {
@@ -8,41 +7,35 @@ type ProductCardProps = {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const cover = product.images[0]?.url;
-  const totalInventory = product.variants.reduce(
-    (acc, variant) => acc + variant.inventory,
-    0
-  );
 
   return (
-    <article className="overflow-hidden vintage-panel">
+    <article className="overflow-hidden border-r border-b border-sepia-border bg-paper-light">
       <div className="aspect-[4/5] bg-parchment">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt={product.name} className="h-full w-full object-cover" />
+          <img
+            src={cover}
+            alt={product.name}
+            className="h-full w-full object-cover grayscale-[30%]"
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-charcoal">
             No image
           </div>
         )}
       </div>
-      <div className="space-y-2 p-4">
-        <p className="text-xs uppercase tracking-wider text-teak-brown">
-          {product.category.name}
-        </p>
-        <h3 className="text-xl font-semibold text-ink">{product.name}</h3>
-        <p className="text-sm text-charcoal">
-          {formatMoney(product.price.toString(), product.currency)}
-        </p>
-        {totalInventory > 0 ? (
-          <p className="text-xs text-charcoal">Stock: {totalInventory}</p>
-        ) : (
-          <span className="inline-flex rounded-full border border-seal-wax/50 bg-seal-wax/10 px-2 py-1 text-xs font-semibold text-seal-wax">
-            Sold out
-          </span>
-        )}
-        <Link href={`/products/${product.slug}`} className="inline-block btn-primary">
-          View Details
-        </Link>
+      <div className="flex items-center justify-between border-t border-sepia-border px-4 py-3">
+        <h3 className="pr-3 text-sm font-bold uppercase tracking-[0.06em] text-ink">
+          {product.name}
+        </h3>
+        <div className="shrink-0">
+          <Link
+            href={`/products/${product.slug}`}
+            className="inline-flex border border-ink bg-ink px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-paper-light transition hover:bg-teak-brown"
+          >
+            Details
+          </Link>
+        </div>
       </div>
     </article>
   );

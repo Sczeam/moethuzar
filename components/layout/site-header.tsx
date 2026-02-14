@@ -29,6 +29,22 @@ function IconSearch() {
   );
 }
 
+function IconCart() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" aria-hidden>
+      <path
+        d="M3.5 5h2l1.6 9.2a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 8H7"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="9.5" cy="19" r="1.5" fill="currentColor" />
+      <circle cx="17" cy="19" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 type SiteHeaderProps = {
   onSearchOpen?: () => void;
 };
@@ -55,6 +71,13 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         >
           <IconSearch />
         </button>
+        <Link
+          href="/cart"
+          className="mt-1 inline-flex h-12 w-12 items-center justify-center rounded-md text-paper-light transition hover:bg-paper-light/10 sm:mt-2 sm:h-[52px] sm:w-[52px]"
+          aria-label="Open cart"
+        >
+          <IconCart />
+        </Link>
       </aside>
 
       {open ? (

@@ -67,11 +67,11 @@ h6 {
   }
 
   .btn-primary {
-    @apply rounded-md border border-antique-brass bg-antique-brass px-4 py-2 text-sm font-semibold text-ink transition hover:bg-aged-gold;
+    @apply rounded-none border border-antique-brass bg-antique-brass px-4 py-2 text-sm font-semibold text-ink transition hover:bg-aged-gold;
   }
 
   .btn-secondary {
-    @apply rounded-md border border-sepia-border bg-parchment px-4 py-2 text-sm font-semibold text-charcoal transition hover:border-antique-brass hover:text-ink;
+    @apply rounded-none border border-sepia-border bg-parchment px-4 py-2 text-sm font-semibold text-charcoal transition hover:border-antique-brass hover:text-ink;
   }
 
   .field-input {
@@ -89,4 +89,10 @@ h6 {
   .status-pill {
     @apply inline-flex rounded-full px-2.5 py-1 text-xs font-semibold;
   }
+}
+
+button,
+a.btn-primary,
+a.btn-secondary {
+  border-radius: 0;
 }
