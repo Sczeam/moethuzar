@@ -21,7 +21,13 @@ function parseCookieHeader(cookieHeader: string | null): Record<string, string> 
       continue;
     }
 
-    result[rawKey] = decodeURIComponent(rawValueParts.join("="));
+    const rawValue = rawValueParts.join("=");
+    try {
+      result[rawKey] = decodeURIComponent(rawValue);
+    } catch {
+      // Keep raw value if decoding fails so one malformed cookie doesn't break cart/session flow.
+      result[rawKey] = rawValue;
+    }
   }
 
   return result;

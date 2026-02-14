@@ -1,4 +1,4 @@
-import { resolveCartSession } from "@/lib/cart-session";
+import { attachCartCookie, resolveCartSession } from "@/lib/cart-session";
 import { checkoutSchema } from "@/lib/validation/checkout";
 import { AppError } from "@/server/errors";
 import { createOrderFromCart } from "@/server/services/order.service";
@@ -51,13 +51,17 @@ export async function POST(request: Request) {
       : undefined;
     const order = await createOrderFromCart(session.token, payload, { idempotencyKey });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         ok: true,
         order,
       },
       { status: 201 }
     );
+
+    // Rotate cart token after successful checkout to avoid reusing converted cart sessions.
+    attachCartCookie(response, crypto.randomUUID());
+    return response;
   } catch (error) {
     return errorResponse(error);
   }

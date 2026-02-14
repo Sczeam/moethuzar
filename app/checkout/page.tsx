@@ -150,11 +150,21 @@ export default function CheckoutPage() {
         }),
       });
 
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        if (Array.isArray(data.issues)) {
+      let data: unknown = null;
+      try {
+        data = await response.json();
+      } catch {
+        setStatusText(`Checkout failed (${response.status}). Please try again.`);
+        return;
+      }
+
+      const parsedData =
+        data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+
+      if (!response.ok || !parsedData?.ok) {
+        if (Array.isArray(parsedData?.issues)) {
           const nextFieldErrors: FieldErrors = {};
-          for (const issue of data.issues) {
+          for (const issue of parsedData.issues) {
             const pathKey = issue?.path?.[0];
             if (typeof pathKey === "string" && pathKey in form) {
               nextFieldErrors[pathKey as keyof CheckoutForm] = issue.message;
@@ -162,15 +172,30 @@ export default function CheckoutPage() {
           }
           setFieldErrors(nextFieldErrors);
         }
-        if (data?.code === "INSUFFICIENT_STOCK") {
+        if (parsedData?.code === "INSUFFICIENT_STOCK") {
           setStatusText("Some items are out of stock. Please review your cart.");
         } else {
-          setStatusText(data.error ?? "Failed to place order.");
+          setStatusText(
+            typeof parsedData?.error === "string" ? parsedData.error : "Failed to place order."
+          );
         }
         return;
       }
 
-      router.push(`/order/success/${data.order.orderCode}`);
+      const orderCode =
+        parsedData.order &&
+        typeof parsedData.order === "object" &&
+        "orderCode" in parsedData.order &&
+        typeof parsedData.order.orderCode === "string"
+          ? parsedData.order.orderCode
+          : null;
+
+      if (!orderCode) {
+        setStatusText("Order created but response was invalid. Please check your order list.");
+        return;
+      }
+
+      router.push(`/order/success/${orderCode}`);
     } catch {
       setStatusText("Unexpected error while placing order.");
     } finally {
