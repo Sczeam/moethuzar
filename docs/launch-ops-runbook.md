@@ -2,10 +2,11 @@
 
 ## 1) Pre-Deploy Gate
 
-- Ensure `pnpm lint`, `pnpm test`, and `pnpm build` pass locally.
+- Ensure `pnpm check:preflight` passes locally.
 - Confirm GitHub Actions `CI` workflow is green on the target branch.
 - Verify `.env` in production includes all required variables from `.env.example`.
 - Verify Supabase DB connectivity via `GET /api/health/ready`.
+- Confirm secrets rotation if any key/password was exposed in logs/chat/history.
 
 ## 2) Health Checks
 
