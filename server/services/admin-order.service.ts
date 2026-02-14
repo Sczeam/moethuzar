@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { AdminOrdersListQueryInput } from "@/lib/validation/admin-order";
 import {
   assertOrderStatusTransition,
   buildOrderTimestampPatch,
@@ -6,19 +7,135 @@ import {
 } from "@/server/domain/order-status";
 import { AppError } from "@/server/errors";
 import { InventoryChangeType, OrderStatus } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 function normalizeOptionalText(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 }
 
-export async function listOrders(status?: OrderStatus) {
+function parseStartDate(value?: string) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function parseEndDate(value?: string) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+export async function listOrders(query: AdminOrdersListQueryInput) {
+  const where: Prisma.OrderWhereInput = {};
+
+  if (query.status) {
+    where.status = query.status;
+  }
+
+  const search = query.q?.trim();
+  if (search) {
+    where.OR = [
+      { orderCode: { contains: search, mode: "insensitive" } },
+      { customerName: { contains: search, mode: "insensitive" } },
+      { customerPhone: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const createdAt: Prisma.DateTimeFilter = {};
+  const fromDate = parseStartDate(query.from);
+  if (fromDate) {
+    createdAt.gte = fromDate;
+  }
+
+  const toDate = parseEndDate(query.to);
+  if (toDate) {
+    createdAt.lte = toDate;
+  }
+  if (createdAt.gte || createdAt.lte) {
+    where.createdAt = createdAt;
+  }
+
+  const page = query.page;
+  const pageSize = query.pageSize;
+  const skip = (page - 1) * pageSize;
+
+  const [total, orders] = await Promise.all([
+    prisma.order.count({ where }),
+    prisma.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        address: true,
+        items: true,
+      },
+      skip,
+      take: pageSize,
+    }),
+  ]);
+
+  return {
+    orders,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+  };
+}
+
+export async function listOrdersForCsv(query: Omit<AdminOrdersListQueryInput, "page" | "pageSize">) {
+  const where: Prisma.OrderWhereInput = {};
+
+  if (query.status) {
+    where.status = query.status;
+  }
+
+  const search = query.q?.trim();
+  if (search) {
+    where.OR = [
+      { orderCode: { contains: search, mode: "insensitive" } },
+      { customerName: { contains: search, mode: "insensitive" } },
+      { customerPhone: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const createdAt: Prisma.DateTimeFilter = {};
+  const fromDate = parseStartDate(query.from);
+  if (fromDate) {
+    createdAt.gte = fromDate;
+  }
+
+  const toDate = parseEndDate(query.to);
+  if (toDate) {
+    createdAt.lte = toDate;
+  }
+  if (createdAt.gte || createdAt.lte) {
+    where.createdAt = createdAt;
+  }
+
   return prisma.order.findMany({
-    where: status ? { status } : undefined,
+    where,
     orderBy: { createdAt: "desc" },
     include: {
       address: true,
-      items: true,
     },
   });
 }

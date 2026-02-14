@@ -2,7 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
-const describeIfDatabase = hasDatabase ? describe : describe.skip;
+const shouldRunIntegrationTests =
+  process.env.CI === "true"
+    ? process.env.RUN_INTEGRATION_TESTS === "1"
+    : true;
+
+const canRunIntegration = hasDatabase && shouldRunIntegrationTests;
+const describeIfDatabase = canRunIntegration ? describe : describe.skip;
 
 describeIfDatabase("order workflow integration", () => {
   const suffix = crypto.randomUUID().slice(0, 8);
