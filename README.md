@@ -26,6 +26,13 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="..."
 
 # Optional: make seed admin user map to your real Supabase Auth user id
 ADMIN_AUTH_USER_ID="11111111-1111-1111-1111-111111111111"
+
+# Cloudflare R2 (admin image uploads)
+R2_ACCOUNT_ID="..."
+R2_ACCESS_KEY_ID="..."
+R2_SECRET_ACCESS_KEY="..."
+R2_BUCKET="..."
+R2_PUBLIC_BASE_URL="https://pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
 ```
 
 If your password has special characters (`@`, `#`, `*`, etc), URL-encode it.
@@ -82,6 +89,12 @@ Health check endpoint:
 - `GET /api/admin/orders` (optional query `?status=PENDING`)
 - `GET /api/admin/orders/[orderId]`
 - `PATCH /api/admin/orders/[orderId]/status` (body: `{ "toStatus": "CONFIRMED", "note": "..." }`)
+- `GET /api/admin/catalog`
+- `POST /api/admin/catalog`
+- `GET /api/admin/catalog/[productId]`
+- `PATCH /api/admin/catalog/[productId]`
+- `POST /api/admin/catalog/[productId]/inventory`
+- `POST /api/admin/catalog/upload-image` (multipart form field: `file`)
 
 Admin auth uses Supabase SSR session cookies (`@supabase/ssr`).
 Admin endpoints can also accept `Authorization: Bearer <supabase_access_token>`.
@@ -91,6 +104,7 @@ Admin web login:
 - Use `/admin/login` with a Supabase Auth user mapped to `AdminUser.authUserId`
 - Session is managed by Supabase SSR helpers in `lib/supabase/*`
 - `/admin/*` routes are protected via `proxy.ts` + `updateSession`
+- `/admin/catalog` uploads images to Cloudflare R2 and stores resulting URL in `ProductImage.url`
 
 Customer pages:
 

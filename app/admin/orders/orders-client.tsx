@@ -64,13 +64,18 @@ export default function OrdersClient({ statusFilter }: { statusFilter: string })
     <main className="vintage-shell">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-4xl font-semibold text-ink">Orders</h1>
-        <button
-          type="button"
-          onClick={() => void onLogout()}
-          className="btn-secondary"
-        >
-          Logout
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/catalog" className="btn-secondary">
+            Catalog
+          </Link>
+          <button
+            type="button"
+            onClick={() => void onLogout()}
+            className="btn-secondary"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="mb-5 flex flex-wrap gap-2">
