@@ -5,6 +5,9 @@ import { getPublicOrderByCode } from "@/server/services/public-order.service";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+type PublicOrder = NonNullable<Awaited<ReturnType<typeof getPublicOrderByCode>>>;
+type PublicOrderItem = PublicOrder["items"][number];
+
 export default async function OrderSuccessPage({
   params,
 }: {
@@ -62,7 +65,7 @@ export default async function OrderSuccessPage({
       <section className="mt-8 vintage-panel p-5">
         <h2 className="text-lg font-semibold">Items</h2>
         <div className="mt-4 space-y-3">
-          {order.items.map((item) => (
+          {order.items.map((item: PublicOrderItem) => (
             <div key={item.id} className="flex items-start justify-between">
               <p className="text-sm text-charcoal">
                 {item.productName}
