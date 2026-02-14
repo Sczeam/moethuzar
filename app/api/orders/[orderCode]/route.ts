@@ -4,6 +4,9 @@ import { routeErrorResponse } from "@/lib/api/route-error";
 import { rateLimitOrResponse } from "@/server/security/rate-limit";
 import { NextResponse } from "next/server";
 
+type PublicOrder = NonNullable<Awaited<ReturnType<typeof getPublicOrderByCode>>>;
+type PublicOrderItem = PublicOrder["items"][number];
+
 function toPriceString(value: unknown): string {
   if (value && typeof value === "object" && "toString" in value) {
     return value.toString();
@@ -48,7 +51,7 @@ export async function GET(
           subtotalAmount: toPriceString(order.subtotalAmount),
           deliveryFeeAmount: toPriceString(order.deliveryFeeAmount),
           totalAmount: toPriceString(order.totalAmount),
-          items: order.items.map((item) => ({
+          items: order.items.map((item: PublicOrderItem) => ({
             ...item,
             unitPrice: toPriceString(item.unitPrice),
             lineTotal: toPriceString(item.lineTotal),

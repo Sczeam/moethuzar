@@ -39,6 +39,7 @@ export async function GET(request: Request) {
         to: query.to,
         format: query.format,
       });
+      type CsvOrderRow = Awaited<ReturnType<typeof listOrdersForCsv>>[number];
 
       const headers = [
         "Order Code",
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
         "Created At",
       ];
 
-      const rows = exportOrders.map((order) =>
+      const rows = exportOrders.map((order: CsvOrderRow) =>
         [
           order.orderCode,
           order.status,

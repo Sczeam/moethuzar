@@ -26,6 +26,8 @@ export default async function AdminOrdersPage({
   });
 
   const data = await listOrders(query);
+  type OrdersResult = Awaited<ReturnType<typeof listOrders>>;
+  type OrderRow = OrdersResult["orders"][number];
 
   return (
     <OrdersClient
@@ -35,7 +37,7 @@ export default async function AdminOrdersPage({
       to={query.to ?? ""}
       page={String(query.page)}
       pageSize={String(query.pageSize)}
-      orders={data.orders.map((order) => ({
+      orders={data.orders.map((order: OrderRow) => ({
         id: order.id,
         orderCode: order.orderCode,
         status: order.status,

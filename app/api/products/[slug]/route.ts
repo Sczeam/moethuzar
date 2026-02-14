@@ -1,6 +1,9 @@
 import { getActiveProductBySlug } from "@/server/services/product.service";
 import { NextResponse } from "next/server";
 
+type ActiveProduct = NonNullable<Awaited<ReturnType<typeof getActiveProductBySlug>>>;
+type ActiveProductVariant = ActiveProduct["variants"][number];
+
 function toPriceString(value: unknown): string {
   if (value && typeof value === "object" && "toString" in value) {
     return value.toString();
@@ -30,7 +33,7 @@ export async function GET(
         product: {
           ...product,
           price: toPriceString(product.price),
-          variants: product.variants.map((variant) => ({
+          variants: product.variants.map((variant: ActiveProductVariant) => ({
             ...variant,
             price: variant.price ? toPriceString(variant.price) : null,
             compareAtPrice: variant.compareAtPrice
