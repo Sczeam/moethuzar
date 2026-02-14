@@ -1,24 +1,6 @@
 import { requireAdminUser } from "@/server/auth/admin";
-import { AppError } from "@/server/errors";
+import { routeErrorResponse } from "@/lib/api/route-error";
 import { NextResponse } from "next/server";
-
-function errorResponse(error: unknown) {
-  if (error instanceof AppError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: error.code,
-        error: error.message,
-      },
-      { status: error.status }
-    );
-  }
-
-  return NextResponse.json(
-    { ok: false, code: "INTERNAL_ERROR", error: "Unexpected server error." },
-    { status: 500 }
-  );
-}
 
 export async function GET(request: Request) {
   try {
@@ -36,6 +18,6 @@ export async function GET(request: Request) {
       { status: 200 }
     );
   } catch (error) {
-    return errorResponse(error);
+    return routeErrorResponse(error, { request, route: "api/admin/auth/me#GET" });
   }
 }

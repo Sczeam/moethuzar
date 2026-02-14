@@ -1,6 +1,7 @@
 import { getPublicOrderByCode } from "@/server/services/public-order.service";
 import { normalizeOrderCode } from "@/lib/order-code";
 import { routeErrorResponse } from "@/lib/api/route-error";
+import { rateLimitOrResponse } from "@/server/security/rate-limit";
 import { NextResponse } from "next/server";
 
 function toPriceString(value: unknown): string {
@@ -12,12 +13,16 @@ function toPriceString(value: unknown): string {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ orderCode: string }> }
 ) {
   try {
     const { orderCode: rawOrderCode } = await context.params;
     const orderCode = normalizeOrderCode(rawOrderCode);
+    const limitedResponse = rateLimitOrResponse(request, "publicOrderLookup", orderCode ?? undefined);
+    if (limitedResponse) {
+      return limitedResponse;
+    }
 
     if (!orderCode) {
       return NextResponse.json(
@@ -59,7 +64,7 @@ export async function GET(
     );
   } catch (error) {
     return routeErrorResponse(error, {
-      request: _request,
+      request,
       route: "api/orders/[orderCode]#GET",
     });
   }

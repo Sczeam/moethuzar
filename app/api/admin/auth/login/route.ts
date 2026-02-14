@@ -1,46 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
+import { routeErrorResponse } from "@/lib/api/route-error";
 import { AppError } from "@/server/errors";
+import { rateLimitOrResponse } from "@/server/security/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { z, ZodError } from "zod";
+import { z } from "zod";
 
 const loginSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(6).max(256),
 });
 
-function errorResponse(error: unknown) {
-  if (error instanceof ZodError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: "VALIDATION_ERROR",
-        error: "Invalid login payload.",
-        issues: error.issues,
-      },
-      { status: 400 }
-    );
-  }
-
-  if (error instanceof AppError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: error.code,
-        error: error.message,
-      },
-      { status: error.status }
-    );
-  }
-
-  return NextResponse.json(
-    { ok: false, code: "INTERNAL_ERROR", error: "Unexpected server error." },
-    { status: 500 }
-  );
-}
-
 export async function POST(request: Request) {
   try {
+    const limitedResponse = rateLimitOrResponse(request, "adminLogin");
+    if (limitedResponse) {
+      return limitedResponse;
+    }
+
     const payload = loginSchema.parse(await request.json());
     const supabase = await createClient();
 
@@ -70,6 +47,6 @@ export async function POST(request: Request) {
       { status: 200 }
     );
   } catch (error) {
-    return errorResponse(error);
+    return routeErrorResponse(error, { request, route: "api/admin/auth/login#POST" });
   }
 }
