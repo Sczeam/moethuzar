@@ -3,6 +3,7 @@
 import gsap from "gsap";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { IconSearch } from "@/components/layout/header/icons";
 import { HeaderNavPanel } from "@/components/layout/header/nav-panel";
 import { HeaderNavRail } from "@/components/layout/header/nav-rail";
 import { NAV_MENU_ANIMATION } from "@/lib/animations/nav-menu";
@@ -16,9 +17,14 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
   const router = useRouter();
   const menuId = "site-navigation-panel";
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const overlayRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const linkRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const searchShellRef = useRef<HTMLFormElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchGlowRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!overlayRef.current || !panelRef.current) {
@@ -89,6 +95,115 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
   }, [open]);
 
   useEffect(() => {
+    if (!searchShellRef.current || !searchGlowRef.current) {
+      return;
+    }
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    gsap.set(searchShellRef.current, {
+      autoAlpha: 0,
+      width: 88,
+      borderRadius: 9999,
+      y: -10,
+      scale: 0.94,
+      pointerEvents: "none",
+    });
+    gsap.set(searchGlowRef.current, {
+      autoAlpha: 0,
+      scale: 0.7,
+    });
+
+    if (prefersReducedMotion) {
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!searchShellRef.current || !searchGlowRef.current) {
+      return;
+    }
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const motionDuration = prefersReducedMotion ? 0 : 0.38;
+
+    if (searchOpen) {
+      gsap.to(searchShellRef.current, {
+        autoAlpha: 1,
+        width: 760,
+        borderRadius: 18,
+        y: 0,
+        scale: 1,
+        duration: motionDuration,
+        ease: "power3.out",
+        pointerEvents: "auto",
+      });
+      gsap.to(searchGlowRef.current, {
+        autoAlpha: 0.45,
+        scale: 1,
+        duration: motionDuration,
+        ease: "power2.out",
+      });
+      if (!prefersReducedMotion) {
+        gsap.fromTo(
+          searchShellRef.current,
+          { y: -4 },
+          { y: 0, duration: 0.25, ease: "power2.out" },
+        );
+      }
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    gsap.to(searchGlowRef.current, {
+      autoAlpha: 0,
+      scale: 0.8,
+      duration: motionDuration,
+      ease: "power2.in",
+    });
+      gsap.to(searchShellRef.current, {
+        autoAlpha: 0,
+        width: 88,
+        borderRadius: 9999,
+        y: -10,
+        scale: 0.94,
+        duration: motionDuration,
+        ease: "power2.inOut",
+        pointerEvents: "none",
+      });
+  }, [searchOpen]);
+
+  useEffect(() => {
+    if (!searchOpen) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSearchOpen(false);
+      }
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target || !searchShellRef.current) {
+        return;
+      }
+      if (!searchShellRef.current.contains(target)) {
+        setSearchOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [searchOpen]);
+
+  useEffect(() => {
     if (!open || !panelRef.current) {
       return;
     }
@@ -134,10 +249,55 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
 
   return (
     <>
+      <div className="pointer-events-none fixed inset-x-0 top-[20vh] z-[55] hidden justify-center sm:flex">
+        <div
+          ref={searchGlowRef}
+          aria-hidden
+          className="pointer-events-none absolute -inset-3 rounded-[26px] bg-paper-light/45 blur-xl"
+        />
+        <form
+          action="/search"
+          method="get"
+          ref={searchShellRef}
+          className="pointer-events-auto relative flex h-16 w-[min(88vw,760px)] items-center border border-sepia-border/70 bg-paper-light/95 px-3 shadow-[0_14px_40px_rgba(37,30,24,0.24)] backdrop-blur-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const normalized = searchQuery.trim();
+            const href = normalized ? `/search?q=${encodeURIComponent(normalized)}` : "/search";
+            setSearchOpen(false);
+            router.push(href);
+          }}
+        >
+          <button
+            type="button"
+            className="inline-flex h-11 w-11 items-center justify-center text-teak-brown transition hover:text-ink"
+            aria-label="Close search"
+            onClick={() => setSearchOpen(false)}
+          >
+            <IconSearch />
+          </button>
+          <label htmlFor="floating-search-query" className="sr-only">
+            Search products
+          </label>
+          <input
+            id="floating-search-query"
+            ref={searchInputRef}
+            name="q"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search products..."
+            className="ml-2 h-11 w-full border-0 bg-transparent px-1 text-lg text-ink placeholder:text-charcoal/75 focus:outline-none"
+          />
+        </form>
+      </div>
+
       <HeaderNavRail
         isOpen={open}
         menuControlsId={menuId}
-        onToggleMenu={() => setOpen((current) => !current)}
+        onToggleMenu={() => {
+          setSearchOpen(false);
+          setOpen((current) => !current);
+        }}
         onSearch={() => {
           if (onSearchOpen) {
             onSearchOpen();
@@ -145,7 +305,7 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
           }
 
           setOpen(false);
-          router.push("/search");
+          setSearchOpen((current) => !current);
         }}
       />
       <HeaderNavPanel
