@@ -7,6 +7,7 @@ import {
   PRIORITY_CITIES,
   YANGON_TOWNSHIPS,
 } from "@/lib/constants/mm-locations";
+import { LEGAL_TERMS_VERSION } from "@/lib/constants/legal";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -33,6 +34,8 @@ type CheckoutForm = {
   addressLine1: string;
   addressLine2: string;
   postalCode: string;
+  termsAccepted: boolean;
+  termsVersion: string;
 };
 
 const initialForm: CheckoutForm = {
@@ -46,6 +49,8 @@ const initialForm: CheckoutForm = {
   addressLine1: "",
   addressLine2: "",
   postalCode: "",
+  termsAccepted: false,
+  termsVersion: LEGAL_TERMS_VERSION,
 };
 
 type FieldErrors = Partial<Record<keyof CheckoutForm, string>>;
@@ -112,6 +117,9 @@ export default function CheckoutPage() {
     }
     if (form.addressLine1.trim().length < 4) {
       errors.addressLine1 = "Address line 1 must be at least 4 characters.";
+    }
+    if (!form.termsAccepted) {
+      errors.termsAccepted = "Please agree to Terms and Privacy Policy.";
     }
 
     return errors;
@@ -326,6 +334,30 @@ export default function CheckoutPage() {
             onChange={(event) => onChange("customerNote", event.target.value)}
             className="field-input min-h-24"
           />
+          <div className="space-y-1">
+            <label className="flex items-start gap-2 text-sm text-charcoal">
+              <input
+                type="checkbox"
+                checked={form.termsAccepted}
+                onChange={(event) => onChange("termsAccepted", event.target.checked)}
+                className="mt-0.5 h-4 w-4 border border-sepia-border"
+              />
+              <span>
+                I agree to the{" "}
+                <Link href="/terms" target="_blank" className="underline hover:text-ink">
+                  Terms & Conditions
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" target="_blank" className="underline hover:text-ink">
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+            {fieldErrors.termsAccepted ? (
+              <p className="text-xs text-seal-wax">{fieldErrors.termsAccepted}</p>
+            ) : null}
+          </div>
 
           <button type="submit" disabled={submitting} className="btn-primary w-full disabled:opacity-60 sm:w-auto">
             {submitting ? "Placing order..." : "Place Order (Cash on Delivery)"}
