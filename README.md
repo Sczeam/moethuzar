@@ -1,35 +1,46 @@
-# Moethuzar (Next.js + Prisma + Supabase)
+# Moethuzar
 
-Foundation scope and standards:
-- `docs/foundation-mvp.md`
-- Launch operations runbook:
-  - `docs/launch-ops-runbook.md`
+Production-oriented apparel storefront built with Next.js App Router, Prisma, Supabase Postgres, Supabase SSR auth, and Cloudflare R2.
+
+## References
+
+- MVP scope: `docs/foundation-mvp.md`
+- Frontend architecture: `docs/frontend-architecture.md`
+- Launch runbook: `docs/launch-ops-runbook.md`
+- Manual QA: `docs/mvp-qa-checklist.md`
+
+## Tech Stack
+
+- Next.js `16` (App Router)
+- React `19`
+- TypeScript
+- Prisma `7` + PostgreSQL adapter
+- Supabase Postgres + Supabase SSR auth
+- Tailwind CSS `4`
+- GSAP (menu/search motion)
+- Cloudflare R2 (admin image uploads)
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js `20+`
 - pnpm
-- A Supabase Postgres project
+- Supabase project (Postgres + Auth)
+- Cloudflare R2 bucket (for catalog images)
 
 ## Environment Variables
 
-Create `.env` with:
+Copy `.env.example` to `.env` and fill values.
 
 ```bash
-# Used by runtime app queries (pooler URL is fine)
 DATABASE_URL="postgresql://..."
-
-# Used by Prisma migrations (direct DB URL recommended)
 DIRECT_URL="postgresql://..."
 
-# Supabase SSR/Auth config (official Next.js SSR pattern)
 NEXT_PUBLIC_SUPABASE_URL="https://<project-ref>.supabase.co"
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="..."
 
-# Optional: make seed admin user map to your real Supabase Auth user id
 ADMIN_AUTH_USER_ID="11111111-1111-1111-1111-111111111111"
+ADMIN_EMAIL="admin@yourdomain.com"
 
-# Cloudflare R2 (admin image uploads)
 R2_ACCOUNT_ID="..."
 R2_ACCESS_KEY_ID="..."
 R2_SECRET_ACCESS_KEY="..."
@@ -37,97 +48,87 @@ R2_BUCKET="..."
 R2_PUBLIC_BASE_URL="https://pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
 ```
 
-If your password has special characters (`@`, `#`, `*`, etc), URL-encode it.
+If DB password contains special characters (`@`, `#`, `*`, etc.), URL-encode it.
 
-## Database Setup
-
-Install dependencies:
+## Local Setup
 
 ```bash
 pnpm install
-```
-
-Generate Prisma client:
-
-```bash
 pnpm prisma:generate
-```
-
-Create/apply migration:
-
-```bash
 pnpm prisma:migrate -- --name init
-```
-
-Seed starter catalog data:
-
-```bash
 pnpm prisma:seed
-```
-
-## Run the App
-
-```bash
 pnpm dev
 ```
 
-Health check endpoint:
+## Scripts
+
+- `pnpm dev`
+- `pnpm build`
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test`
+- `pnpm check:preflight`
+- `pnpm prisma:generate`
+- `pnpm prisma:migrate`
+- `pnpm prisma:seed`
+- `pnpm prisma:studio`
+
+## Main App Pages
+
+- `/` home + hero + latest products
+- `/search` product search results page
+- `/products/[slug]` product detail page
+- `/cart`
+- `/checkout` (COD + required terms/privacy consent checkbox)
+- `/order/success/[orderCode]`
+- `/order/track`
+- `/terms`
+- `/privacy`
+- `/returns`
+- `/contact`
+- `/admin/login`
+- `/admin/catalog`
+- `/admin/orders`
+
+## API Surface
+
+Storefront/customer:
 
 - `GET /api/health/db`
 - `GET /api/health/ready`
-
-## API Endpoints (Current)
-
-- `GET /api/cart`
-- `POST /api/cart` (body: `{ "variantId": "uuid", "quantity": 1 }`)
-- `PATCH /api/cart` (body: `{ "variantId": "uuid", "quantity": 2 }`)
-- `DELETE /api/cart` (body: `{ "variantId": "uuid" }`)
-- `POST /api/checkout` (COD checkout payload)
 - `GET /api/products`
 - `GET /api/products/[slug]`
+- `GET /api/search/products`
+- `GET /api/cart`
+- `POST /api/cart` body: `{ "variantId": "uuid", "quantity": 1 }`
+- `PATCH /api/cart` body: `{ "variantId": "uuid", "quantity": 2 }`
+- `DELETE /api/cart` body: `{ "variantId": "uuid" }`
+- `POST /api/checkout`
 - `GET /api/orders/[orderCode]`
+
+Admin:
+
 - `POST /api/admin/auth/login`
 - `POST /api/admin/auth/logout`
 - `GET /api/admin/auth/me`
-- `GET /api/admin/orders` (optional query `?status=PENDING`)
-- `GET /api/admin/orders/[orderId]`
-- `PATCH /api/admin/orders/[orderId]/status` (body: `{ "toStatus": "CONFIRMED", "note": "..." }`)
 - `GET /api/admin/catalog`
 - `POST /api/admin/catalog`
 - `GET /api/admin/catalog/[productId]`
 - `PATCH /api/admin/catalog/[productId]`
 - `POST /api/admin/catalog/[productId]/inventory`
-- `POST /api/admin/catalog/upload-image` (multipart form field: `file`)
+- `POST /api/admin/catalog/upload-image`
+- `GET /api/admin/orders` supports `status`, `q`, `from`, `to`, `page`, `pageSize`, `format=json|csv`
+- `GET /api/admin/orders/[orderId]`
+- `PATCH /api/admin/orders/[orderId]/status`
 
-Admin auth uses Supabase SSR session cookies (`@supabase/ssr`).
-Admin endpoints can also accept `Authorization: Bearer <supabase_access_token>`.
+## Admin Bootstrap
 
-Admin web login:
+Admin access requires both:
 
-- Use `/admin/login` with a Supabase Auth user mapped to `AdminUser.authUserId`
-- Session is managed by Supabase SSR helpers in `lib/supabase/*`
-- `/admin/*` routes are protected via `proxy.ts` + `updateSession`
-- `/admin/catalog` uploads images to Cloudflare R2 and stores resulting URL in `ProductImage.url`
+1. Supabase user metadata includes admin role.
+2. Prisma `AdminUser` row exists with matching `authUserId` and `isActive=true`.
 
-Customer pages:
-
-- `/` product listing
-- `/products/[slug]` product detail
-- `/cart` cart
-- `/checkout` COD checkout
-- `/order/success/[orderCode]` order confirmation
-- `/order/track` order lookup page
-
-## Admin Bootstrap (Supabase + Prisma)
-
-Your admin login must satisfy both checks:
-
-1. Supabase Auth user metadata includes admin role:
-   - `raw_app_meta_data.role = "admin"`
-   - `raw_app_meta_data.roles` contains `"admin"`
-2. Prisma `AdminUser` has matching `authUserId` and `isActive = true`.
-
-Example SQL (Supabase SQL editor):
+Example Supabase SQL:
 
 ```sql
 update auth.users
@@ -135,26 +136,15 @@ set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"ad
 where email = 'admin@yourdomain.com';
 ```
 
-Then ensure `AdminUser.authUserId` matches that user ID.
+## Notes
 
-## Reliability Notes
+- Cart is variant-based (`variantId`), and cart token is rotated after checkout.
+- Inventory source of truth is `ProductVariant.inventory`.
+- Structured API error payloads include `requestId`.
+- Core storefront images use Next.js `Image` with remote R2 config in `next.config.ts`.
 
-- Cart token is rotated after successful checkout to prevent converted-cart reuse.
-- Cart/session cookie parsing is tolerant to malformed cookie values.
-- API error responses include `requestId` for debugging and server log correlation.
+## CI / Protected Branch
 
-## Manual QA
-
-- `docs/mvp-qa-checklist.md`
-
-## Test
-
-```bash
-pnpm test
-```
-
-## Release Preflight
-
-```bash
-pnpm check:preflight
-```
+- `master` is protected: merge via PR only.
+- CI workflow runs lint, typecheck, test, and build.
+- `pnpm prisma:generate` needs `DIRECT_URL` present in CI env.

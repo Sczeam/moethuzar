@@ -33,47 +33,57 @@ Example:
 - Page components do not call Prisma/services directly when a feature server module exists.
 - Route handlers and feature server modules own data fetching and error handling.
 
-## Scaling Notes
+## Current Shell Composition
 
-- For dynamic CMS-like storefront sections (hero text/image), move constants into DB-backed site settings later.
-- For cache control in growth phase, add `revalidateTag`/`revalidatePath` from mutation points.
+- `components/layout/site-header.tsx`
+  - owns nav panel state and floating search overlay state.
+  - uses GSAP animation tokens from `lib/animations/nav-menu.ts`.
+- `components/layout/header/nav-rail.tsx`
+  - right fixed control rail (mobile: burger-only).
+- `components/layout/header/nav-panel.tsx`
+  - slide-in menu panel, keyboard focus trap, `Escape` close.
+- `components/layout/site-footer.tsx`
+  - global footer and operational links.
 
-## Frontend Roadmap (Agreed Plan)
+## Search Architecture
 
-### Phase 0: Stability Baseline
+- UX:
+  - rail search button opens a centered animated overlay search bar.
+  - search submit navigates to `/search?q=...`.
+- Route:
+  - `app/search/page.tsx` renders SSR search results and pagination.
+- API:
+  - `GET /api/search/products` with typed validation in `lib/validation/search.ts`.
+  - supports: `q`, `page`, `pageSize`, `sort`, `category`, `color`, `size`, `inStock`, `minPrice`, `maxPrice`.
 
-- Enforce preflight checks (`prisma:generate`, lint, typecheck, test, build).
-- CI and release gate alignment.
-- Baseline runbook readiness checks.
+## Visual System Notes
 
-### Phase 1: Core Shell + Navigation Polish
+- Palette and shell primitives are centralized in `app/globals.css`.
+- Reusable utility classes are used for consistency:
+  - `vintage-shell`, `vintage-panel`
+  - `btn-primary`, `btn-secondary`
+  - `field-input`, `field-select`
+- Core storefront images use Next.js `Image` with remote R2 domain allowlist.
 
-- Refactor nav into focused subcomponents (rail, panel, links/icons).
-- Centralize nav config and GSAP animation tokens.
-- Add accessibility hardening:
-  - focus trap
-  - `Escape` close
-  - `aria-expanded`, `aria-controls`, dialog semantics.
-- Responsive shell pass for mobile/tablet/desktop.
+## Accessibility Baseline
 
-### Phase 2: Storefront + PDP UX Refinement
+- Skip link in `app/layout.tsx`.
+- Menu `aria-expanded`, `aria-controls`, dialog semantics.
+- Keyboard support:
+  - tab loop inside open menu panel
+  - `Escape` closes menu and search overlay.
+- Reduced-motion behavior respected in GSAP motion flows.
 
-- Home/hero structure and spacing cleanup.
-- Product grid consistency (card ratio, hover image behavior, pagination UX on mobile).
-- PDP layout consistency across breakpoints.
-- Variant state clarity (selected, disabled, out-of-stock).
-- Cart/checkout/track form style consistency.
+## Status Snapshot
 
-### Phase 3: Accessibility + Visual QA
+- Phase 0 (stability baseline): completed.
+- Phase 1 (core shell + nav polish): completed.
+- Phase 2 (storefront + PDP refinement): completed.
+- Phase 3 (accessibility + visual QA): completed baseline pass.
 
-- Perform keyboard-only navigation checks across key journeys.
-- Run contrast audit for text/surface/button states against WCAG AA targets.
-- Verify reduced-motion behavior and focus visibility.
-- Fix remaining UI inconsistencies discovered during QA.
+## Next Evolution (Post-MVP)
 
-### Phase 4: Launch-Ready Frontend Hardening
-
-- Final cross-device responsive sweep (especially iPhone widths).
-- No-overflow/no-layout-shift validation on core pages.
-- Final `pnpm check:preflight` pass before release.
-- Lock visual/system primitives to minimize regression risk.
+- Move hero and key storefront copy to admin-managed site settings.
+- Add server caching strategy (`revalidateTag`/`revalidatePath`) around admin mutations.
+- Add richer search facets UI (category/color/size/price) in `/search`.
+- Add design regression checks for key breakpoints in CI.
