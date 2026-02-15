@@ -61,9 +61,20 @@ export function HeaderNavPanel({
 
         <div className="mt-10 border-t border-paper-light/30 pt-6">
           <p className="text-xs uppercase tracking-[0.2em] text-aged-gold">Search</p>
-          <p className="mt-2 text-sm text-paper-light/80">
-            Use Track Order for order lookup. Product keyword search will be added in a later phase.
-          </p>
+          <form action="/search" method="get" onSubmit={onClose} className="mt-3 flex gap-2">
+            <label htmlFor="menu-search-query" className="sr-only">
+              Search products
+            </label>
+            <input
+              id="menu-search-query"
+              name="q"
+              placeholder="Search products..."
+              className="min-h-10 w-full border border-paper-light/45 bg-transparent px-3 text-sm text-paper-light placeholder:text-paper-light/70 focus:outline-none"
+            />
+            <button type="submit" className="btn-secondary whitespace-nowrap !border-paper-light/45 !bg-transparent !text-paper-light">
+              Go
+            </button>
+          </form>
         </div>
       </div>
     </div>

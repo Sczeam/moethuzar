@@ -1,7 +1,8 @@
 "use client";
 
 import gsap from "gsap";
-import { useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { HeaderNavPanel } from "@/components/layout/header/nav-panel";
 import { HeaderNavRail } from "@/components/layout/header/nav-rail";
 import { NAV_MENU_ANIMATION } from "@/lib/animations/nav-menu";
@@ -12,7 +13,8 @@ type SiteHeaderProps = {
 };
 
 export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
-  const menuId = useId();
+  const router = useRouter();
+  const menuId = "site-navigation-panel";
   const [open, setOpen] = useState(false);
   const overlayRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -136,7 +138,15 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         isOpen={open}
         menuControlsId={menuId}
         onToggleMenu={() => setOpen((current) => !current)}
-        onSearch={() => (onSearchOpen ? onSearchOpen() : setOpen(true))}
+        onSearch={() => {
+          if (onSearchOpen) {
+            onSearchOpen();
+            return;
+          }
+
+          setOpen(false);
+          router.push("/search");
+        }}
       />
       <HeaderNavPanel
         menuId={menuId}
