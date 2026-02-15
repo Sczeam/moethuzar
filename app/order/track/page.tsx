@@ -40,7 +40,7 @@ export default function OrderTrackPage() {
             value={orderCode}
             onChange={(event) => setOrderCode(event.target.value)}
             placeholder="MZT-20260214-0001"
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2 text-ink"
+            className="field-input"
           />
           <div className="flex flex-wrap gap-2">
             <button type="submit" className="btn-primary">

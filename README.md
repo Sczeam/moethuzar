@@ -152,3 +152,9 @@ Then ensure `AdminUser.authUserId` matches that user ID.
 ```bash
 pnpm test
 ```
+
+## Release Preflight
+
+```bash
+pnpm check:preflight
+```

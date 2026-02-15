@@ -177,8 +177,8 @@ export default function CartPage() {
 
   return (
     <main className="vintage-shell max-w-5xl">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-4xl font-semibold text-ink">Your Cart</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-semibold text-ink sm:text-4xl">Your Cart</h1>
         <Link href="/" className="btn-secondary">
           Continue shopping
         </Link>
@@ -197,9 +197,9 @@ export default function CartPage() {
           {cart.items.map((item) => (
             <article
               key={item.id}
-              className="grid gap-4 vintage-panel p-4 sm:grid-cols-[96px_1fr_auto]"
+              className="vintage-panel grid gap-4 p-4 sm:grid-cols-[96px_1fr_auto]"
             >
-              <div className="h-24 w-24 overflow-hidden rounded-md bg-parchment">
+              <div className="h-24 w-24 overflow-hidden rounded-none bg-parchment">
                 {item.variant.product.images[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -220,7 +220,7 @@ export default function CartPage() {
                 </p>
               </div>
 
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-col gap-2 sm:items-end">
                 <input
                   type="number"
                   min={1}
@@ -230,7 +230,7 @@ export default function CartPage() {
                   onChange={(event) =>
                     void updateQuantity(item.variant.id, Number(event.target.value))
                   }
-                  className="w-20 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-sm text-ink"
+                  className="field-input w-20 px-2 py-1.5 text-sm"
                 />
                 <p className="text-sm font-semibold">
                   {formatMoney(item.lineTotal, cart.currency)}
@@ -253,17 +253,18 @@ export default function CartPage() {
           </div>
 
           <div className="flex justify-end">
-            <Link
-              href="/checkout"
-              className="btn-primary"
-            >
+            <Link href="/checkout" className="btn-primary">
               Proceed to Checkout
             </Link>
           </div>
         </div>
       ) : null}
 
-      {statusText ? <p className="mt-4 text-sm text-charcoal">{statusText}</p> : null}
+      {statusText ? (
+        <p className="mt-4 text-sm text-charcoal" aria-live="polite">
+          {statusText}
+        </p>
+      ) : null}
     </main>
   );
 }

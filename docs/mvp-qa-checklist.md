@@ -29,4 +29,5 @@
 
 - Confirm `/api/health/ready` returns `200` in deployed environment.
 - Verify rate limiting works for checkout/order lookup/admin login (returns `429` on abuse).
-- Verify CI is green (`lint`, `test`, `build`) before merge to `master`.
+- Run `pnpm check:preflight` locally before release.
+- Verify CI is green (`lint`, `typecheck`, `test`, `build`) before merge to `master`.
