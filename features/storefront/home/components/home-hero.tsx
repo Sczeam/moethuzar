@@ -1,6 +1,7 @@
 "use client";
 
 import gsap from "gsap";
+import Image from "next/image";
 import Link from "next/link";
 import { useLayoutEffect, useRef } from "react";
 import { siteContent } from "@/lib/constants/site-content";
@@ -85,11 +86,15 @@ export default function HomeHero() {
         </div>
 
         <div className="relative mx-4 mb-6 h-[52vh] border border-sepia-border/70 bg-paper-light sm:mx-6 sm:h-[56vh] lg:my-12 lg:ml-10 lg:mr-[50px] lg:h-[calc(100%-6rem)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={siteContent.heroImageUrl}
             alt="Moethuzar hero"
-            className="h-full w-full object-cover"
+            fill
+            sizes="(max-width: 1024px) 92vw, 500px"
+            priority
+            fetchPriority="high"
+            loading="eager"
+            className="object-cover"
           />
           <div className="absolute inset-0 bg-teak-brown/30 mix-blend-multiply" />
           <div className="absolute inset-0 border border-antique-brass/30" />

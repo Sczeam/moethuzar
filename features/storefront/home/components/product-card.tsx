@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { StorefrontProduct } from "@/features/storefront/home/types";
 
@@ -14,19 +15,21 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="relative aspect-[4/5] bg-parchment">
         {cover ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={cover}
               alt={product.name}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               className={`absolute inset-0 h-full w-full object-cover object-center grayscale-[30%] transition-opacity duration-300 motion-reduce:transition-none ${
                 hoverImage ? "group-hover:opacity-0" : ""
               }`}
             />
             {hoverImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={hoverImage}
                 alt={`${product.name} alternate view`}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 className="absolute inset-0 h-full w-full object-cover object-center grayscale-[30%] opacity-0 transition-opacity duration-300 group-hover:opacity-100 motion-reduce:transition-none"
               />
             ) : null}
