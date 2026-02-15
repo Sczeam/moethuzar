@@ -29,23 +29,34 @@ Current checkout has address capture but no delivery pricing logic. Shipping cos
 - Add checkout fee calculation:
   - derive shipping rule from selected address
   - show shipping fee + total in checkout summary
+  - fee amount stored and calculated as MMK integer only
 - Persist shipping snapshot in order:
   - selected zone
   - fee
   - ETA label
 - Admin shipping rules page:
   - list/add/edit/toggle rules
+  - full CRUD
   - safe defaults/fallback rule support
+  - guardrail: cannot disable/delete the last active fallback rule
 
 ### Non-goals
 - Courier API integrations
 - Real-time shipping tracking
+- Free shipping (kept out of v1)
+
+### Frozen implementation decisions
+- Currency handling: MMK integer only.
+- Fallback safety policy: hard block checkout if no active applicable rule exists.
+- Future-proofing: schema should allow adding threshold-based free shipping later without breaking existing rules.
+- Admin capability: full CRUD for shipping rules in v1.
 
 ### Acceptance criteria
 - Customer sees shipping fee and final total before place order.
 - Shipping fee is saved in order and visible in admin order detail.
 - If selected location is outside priority zones, system uses `Other (Myanmar)` fallback rule.
 - Fallback zone cannot be disabled unless another fallback is configured.
+- If no active applicable rule exists, checkout is blocked with clear actionable error.
 - Unit/integration tests cover fee calculation and fallback behavior.
 
 ## Phase B: Customer Accounts + Order History
