@@ -14,7 +14,7 @@ export function HeaderNavRail({ isOpen, menuControlsId, onToggleMenu, onSearch }
       <button
         type="button"
         onClick={onToggleMenu}
-        className="mt-1 inline-flex h-11 w-11 items-center justify-center rounded-none text-paper-light transition hover:bg-paper-light/10 active:scale-[0.98] sm:mt-2 sm:h-12 sm:w-12 lg:mt-3 lg:h-[52px] lg:w-[52px]"
+        className="mt-1 inline-flex h-11 w-11 items-center justify-center rounded-none text-paper-light transition hover:bg-paper-light/10 active:scale-[0.98] focus-visible:bg-paper-light/15 sm:mt-2 sm:h-12 sm:w-12 lg:mt-3 lg:h-[52px] lg:w-[52px]"
         aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
         aria-expanded={isOpen}
         aria-controls={menuControlsId}
@@ -24,14 +24,14 @@ export function HeaderNavRail({ isOpen, menuControlsId, onToggleMenu, onSearch }
       <button
         type="button"
         onClick={onSearch}
-        className="mt-0.5 hidden h-11 w-11 items-center justify-center rounded-none text-paper-light transition hover:bg-paper-light/10 active:scale-[0.98] sm:inline-flex sm:mt-1 sm:h-12 sm:w-12 lg:mt-2 lg:h-[52px] lg:w-[52px]"
+        className="mt-0.5 hidden h-11 w-11 items-center justify-center rounded-none text-paper-light transition hover:bg-paper-light/10 active:scale-[0.98] focus-visible:bg-paper-light/15 sm:inline-flex sm:mt-1 sm:h-12 sm:w-12 lg:mt-2 lg:h-[52px] lg:w-[52px]"
         aria-label="Open search"
       >
         <IconSearch />
       </button>
       <Link
         href="/cart"
-        className="group relative mt-0.5 hidden h-11 w-11 items-center justify-center rounded-none text-paper-light transition hover:bg-paper-light/10 active:scale-[0.98] sm:inline-flex sm:mt-1 sm:h-12 sm:w-12 lg:mt-2 lg:h-[52px] lg:w-[52px]"
+        className="group relative mt-0.5 hidden h-11 w-11 items-center justify-center rounded-none text-paper-light transition hover:bg-paper-light/10 active:scale-[0.98] focus-visible:bg-paper-light/15 sm:inline-flex sm:mt-1 sm:h-12 sm:w-12 lg:mt-2 lg:h-[52px] lg:w-[52px]"
         aria-label="Open cart"
       >
         <IconCart />

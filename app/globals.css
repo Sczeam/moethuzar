@@ -37,6 +37,22 @@ body {
   overflow-x: hidden;
 }
 
+:focus-visible {
+  outline: 2px solid var(--color-antique-brass);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 h1,
 h2,
 h3,
@@ -68,15 +84,15 @@ h6 {
   }
 
   .vintage-muted {
-    @apply text-sm text-charcoal/85;
+    @apply text-sm text-charcoal/90;
   }
 
   .btn-primary {
-    @apply inline-flex min-h-10 items-center justify-center rounded-none border border-antique-brass bg-antique-brass px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-ink transition hover:bg-aged-gold;
+    @apply inline-flex min-h-10 items-center justify-center rounded-none border border-antique-brass bg-antique-brass px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-ink transition hover:bg-aged-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-parchment;
   }
 
   .btn-secondary {
-    @apply inline-flex min-h-10 items-center justify-center rounded-none border border-sepia-border bg-parchment px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-charcoal transition hover:border-antique-brass hover:text-ink;
+    @apply inline-flex min-h-10 items-center justify-center rounded-none border border-sepia-border bg-parchment px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-charcoal transition hover:border-antique-brass hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-parchment;
   }
 
   .field-input {

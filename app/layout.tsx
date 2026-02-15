@@ -38,8 +38,16 @@ export default function RootLayout({
       <body
         className={`${cormorant.variable} ${libreBaskerville.variable} ${cooperBlack.variable} antialiased`}
       >
+        <a
+          href="#main-content"
+          className="sr-only z-[70] bg-paper-light px-4 py-2 text-sm font-semibold text-ink focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+        >
+          Skip to main content
+        </a>
         <SiteHeader />
-        <main className="min-h-[calc(100vh-16rem)]">{children}</main>
+        <main id="main-content" className="min-h-[calc(100vh-16rem)]">
+          {children}
+        </main>
         <SiteFooter />
       </body>
     </html>

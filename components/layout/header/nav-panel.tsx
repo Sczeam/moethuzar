@@ -52,7 +52,7 @@ export function HeaderNavPanel({
               ref={(element) => {
                 linkRefs.current[index] = element;
               }}
-              className="text-3xl font-semibold text-paper-light transition hover:text-aged-gold sm:text-4xl lg:text-5xl"
+              className="text-3xl font-semibold text-paper-light transition hover:text-aged-gold focus-visible:text-aged-gold focus-visible:underline sm:text-4xl lg:text-5xl"
             >
               {item.label}
             </Link>
