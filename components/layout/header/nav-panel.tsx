@@ -37,7 +37,7 @@ export function HeaderNavPanel({
         role="dialog"
         aria-modal="true"
         aria-label="Site navigation"
-        className="absolute right-14 top-0 h-screen w-[calc(100vw-56px)] border-l border-sepia-border/60 bg-teak-brown p-6 text-paper-light sm:right-16 sm:w-[min(calc(100vw-64px),420px)] sm:p-8 lg:right-[68px] lg:w-[min(calc(100vw-68px),440px)] lg:p-10"
+        className="absolute right-0 top-0 h-screen w-[min(92vw,380px)] border-l border-sepia-border/60 bg-teak-brown p-6 text-paper-light sm:right-16 sm:w-[min(calc(100vw-64px),420px)] sm:p-8 lg:right-[68px] lg:w-[min(calc(100vw-68px),440px)] lg:p-10"
       >
         <div className="flex items-center justify-between">
           <p className="text-sm uppercase tracking-[0.22em] text-aged-gold">Moethuzar</p>

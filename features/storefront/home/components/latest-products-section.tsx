@@ -18,7 +18,7 @@ export default function LatestProductsSection({
   return (
     <section
       id="latest-products"
-      className="mx-auto w-full max-w-450 px-4 py-10 pr-16 sm:px-6 sm:pr-20 lg:px-8 lg:pr-[92px]"
+      className="mx-auto w-full max-w-450 px-4 py-10 sm:px-6 sm:pr-20 lg:px-8 lg:pr-23 mt-3"
     >
       <div className="mb-5">
         <h2 className="text-6xl font-bold uppercase tracking-[0.03em] text-ink">
@@ -53,7 +53,7 @@ export default function LatestProductsSection({
 
               {Array.from(
                 { length: data.pagination.totalPages },
-                (_, index) => index + 1
+                (_, index) => index + 1,
               ).map((page) => (
                 <Link
                   key={page}
@@ -70,7 +70,10 @@ export default function LatestProductsSection({
 
               <Link
                 href={pageHref(
-                  Math.min(data.pagination.totalPages, data.pagination.page + 1)
+                  Math.min(
+                    data.pagination.totalPages,
+                    data.pagination.page + 1,
+                  ),
                 )}
                 className={`border px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${
                   data.pagination.page === data.pagination.totalPages

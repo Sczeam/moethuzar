@@ -175,7 +175,7 @@ export default function ProductView({ product }: ProductViewProps) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1380px] px-4 py-5 pr-16 sm:px-6 sm:pr-20 lg:px-8 lg:pr-[92px]">
+    <main className="mx-auto w-full max-w-[1380px] px-4 py-5 sm:px-6 sm:pr-20 lg:px-8 lg:pr-[92px]">
       <Link
         href="/"
         className="mb-3 inline-block text-xs uppercase tracking-[0.08em] text-charcoal underline"
