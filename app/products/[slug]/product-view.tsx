@@ -245,6 +245,7 @@ export default function ProductView({ product }: ProductViewProps) {
                     key={color}
                     type="button"
                     disabled={!isColorAvailable(color)}
+                    aria-pressed={selectedColor === color}
                     onClick={() => {
                       setSelectedColor(color);
                       setQuantity(1);
@@ -273,6 +274,7 @@ export default function ProductView({ product }: ProductViewProps) {
                     key={size}
                     type="button"
                     disabled={!isSizeAvailable(size)}
+                    aria-pressed={selectedSize === size}
                     onClick={() => {
                       setSelectedSize(size);
                       setQuantity(1);

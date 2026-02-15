@@ -221,7 +221,7 @@ export default function CheckoutPage() {
 
   return (
     <main className="vintage-shell max-w-5xl">
-      <h1 className="mb-6 text-4xl font-semibold text-ink">Checkout</h1>
+      <h1 className="mb-6 text-3xl font-semibold text-ink sm:text-4xl">Checkout</h1>
 
       <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
         <form onSubmit={onSubmit} className="space-y-4 vintage-panel p-5">
@@ -232,7 +232,7 @@ export default function CheckoutPage() {
             placeholder="Full Name"
             value={form.customerName}
             onChange={(event) => onChange("customerName", event.target.value)}
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-input"
           />
           {fieldErrors.customerName ? <p className="text-xs text-seal-wax">{fieldErrors.customerName}</p> : null}
           <input
@@ -240,21 +240,21 @@ export default function CheckoutPage() {
             placeholder="Phone Number"
             value={form.customerPhone}
             onChange={(event) => onChange("customerPhone", event.target.value)}
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-input"
           />
           {fieldErrors.customerPhone ? <p className="text-xs text-seal-wax">{fieldErrors.customerPhone}</p> : null}
           <input
             placeholder="Email (optional)"
             value={form.customerEmail}
             onChange={(event) => onChange("customerEmail", event.target.value)}
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-input"
           />
           {fieldErrors.customerEmail ? <p className="text-xs text-seal-wax">{fieldErrors.customerEmail}</p> : null}
           <select
             required
             value={form.country}
             onChange={(event) => onChange("country", event.target.value)}
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-select"
           >
             {MM_COUNTRIES.map((country) => (
               <option key={country} value={country}>
@@ -267,7 +267,7 @@ export default function CheckoutPage() {
             required
             value={form.stateRegion}
             onChange={(event) => onChange("stateRegion", event.target.value)}
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-select"
           >
             <option value="">Select State / Division</option>
             {MM_STATES_AND_DIVISIONS.map((state) => (
@@ -281,7 +281,7 @@ export default function CheckoutPage() {
             required
             value={form.townshipCity}
             onChange={(event) => onChange("townshipCity", event.target.value)}
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-select"
           >
             <option value="">Select Township / City</option>
             <optgroup label="Yangon Townships">
@@ -305,33 +305,29 @@ export default function CheckoutPage() {
             placeholder="Address Line 1"
             value={form.addressLine1}
             onChange={(event) => onChange("addressLine1", event.target.value)}
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-input"
           />
           {fieldErrors.addressLine1 ? <p className="text-xs text-seal-wax">{fieldErrors.addressLine1}</p> : null}
           <input
             placeholder="Address Line 2"
             value={form.addressLine2}
             onChange={(event) => onChange("addressLine2", event.target.value)}
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-input"
           />
           <input
             placeholder="Postal Code"
             value={form.postalCode}
             onChange={(event) => onChange("postalCode", event.target.value)}
-            className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-input"
           />
           <textarea
             placeholder="Order note (optional)"
             value={form.customerNote}
             onChange={(event) => onChange("customerNote", event.target.value)}
-            className="min-h-24 w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
+            className="field-input min-h-24"
           />
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="btn-primary disabled:opacity-60"
-          >
+          <button type="submit" disabled={submitting} className="btn-primary w-full disabled:opacity-60 sm:w-auto">
             {submitting ? "Placing order..." : "Place Order (Cash on Delivery)"}
           </button>
         </form>
@@ -355,7 +351,11 @@ export default function CheckoutPage() {
         </aside>
       </div>
 
-      {statusText ? <p className="mt-4 text-sm text-seal-wax">{statusText}</p> : null}
+      {statusText ? (
+        <p className="mt-4 text-sm text-seal-wax" aria-live="polite">
+          {statusText}
+        </p>
+      ) : null}
     </main>
   );
 }
