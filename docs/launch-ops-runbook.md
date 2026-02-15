@@ -7,6 +7,7 @@
 - Verify `.env` in production includes all required variables from `.env.example`.
 - Verify Supabase DB connectivity via `GET /api/health/ready`.
 - Confirm secrets rotation if any key/password was exposed in logs/chat/history.
+- Confirm deploy target (Vercel) has all required environment variables set for Production.
 
 ## 2) Health Checks
 
@@ -34,8 +35,11 @@
 
 ### Backup method
 
-- Use Supabase scheduled backups for paid plans when available.
-- Keep one external logical backup using `pg_dump` from a trusted environment:
+- Paid plan:
+  - Use Supabase scheduled backups.
+- Free plan:
+  - Run manual logical backups from a trusted machine before high-risk releases.
+- External logical backup command:
 
 ```bash
 pg_dump "$DIRECT_URL" --format=custom --file=backup-YYYYMMDD.dump
@@ -79,3 +83,16 @@ pg_restore --clean --if-exists --no-owner --dbname "$DIRECT_URL" backup-YYYYMMDD
   - Require `CI` status check to pass
   - Disable force pushes
 - Keep direct commits to `master` disabled.
+
+## 8) Vercel Deployment Notes
+
+- Build command: `pnpm run build`
+- Ensure `DIRECT_URL` is configured in Vercel env (required by `pnpm prisma:generate`).
+- If deployment fails with type errors, fix in branch and redeploy via PR merge.
+- After successful deployment, smoke test:
+  - `/`
+  - `/search?q=test`
+  - `/cart`
+  - `/checkout`
+  - `/order/track`
+  - `/admin/login`
