@@ -18,7 +18,7 @@ export default function LatestProductsSection({
   return (
     <section
       id="latest-products"
-      className="mx-auto w-full max-w-450 px-4 py-10 sm:px-6 lg:px-8"
+      className="mx-auto w-full max-w-450 px-4 py-10 pr-16 sm:px-6 sm:pr-20 lg:px-8 lg:pr-[92px]"
     >
       <div className="mb-5">
         <h2 className="text-6xl font-bold uppercase tracking-[0.03em] text-ink">

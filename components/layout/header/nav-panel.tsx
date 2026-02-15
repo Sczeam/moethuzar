@@ -37,13 +37,13 @@ export function HeaderNavPanel({
         role="dialog"
         aria-modal="true"
         aria-label="Site navigation"
-        className="absolute right-[64px] top-0 h-screen w-[min(90vw,420px)] border-l border-sepia-border/60 bg-teak-brown p-10 text-paper-light sm:right-[68px]"
+        className="absolute right-14 top-0 h-screen w-[calc(100vw-56px)] border-l border-sepia-border/60 bg-teak-brown p-6 text-paper-light sm:right-16 sm:w-[min(calc(100vw-64px),420px)] sm:p-8 lg:right-[68px] lg:w-[min(calc(100vw-68px),440px)] lg:p-10"
       >
         <div className="flex items-center justify-between">
           <p className="text-sm uppercase tracking-[0.22em] text-aged-gold">Moethuzar</p>
         </div>
 
-        <nav className="mt-10 grid gap-4">
+        <nav className="mt-8 grid gap-3 sm:mt-10 sm:gap-4">
           {items.map((item, index) => (
             <Link
               key={item.href}
@@ -52,7 +52,7 @@ export function HeaderNavPanel({
               ref={(element) => {
                 linkRefs.current[index] = element;
               }}
-              className="text-4xl font-semibold text-paper-light transition hover:text-aged-gold sm:text-5xl"
+              className="text-3xl font-semibold text-paper-light transition hover:text-aged-gold sm:text-4xl lg:text-5xl"
             >
               {item.label}
             </Link>

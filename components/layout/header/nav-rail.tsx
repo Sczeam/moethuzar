@@ -10,11 +10,11 @@ type HeaderNavRailProps = {
 
 export function HeaderNavRail({ isOpen, menuControlsId, onToggleMenu, onSearch }: HeaderNavRailProps) {
   return (
-    <aside className="fixed right-0 top-0 z-50 flex h-[170px] w-[64px] flex-col items-center border-l border-b border-sepia-border/70 bg-teak-brown text-paper-light sm:h-[190px] sm:w-[68px]">
+    <aside className="fixed right-0 top-0 z-50 flex h-[152px] w-14 flex-col items-center border-l border-b border-sepia-border/70 bg-teak-brown text-paper-light sm:h-[176px] sm:w-16 lg:h-[190px] lg:w-[68px]">
       <button
         type="button"
         onClick={onToggleMenu}
-        className="mt-2 inline-flex h-12 w-12 items-center justify-center rounded-md text-paper-light transition hover:bg-paper-light/10 sm:mt-3 sm:h-[52px] sm:w-[52px]"
+        className="mt-1 inline-flex h-11 w-11 items-center justify-center rounded-none text-paper-light transition hover:bg-paper-light/10 active:scale-[0.98] sm:mt-2 sm:h-12 sm:w-12 lg:mt-3 lg:h-[52px] lg:w-[52px]"
         aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
         aria-expanded={isOpen}
         aria-controls={menuControlsId}
@@ -24,17 +24,21 @@ export function HeaderNavRail({ isOpen, menuControlsId, onToggleMenu, onSearch }
       <button
         type="button"
         onClick={onSearch}
-        className="mt-1 inline-flex h-12 w-12 items-center justify-center rounded-md text-paper-light transition hover:bg-paper-light/10 sm:mt-2 sm:h-[52px] sm:w-[52px]"
+        className="mt-0.5 inline-flex h-11 w-11 items-center justify-center rounded-none text-paper-light transition hover:bg-paper-light/10 active:scale-[0.98] sm:mt-1 sm:h-12 sm:w-12 lg:mt-2 lg:h-[52px] lg:w-[52px]"
         aria-label="Open search"
       >
         <IconSearch />
       </button>
       <Link
         href="/cart"
-        className="mt-1 inline-flex h-12 w-12 items-center justify-center rounded-md text-paper-light transition hover:bg-paper-light/10 sm:mt-2 sm:h-[52px] sm:w-[52px]"
+        className="group relative mt-0.5 inline-flex h-11 w-11 items-center justify-center rounded-none text-paper-light transition hover:bg-paper-light/10 active:scale-[0.98] sm:mt-1 sm:h-12 sm:w-12 lg:mt-2 lg:h-[52px] lg:w-[52px]"
         aria-label="Open cart"
       >
         <IconCart />
+        <span
+          aria-hidden
+          className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-aged-gold ring-2 ring-teak-brown transition group-hover:scale-110"
+        />
       </Link>
     </aside>
   );
