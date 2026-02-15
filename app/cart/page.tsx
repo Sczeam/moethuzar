@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney } from "@/lib/format";
+import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -201,10 +202,12 @@ export default function CartPage() {
             >
               <div className="h-24 w-24 overflow-hidden rounded-none bg-parchment">
                 {item.variant.product.images[0] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={item.variant.product.images[0].url}
                     alt={item.variant.product.name}
+                    width={96}
+                    height={96}
+                    sizes="96px"
                     className="h-full w-full object-cover"
                   />
                 ) : null}

@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney } from "@/lib/format";
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -209,10 +210,12 @@ export default function ProductView({ product }: ProductViewProps) {
                 key={`${image.id}-${index}`}
                 className="aspect-[3/4] overflow-hidden border border-sepia-border/60 bg-paper-light"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={image.url}
                   alt={image.alt ?? product.name}
+                  width={900}
+                  height={1200}
+                  sizes="(max-width: 640px) 100vw, 50vw"
                   className="h-full w-full object-cover"
                 />
               </div>
