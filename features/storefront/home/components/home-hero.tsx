@@ -45,9 +45,9 @@ export default function HomeHero() {
   }, []);
 
   return (
-    <section ref={rootRef} className="h-screen border-b border-sepia-border/60">
-      <div className="grid h-full grid-cols-1 lg:grid-cols-[1fr_500px]">
-        <div className="relative flex h-full flex-col justify-between px-8 py-8 sm:px-12 sm:py-10 lg:py-12">
+    <section ref={rootRef} className="min-h-screen border-b border-sepia-border/60">
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[1fr_500px]">
+        <div className="relative flex min-h-[44vh] flex-col justify-between px-6 py-8 sm:min-h-[48vh] sm:px-10 sm:py-10 lg:min-h-screen lg:px-12 lg:py-12">
           <div className="max-w-4xl">
             <h1 className="mt-2 leading-[0.95] text-ink">
               <span
@@ -84,7 +84,7 @@ export default function HomeHero() {
           </div>
         </div>
 
-        <div className="relative mx-6 my-8 mr-0 h-[calc(100%-4rem)] border border-sepia-border/70 bg-paper-light lg:my-12 lg:ml-10 lg:mr-[50px] lg:h-[calc(100%-6rem)]">
+        <div className="relative mx-4 mb-6 h-[52vh] border border-sepia-border/70 bg-paper-light sm:mx-6 sm:h-[56vh] lg:my-12 lg:ml-10 lg:mr-[50px] lg:h-[calc(100%-6rem)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={siteContent.heroImageUrl}

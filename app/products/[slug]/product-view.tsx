@@ -89,6 +89,24 @@ export default function ProductView({ product }: ProductViewProps) {
     return fallback ?? firstInStockVariant;
   }, [firstInStockVariant, product.variants, selectedColor, selectedSize]);
 
+  const isColorAvailable = useMemo(() => {
+    return (color: string) =>
+      product.variants.some((variant) => {
+        const colorMatch = variant.color === color;
+        const sizeMatch = selectedSize ? variant.size === selectedSize : true;
+        return colorMatch && sizeMatch && variant.inventory > 0;
+      });
+  }, [product.variants, selectedSize]);
+
+  const isSizeAvailable = useMemo(() => {
+    return (size: string) =>
+      product.variants.some((variant) => {
+        const sizeMatch = variant.size === size;
+        const colorMatch = selectedColor ? variant.color === selectedColor : true;
+        return sizeMatch && colorMatch && variant.inventory > 0;
+      });
+  }, [product.variants, selectedColor]);
+
   const unitPrice = selectedVariant?.price ?? product.basePrice;
   const maxQuantity = selectedVariant?.inventory
     ? Math.max(1, selectedVariant.inventory)
@@ -183,7 +201,7 @@ export default function ProductView({ product }: ProductViewProps) {
         Back to products
       </Link>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_370px]">
+      <div className="grid items-start gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,370px)]">
         <section className="grid grid-cols-1 gap-1 sm:grid-cols-2">
           {galleryImages.length > 0 ? (
             galleryImages.map((image, index) => (
@@ -206,12 +224,12 @@ export default function ProductView({ product }: ProductViewProps) {
           )}
         </section>
 
-        <section className="space-y-5 bg-paper-light/40 p-2">
+        <section className="vintage-panel space-y-5 p-4 sm:p-5 lg:sticky lg:top-6">
           <div className="border-b border-sepia-border/80 pb-4">
-            <h1 className="text-[2rem] font-semibold leading-tight text-ink">
+            <h1 className="text-[1.9rem] font-semibold leading-tight text-ink sm:text-[2rem]">
               {product.name}
             </h1>
-            <p className="text-[2rem] font-semibold text-ink">
+            <p className="text-[1.9rem] font-semibold text-ink sm:text-[2rem]">
               {formatMoney(unitPrice, product.currency)}
             </p>
           </div>
@@ -226,15 +244,18 @@ export default function ProductView({ product }: ProductViewProps) {
                   <button
                     key={color}
                     type="button"
+                    disabled={!isColorAvailable(color)}
                     onClick={() => {
                       setSelectedColor(color);
                       setQuantity(1);
                       setStatusText("");
                     }}
-                    className={`h-11 w-11 rounded-full border ${
+                    className={`h-11 w-11 rounded-full border transition ${
                       selectedColor === color
                         ? "border-ink ring-2 ring-ink/25"
                         : "border-sepia-border/90"
+                    } ${
+                      !isColorAvailable(color) ? "cursor-not-allowed opacity-35" : "hover:scale-[1.02]"
                     } ${getColorSwatchClass(color)}`}
                     aria-label={`Select color ${color}`}
                   />
@@ -251,15 +272,18 @@ export default function ProductView({ product }: ProductViewProps) {
                   <button
                     key={size}
                     type="button"
+                    disabled={!isSizeAvailable(size)}
                     onClick={() => {
                       setSelectedSize(size);
                       setQuantity(1);
                       setStatusText("");
                     }}
-                    className={`min-w-12 border px-3 py-2 text-sm font-semibold uppercase ${
+                    className={`min-w-12 border px-3 py-2 text-sm font-semibold uppercase transition ${
                       selectedSize === size
                         ? "border-ink bg-ink text-paper-light"
                         : "border-sepia-border text-ink hover:border-ink"
+                    } ${
+                      !isSizeAvailable(size) ? "cursor-not-allowed opacity-35 line-through" : ""
                     }`}
                   >
                     {size}
@@ -270,8 +294,8 @@ export default function ProductView({ product }: ProductViewProps) {
           ) : null}
 
           <div className="border-t border-sepia-border/80 pt-4">
-            <div className="flex items-stretch gap-2">
-              <div className="h-12 w-23 border border-sepia-border bg-parchment px-3 py-1.5">
+            <div className="grid grid-cols-[96px_minmax(0,1fr)] items-stretch gap-2">
+              <div className="h-12 w-full border border-sepia-border bg-parchment px-3 py-1.5">
                 <label className="block text-[8px] font-semibold uppercase tracking-[0.06em] text-charcoal">
                   Qty
                 </label>
@@ -319,7 +343,9 @@ export default function ProductView({ product }: ProductViewProps) {
           </div>
 
           {statusText ? (
-            <p className="text-sm text-charcoal">{statusText}</p>
+            <p className="text-sm text-charcoal" aria-live="polite">
+              {statusText}
+            </p>
           ) : null}
         </section>
       </div>
