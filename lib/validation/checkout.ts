@@ -4,6 +4,7 @@ import {
   MM_COUNTRIES,
   MM_STATES_AND_DIVISIONS,
 } from "@/lib/constants/mm-locations";
+import { LEGAL_TERMS_VERSION } from "@/lib/constants/legal";
 
 export const checkoutSchema = z.object({
   country: z.enum(MM_COUNTRIES),
@@ -17,6 +18,10 @@ export const checkoutSchema = z.object({
   addressLine2: z.string().trim().max(255).optional(),
   postalCode: z.string().trim().max(20).optional(),
   deliveryFeeAmount: z.number().min(0).max(1000000).optional(),
+  termsAccepted: z.boolean().refine((value) => value === true, {
+    message: "You must agree to the Terms and Privacy Policy before placing an order.",
+  }),
+  termsVersion: z.string().refine((value) => value === LEGAL_TERMS_VERSION),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;

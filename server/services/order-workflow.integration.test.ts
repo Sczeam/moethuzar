@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PrismaClient } from "@prisma/client";
+import { LEGAL_TERMS_VERSION } from "@/lib/constants/legal";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 const shouldRunIntegrationTests =
@@ -137,6 +138,8 @@ describeIfDatabase("order workflow integration", () => {
         customerNote: "",
         addressLine2: "",
         postalCode: "",
+        termsAccepted: true,
+        termsVersion: LEGAL_TERMS_VERSION,
       },
       { idempotencyKey }
     );
@@ -155,6 +158,8 @@ describeIfDatabase("order workflow integration", () => {
         customerNote: "",
         addressLine2: "",
         postalCode: "",
+        termsAccepted: true,
+        termsVersion: LEGAL_TERMS_VERSION,
       },
       { idempotencyKey }
     );
@@ -215,6 +220,8 @@ describeIfDatabase("order workflow integration", () => {
         customerNote: "",
         addressLine2: "",
         postalCode: "",
+        termsAccepted: true,
+        termsVersion: LEGAL_TERMS_VERSION,
       })
     ).rejects.toMatchObject({
       code: "INSUFFICIENT_STOCK",
