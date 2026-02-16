@@ -160,6 +160,81 @@ function toSkuToken(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+type VariantDiagnostics = {
+  issuesByIndex: Record<number, string[]>;
+  hasBlocking: boolean;
+};
+
+function buildVariantDiagnostics(variants: ProductVariantItem[]): VariantDiagnostics {
+  const issuesByIndex: Record<number, string[]> = {};
+  const skuToIndexes = new Map<string, number[]>();
+  const comboToIndexes = new Map<string, number[]>();
+
+  variants.forEach((variant, index) => {
+    const issues: string[] = [];
+    const sku = variant.sku.trim().toUpperCase();
+    const name = variant.name.trim();
+    const color = (variant.color ?? "").trim().toLowerCase();
+    const size = (variant.size ?? "").trim().toLowerCase();
+
+    if (!sku) {
+      issues.push("SKU is required.");
+    } else {
+      skuToIndexes.set(sku, [...(skuToIndexes.get(sku) ?? []), index]);
+    }
+
+    if (!name) {
+      issues.push("Variant name is required.");
+    }
+
+    const comboKey = `${color}__${size}`;
+    comboToIndexes.set(comboKey, [...(comboToIndexes.get(comboKey) ?? []), index]);
+
+    if (variant.isActive === false && (variant.inventory ?? 0) > 0) {
+      issues.push("Inactive variant still has stock.");
+    }
+
+    if (issues.length > 0) {
+      issuesByIndex[index] = issues;
+    }
+  });
+
+  for (const indexes of skuToIndexes.values()) {
+    if (indexes.length <= 1) {
+      continue;
+    }
+    indexes.forEach((index) => {
+      issuesByIndex[index] = [...(issuesByIndex[index] ?? []), "Duplicate SKU in this draft."];
+    });
+  }
+
+  for (const [key, indexes] of comboToIndexes.entries()) {
+    if (indexes.length <= 1 || key === "__") {
+      continue;
+    }
+    indexes.forEach((index) => {
+      issuesByIndex[index] = [
+        ...(issuesByIndex[index] ?? []),
+        "Duplicate color + size combination in this draft.",
+      ];
+    });
+  }
+
+  return {
+    issuesByIndex,
+    hasBlocking: Object.values(issuesByIndex).some((issues) =>
+      issues.some((issue) =>
+        [
+          "SKU is required.",
+          "Variant name is required.",
+          "Duplicate SKU in this draft.",
+          "Duplicate color + size combination in this draft.",
+        ].includes(issue)
+      )
+    ),
+  };
+}
+
 function readValidationMessage(data: unknown, fallback: string): string {
   if (!data || typeof data !== "object") {
     return fallback;
@@ -884,6 +959,7 @@ function ProductFormFields({
   const [presetFeedback, setPresetFeedback] = useState("");
   const [currentStep, setCurrentStep] = useState<EditorStep>("BASICS");
   const [stepFeedback, setStepFeedback] = useState("");
+  const variantDiagnostics = useMemo(() => buildVariantDiagnostics(draft.variants), [draft.variants]);
 
   useEffect(() => {
     if (!matrixSkuPrefix && draft.slug) {
@@ -1051,6 +1127,17 @@ function ProductFormFields({
     }
 
     const selected = new Set(selectedVariantIndexes);
+    const selectedWithStock = draft.variants.filter(
+      (variant, index) => selected.has(index) && (variant.inventory ?? 0) > 0
+    ).length;
+    if (shouldUpdateActive && bulkActiveState === "false" && selectedWithStock > 0) {
+      const confirmed = window.confirm(
+        `${selectedWithStock} selected variant(s) still have stock and will be set inactive. Continue?`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
     const inventoryValue = toInt(bulkInventory, 0);
     const inventoryKey: "inventory" | "initialInventory" =
       mode === "create" ? "inventory" : "initialInventory";
@@ -1086,6 +1173,16 @@ function ProductFormFields({
     }
 
     const selected = new Set(selectedVariantIndexes);
+    const selectedWithStock = draft.variants.filter(
+      (variant, index) => selected.has(index) && (variant.inventory ?? 0) > 0
+    ).length;
+    const confirmMessage =
+      selectedWithStock > 0
+        ? `You are removing ${selectedVariantIndexes.length} variant(s), including ${selectedWithStock} with stock. Continue?`
+        : `Remove ${selectedVariantIndexes.length} selected variant(s)?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
     onDraftChange((prev) => {
       const filtered = prev.variants
         .filter((_, index) => !selected.has(index))
@@ -1234,10 +1331,9 @@ function ProductFormFields({
     }
 
     if (step === "VARIANTS") {
-      const invalidVariant = draft.variants.find(
-        (variant) => !variant.sku.trim() || !variant.name.trim()
-      );
-      if (invalidVariant) return "Every variant must include SKU and name.";
+      if (variantDiagnostics.hasBlocking) {
+        return "Resolve variant warnings before moving to review.";
+      }
     }
 
     return null;
@@ -1580,7 +1676,14 @@ function ProductFormFields({
         </div>
 
         {draft.variants.map((variant, index) => (
-          <div key={`variant-${variant.id ?? index}`} className="rounded-md border border-sepia-border/70 p-3">
+          <div
+            key={`variant-${variant.id ?? index}`}
+            className={`rounded-md border p-3 ${
+              (variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0
+                ? "border-seal-wax/70 bg-seal-wax/5"
+                : "border-sepia-border/70"
+            }`}
+          >
             <label className="mb-2 inline-flex items-center gap-2 text-xs text-charcoal">
               <input
                 type="checkbox"
@@ -1676,7 +1779,17 @@ function ProductFormFields({
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() =>
+                onClick={() => {
+                  const hasStock = (variant.inventory ?? 0) > 0;
+                  const confirmed = window.confirm(
+                    hasStock
+                      ? `This variant has stock (${variant.inventory ?? 0}). Remove it anyway?`
+                      : "Remove this variant?"
+                  );
+                  if (!confirmed) {
+                    return;
+                  }
+
                   onDraftChange((prev) =>
                     prev.variants.length > 1
                       ? {
@@ -1684,12 +1797,19 @@ function ProductFormFields({
                           variants: prev.variants.filter((_, itemIndex) => itemIndex !== index),
                         }
                       : prev
-                  )
-                }
+                  );
+                }}
               >
                 Remove Variant
               </button>
             </div>
+            {(variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0 ? (
+              <ul className="mt-2 list-disc pl-5 text-xs text-seal-wax">
+                {variantDiagnostics.issuesByIndex[index].map((issue) => (
+                  <li key={`${index}-${issue}`}>{issue}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         ))}
       </div>
