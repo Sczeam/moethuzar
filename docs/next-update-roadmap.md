@@ -59,20 +59,6 @@ Current checkout has address capture but no delivery pricing logic. Shipping cos
 - If no active applicable rule exists, checkout is blocked with clear actionable error.
 - Unit/integration tests cover fee calculation and fallback behavior.
 
-## Phase B: Customer Accounts + Order History
-
-### Why
-Reduces support load and increases trust for repeat buyers.
-
-### Scope
-- Optional customer auth (do not break guest checkout).
-- "My Orders" page for signed-in users.
-- Link orders to customer identity when applicable.
-
-### Acceptance criteria
-- Existing guest checkout still works unchanged.
-- Signed-in users can see their orders and statuses.
-
 ## Phase C: Promotion Engine (Basic)
 
 ### Why
@@ -88,6 +74,49 @@ Needed for campaigns and conversion pushes.
 - Invalid/expired codes are rejected with clear message.
 - Final payable total is deterministic and auditable.
 
+## Phase E: Admin UX Improvement (Catalog Authoring)
+
+### Why
+Current product authoring flow is too manual and error-prone for apparel combinations (for example 5 colors x 3 sizes).
+
+### Scope
+- Add option-first variant generation:
+  - define colors and sizes once
+  - auto-generate variant matrix
+  - allow disabling specific combinations
+- Add bulk edit tools:
+  - apply price/compare-at/material/inventory/active state to many variants at once
+- Add pre-submit validation:
+  - duplicate SKU detection
+  - duplicate option combination detection (same color + size)
+  - row-level error display before API submit
+- Improve product editor information architecture:
+  - split into focused sections (Basic Info, Media, Variants, Inventory)
+- Add variant management quality-of-life:
+  - quick duplicate row
+  - multi-select variants for bulk changes
+  - stable sorting by option values
+
+### Acceptance criteria
+- Admin can generate 15 variants (5x3) in under 1 minute.
+- Duplicate SKUs and duplicate combinations are blocked before submit.
+- Variant bulk edits reduce repeated manual input significantly.
+- Catalog creation/editing support load drops (fewer admin input mistakes).
+
+## Phase B: Customer Accounts + Order History
+
+### Why
+Reduces support load and increases trust for repeat buyers.
+
+### Scope
+- Optional customer auth (do not break guest checkout).
+- "My Orders" page for signed-in users.
+- Link orders to customer identity when applicable.
+
+### Acceptance criteria
+- Existing guest checkout still works unchanged.
+- Signed-in users can see their orders and statuses.
+
 ## Phase D: Admin Ops Dashboard + Inventory Alerts
 
 ### Why
@@ -101,10 +130,23 @@ Improves daily operational visibility.
 - Admin can quickly identify what to action today.
 - Inventory risk is visible without opening each product.
 
+## Priority Order After Phase A
+1. Phase E (Admin UX Improvement)
+2. Phase C (Promotion Engine)
+3. Phase B (Customer Accounts + Order History)
+4. Phase D (Admin Ops Dashboard + Inventory Alerts)
+
+Rationale:
+- Phase E has the highest immediate operational impact and reduces daily admin friction.
+- Phase C is the fastest direct revenue lever after admin flow efficiency improves.
+- Phase B improves retention, but guest checkout already covers current MVP conversion path.
+- Phase D is valuable for visibility but less urgent than core authoring and conversion levers.
+
 ## Suggested Branching / Delivery Strategy
 - `feat/shipping-rules-phase-a`
-- `feat/customer-accounts-phase-b`
+- `feat/admin-ux-phase-e`
 - `feat/promo-engine-phase-c`
+- `feat/customer-accounts-phase-b`
 - `feat/admin-ops-dashboard-phase-d`
 
 Use feature flags or phased UI exposure if needed.
