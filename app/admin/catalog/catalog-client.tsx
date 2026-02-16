@@ -132,6 +132,14 @@ function parseListInput(value: string): string[] {
   });
 }
 
+function toSkuToken(value: string): string {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function readValidationMessage(data: unknown, fallback: string): string {
   if (!data || typeof data !== "object") {
     return fallback;
@@ -843,6 +851,8 @@ function ProductFormFields({
   const [bulkInventory, setBulkInventory] = useState("");
   const [bulkActiveState, setBulkActiveState] = useState<"" | "true" | "false">("");
   const [bulkFeedback, setBulkFeedback] = useState("");
+  const [bulkSkuPrefix, setBulkSkuPrefix] = useState("");
+  const [bulkNamePrefix, setBulkNamePrefix] = useState("");
 
   useEffect(() => {
     if (!matrixSkuPrefix && draft.slug) {
@@ -855,6 +865,18 @@ function ProductFormFields({
       setMatrixNamePrefix(draft.name);
     }
   }, [draft.name, matrixNamePrefix]);
+
+  useEffect(() => {
+    if (!bulkSkuPrefix && draft.slug) {
+      setBulkSkuPrefix(draft.slug);
+    }
+  }, [bulkSkuPrefix, draft.slug]);
+
+  useEffect(() => {
+    if (!bulkNamePrefix && draft.name) {
+      setBulkNamePrefix(draft.name);
+    }
+  }, [bulkNamePrefix, draft.name]);
 
   useEffect(() => {
     setSelectedVariantIndexes((prev) =>
@@ -1015,6 +1037,110 @@ function ProductFormFields({
 
     setSelectedVariantIndexes([]);
     setBulkFeedback("Removed selected variants.");
+  }
+
+  function normalizeVariantSortOrder() {
+    onDraftChange((prev) => ({
+      ...prev,
+      variants: prev.variants.map((variant, index) => ({
+        ...variant,
+        sortOrder: index,
+      })),
+    }));
+    setBulkFeedback("Normalized variant sort order.");
+  }
+
+  function duplicateSelectedVariants() {
+    if (selectedVariantIndexes.length === 0) {
+      setBulkFeedback("Select variants to duplicate.");
+      return;
+    }
+
+    const selected = new Set(selectedVariantIndexes);
+    onDraftChange((prev) => {
+      const clones = prev.variants
+        .filter((_, index) => selected.has(index))
+        .map((variant, offset) => ({
+          ...variant,
+          id: undefined,
+          sku: `${variant.sku}-COPY-${offset + 1}`,
+          initialInventory: 0,
+          inventory: mode === "create" ? variant.inventory ?? 0 : 0,
+          sortOrder: prev.variants.length + offset,
+        }));
+
+      return {
+        ...prev,
+        variants: [...prev.variants, ...clones],
+      };
+    });
+
+    setBulkFeedback(`Duplicated ${selectedVariantIndexes.length} variants.`);
+  }
+
+  function autofillSelectedVariantIdentity() {
+    if (selectedVariantIndexes.length === 0) {
+      setBulkFeedback("Select variants first.");
+      return;
+    }
+
+    const selected = new Set(selectedVariantIndexes);
+    const skuPrefix = toSkuToken(bulkSkuPrefix || draft.slug);
+    const namePrefix = bulkNamePrefix.trim() || draft.name.trim();
+    if (!skuPrefix || !namePrefix) {
+      setBulkFeedback("SKU prefix and name prefix are required.");
+      return;
+    }
+
+    onDraftChange((prev) => {
+      const usedSku = new Set(
+        prev.variants
+          .map((variant, index) => (selected.has(index) ? "" : variant.sku.trim().toUpperCase()))
+          .filter(Boolean)
+      );
+
+      const nextVariants = prev.variants.map((variant, index) => {
+        if (!selected.has(index)) {
+          return variant;
+        }
+
+        const color = (variant.color ?? "").trim();
+        const size = (variant.size ?? "").trim();
+        let candidateSku = variant.sku.trim().toUpperCase();
+
+        if (!candidateSku) {
+          const core = `${skuPrefix}-${toSkuToken(color || "NA")}-${toSkuToken(size || "NA")}`;
+          candidateSku = core;
+          let seq = 2;
+          while (usedSku.has(candidateSku)) {
+            candidateSku = `${core}-${seq}`;
+            seq += 1;
+          }
+        } else if (usedSku.has(candidateSku)) {
+          const core = `${skuPrefix}-${toSkuToken(color || "NA")}-${toSkuToken(size || "NA")}`;
+          candidateSku = core;
+          let seq = 2;
+          while (usedSku.has(candidateSku)) {
+            candidateSku = `${core}-${seq}`;
+            seq += 1;
+          }
+        }
+
+        usedSku.add(candidateSku);
+        return {
+          ...variant,
+          sku: candidateSku,
+          name: variant.name.trim() || `${namePrefix} - ${color || "Default"} / ${size || "Default"}`,
+        };
+      });
+
+      return {
+        ...prev,
+        variants: nextVariants,
+      };
+    });
+
+    setBulkFeedback("Auto-filled selected variant names and SKUs.");
   }
 
   return (
@@ -1210,6 +1336,20 @@ function ProductFormFields({
           </h4>
           <div className="grid gap-2 sm:grid-cols-2">
             <input
+              value={bulkNamePrefix}
+              onChange={(event) => setBulkNamePrefix(event.target.value)}
+              placeholder="Name prefix for autofill"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={bulkSkuPrefix}
+              onChange={(event) => setBulkSkuPrefix(event.target.value)}
+              placeholder="SKU prefix for autofill"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
               value={bulkMaterial}
               onChange={(event) => setBulkMaterial(event.target.value)}
               placeholder="Material"
@@ -1247,6 +1387,15 @@ function ProductFormFields({
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="btn-secondary" onClick={applyBulkVariantFields}>
               Apply Bulk Changes
+            </button>
+            <button type="button" className="btn-secondary" onClick={autofillSelectedVariantIdentity}>
+              Auto-fill Name/SKU
+            </button>
+            <button type="button" className="btn-secondary" onClick={duplicateSelectedVariants}>
+              Duplicate Selected
+            </button>
+            <button type="button" className="btn-secondary" onClick={normalizeVariantSortOrder}>
+              Normalize Sort Order
             </button>
             <button type="button" className="btn-secondary" onClick={removeSelectedVariants}>
               Remove Selected
