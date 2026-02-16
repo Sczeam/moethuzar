@@ -329,6 +329,24 @@ export default function CatalogClient() {
     };
 
     try {
+      const draftCheck = await fetch("/api/admin/catalog/validate-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          variants: payload.variants,
+        }),
+      });
+      const draftCheckData = await draftCheck.json();
+      if (!draftCheck.ok) {
+        setStatusText(readValidationMessage(draftCheckData, "Failed to validate product draft."));
+        return;
+      }
+      if (!draftCheckData.valid || draftCheckData.issues?.length > 0) {
+        const firstIssue = draftCheckData.issues?.[0];
+        setStatusText(firstIssue?.message ?? "Fix draft issues before creating this product.");
+        return;
+      }
+
       const response = await fetch("/api/admin/catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -384,6 +402,25 @@ export default function CatalogClient() {
     };
 
     try {
+      const draftCheck = await fetch("/api/admin/catalog/validate-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: editingProductId,
+          variants: payload.variants,
+        }),
+      });
+      const draftCheckData = await draftCheck.json();
+      if (!draftCheck.ok) {
+        setStatusText(readValidationMessage(draftCheckData, "Failed to validate product draft."));
+        return;
+      }
+      if (!draftCheckData.valid || draftCheckData.issues?.length > 0) {
+        const firstIssue = draftCheckData.issues?.[0];
+        setStatusText(firstIssue?.message ?? "Fix draft issues before saving this product.");
+        return;
+      }
+
       const response = await fetch(`/api/admin/catalog/${editingProductId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

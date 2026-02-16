@@ -10,6 +10,7 @@ const productImageInputSchema = z.object({
 });
 
 const createVariantInputSchema = z.object({
+  id: z.string().uuid().optional(),
   sku: z.string().trim().min(2).max(64),
   name: z.string().trim().min(2).max(120),
   color: z.string().trim().max(64).optional().or(z.literal("")),
@@ -103,3 +104,10 @@ export type AdminCatalogCreateInput = z.infer<typeof adminCatalogCreateSchema>;
 export type AdminCatalogUpdateInput = z.infer<typeof adminCatalogUpdateSchema>;
 export type AdminInventoryAdjustmentInput = z.infer<typeof adminInventoryAdjustmentSchema>;
 export type AdminVariantMatrixGenerateInput = z.infer<typeof adminVariantMatrixGenerateSchema>;
+
+export const adminCatalogDraftValidationSchema = z.object({
+  productId: z.string().uuid().optional(),
+  variants: z.array(createVariantInputSchema).min(1).max(300),
+});
+
+export type AdminCatalogDraftValidationInput = z.infer<typeof adminCatalogDraftValidationSchema>;
