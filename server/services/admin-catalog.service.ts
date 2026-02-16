@@ -3,7 +3,9 @@ import type {
   AdminCatalogCreateInput,
   AdminCatalogUpdateInput,
   AdminInventoryAdjustmentInput,
+  AdminVariantMatrixGenerateInput,
 } from "@/lib/validation/admin-catalog";
+import { generateVariantMatrix } from "@/server/domain/admin-variant-matrix";
 import { AppError } from "@/server/errors";
 import { InventoryChangeType, Prisma } from "@prisma/client";
 
@@ -337,4 +339,28 @@ export async function adjustVariantInventory(
 
     return updatedVariant;
   });
+}
+
+export function generateAdminVariantMatrixPreview(input: AdminVariantMatrixGenerateInput) {
+  const rows = generateVariantMatrix({
+    namePrefix: input.namePrefix,
+    skuPrefix: input.skuPrefix,
+    colors: input.colors,
+    sizes: input.sizes,
+    material: input.material,
+    basePrice: input.basePrice,
+    compareAtPrice: input.compareAtPrice,
+    initialInventory: input.initialInventory,
+    isActive: input.isActive,
+    existing: input.existing,
+  });
+
+  return {
+    rows,
+    summary: {
+      generated: rows.length,
+      existing: rows.filter((row) => row.exists).length,
+      newRows: rows.filter((row) => !row.exists).length,
+    },
+  };
 }

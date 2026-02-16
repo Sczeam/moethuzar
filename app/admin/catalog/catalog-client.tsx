@@ -33,6 +33,20 @@ type ProductVariantItem = {
   sortOrder: number;
 };
 
+type VariantMatrixRow = {
+  key: string;
+  sku: string;
+  name: string;
+  color: string;
+  size: string;
+  material: string | null;
+  price: string | null;
+  compareAtPrice: string | null;
+  initialInventory: number;
+  isActive: boolean;
+  exists: boolean;
+};
+
 type ProductItem = {
   id: string;
   name: string;
@@ -63,6 +77,22 @@ type DraftSetter = (updater: (prev: ProductDraft) => ProductDraft) => void;
 
 const statusOptions: ProductStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
 
+function makeEmptyVariant(sortOrder: number): ProductVariantItem {
+  return {
+    sku: "",
+    name: "",
+    color: "",
+    size: "",
+    material: "",
+    price: "",
+    compareAtPrice: "",
+    inventory: 0,
+    initialInventory: 0,
+    isActive: true,
+    sortOrder,
+  };
+}
+
 function makeInitialDraft(categoryId = ""): ProductDraft {
   return {
     name: "",
@@ -73,21 +103,7 @@ function makeInitialDraft(categoryId = ""): ProductDraft {
     status: "DRAFT",
     categoryId,
     images: [{ url: "", alt: "", sortOrder: 0 }],
-    variants: [
-      {
-        sku: "",
-        name: "",
-        color: "",
-        size: "",
-        material: "",
-        price: "",
-        compareAtPrice: "",
-        inventory: 0,
-        initialInventory: 0,
-        isActive: true,
-        sortOrder: 0,
-      },
-    ],
+    variants: [makeEmptyVariant(0)],
   };
 }
 
@@ -106,6 +122,14 @@ function statusBadge(status: ProductStatus): string {
 function toInt(value: string, fallback = 0): number {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseListInput(value: string): string[] {
+  const parts = value.split(/[,\n]/g).map((item) => item.trim()).filter(Boolean);
+  return [...new Set(parts.map((item) => item.toLowerCase()))].map((lower) => {
+    const found = parts.find((item) => item.toLowerCase() === lower);
+    return found ?? lower;
+  });
 }
 
 function readValidationMessage(data: unknown, fallback: string): string {
@@ -241,21 +265,7 @@ export default function CatalogClient() {
               isActive: variant.isActive,
               sortOrder: variant.sortOrder,
             }))
-          : [
-              {
-                sku: "",
-                name: "",
-                color: "",
-                size: "",
-                material: "",
-                price: "",
-                compareAtPrice: "",
-                inventory: 0,
-                initialInventory: 0,
-                isActive: true,
-                sortOrder: 0,
-              },
-            ],
+          : [makeEmptyVariant(0)],
     };
   }
 
@@ -781,6 +791,194 @@ function ProductFormFields({
   mode: "create" | "edit";
 }) {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [matrixColors, setMatrixColors] = useState("");
+  const [matrixSizes, setMatrixSizes] = useState("");
+  const [matrixSkuPrefix, setMatrixSkuPrefix] = useState("");
+  const [matrixNamePrefix, setMatrixNamePrefix] = useState("");
+  const [matrixMaterial, setMatrixMaterial] = useState("");
+  const [matrixInitialInventory, setMatrixInitialInventory] = useState("0");
+  const [generatingMatrix, setGeneratingMatrix] = useState(false);
+  const [matrixFeedback, setMatrixFeedback] = useState("");
+  const [selectedVariantIndexes, setSelectedVariantIndexes] = useState<number[]>([]);
+  const [bulkMaterial, setBulkMaterial] = useState("");
+  const [bulkPrice, setBulkPrice] = useState("");
+  const [bulkCompareAtPrice, setBulkCompareAtPrice] = useState("");
+  const [bulkInventory, setBulkInventory] = useState("");
+  const [bulkActiveState, setBulkActiveState] = useState<"" | "true" | "false">("");
+  const [bulkFeedback, setBulkFeedback] = useState("");
+
+  useEffect(() => {
+    if (!matrixSkuPrefix && draft.slug) {
+      setMatrixSkuPrefix(draft.slug);
+    }
+  }, [draft.slug, matrixSkuPrefix]);
+
+  useEffect(() => {
+    if (!matrixNamePrefix && draft.name) {
+      setMatrixNamePrefix(draft.name);
+    }
+  }, [draft.name, matrixNamePrefix]);
+
+  useEffect(() => {
+    setSelectedVariantIndexes((prev) =>
+      prev.filter((index) => index >= 0 && index < draft.variants.length)
+    );
+  }, [draft.variants.length]);
+
+  async function generateVariantsFromMatrix() {
+    const colors = parseListInput(matrixColors);
+    const sizes = parseListInput(matrixSizes);
+    const skuPrefix = matrixSkuPrefix.trim() || draft.slug.trim();
+    const namePrefix = matrixNamePrefix.trim() || draft.name.trim();
+
+    if (!namePrefix || !skuPrefix || colors.length === 0 || sizes.length === 0) {
+      setMatrixFeedback("Name prefix, SKU prefix, colors, and sizes are required.");
+      return;
+    }
+
+    setGeneratingMatrix(true);
+    setMatrixFeedback("");
+
+    try {
+      const response = await fetch("/api/admin/catalog/variant-matrix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          namePrefix,
+          skuPrefix,
+          colors,
+          sizes,
+          material: matrixMaterial.trim(),
+          basePrice: draft.price.trim(),
+          compareAtPrice: "",
+          initialInventory: toInt(matrixInitialInventory, 0),
+          isActive: true,
+          existing: draft.variants.map((variant) => ({
+            color: variant.color ?? "",
+            size: variant.size ?? "",
+          })),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setMatrixFeedback(readValidationMessage(data, "Failed to generate variant matrix."));
+        return;
+      }
+
+      const rows = (data.rows as VariantMatrixRow[]) ?? [];
+      const newRows = rows.filter((row) => !row.exists);
+
+      if (newRows.length === 0) {
+        setMatrixFeedback("All combinations already exist in this draft.");
+        return;
+      }
+
+      onDraftChange((prev) => {
+        const nextSortOrderStart = prev.variants.length;
+        const appended: ProductVariantItem[] = newRows.map((row, index) => ({
+          sku: row.sku,
+          name: row.name,
+          color: row.color,
+          size: row.size,
+          material: row.material ?? "",
+          price: row.price ?? "",
+          compareAtPrice: row.compareAtPrice ?? "",
+          inventory: row.initialInventory,
+          initialInventory: row.initialInventory,
+          isActive: row.isActive,
+          sortOrder: nextSortOrderStart + index,
+        }));
+
+        return {
+          ...prev,
+          variants: [...prev.variants, ...appended],
+        };
+      });
+
+      setMatrixFeedback(
+        `Generated ${data.summary.newRows} new variants (${data.summary.existing} already existed).`
+      );
+    } catch {
+      setMatrixFeedback("Unexpected error while generating variants.");
+    } finally {
+      setGeneratingMatrix(false);
+    }
+  }
+
+  function applyBulkVariantFields() {
+    if (selectedVariantIndexes.length === 0) {
+      setBulkFeedback("Select at least one variant first.");
+      return;
+    }
+
+    const shouldUpdateMaterial = bulkMaterial.trim().length > 0;
+    const shouldUpdatePrice = bulkPrice.trim().length > 0;
+    const shouldUpdateCompareAtPrice = bulkCompareAtPrice.trim().length > 0;
+    const shouldUpdateInventory = bulkInventory.trim().length > 0;
+    const shouldUpdateActive = bulkActiveState !== "";
+
+    if (
+      !shouldUpdateMaterial &&
+      !shouldUpdatePrice &&
+      !shouldUpdateCompareAtPrice &&
+      !shouldUpdateInventory &&
+      !shouldUpdateActive
+    ) {
+      setBulkFeedback("Set at least one field to apply.");
+      return;
+    }
+
+    const selected = new Set(selectedVariantIndexes);
+    const inventoryValue = toInt(bulkInventory, 0);
+    const inventoryKey: "inventory" | "initialInventory" =
+      mode === "create" ? "inventory" : "initialInventory";
+
+    onDraftChange((prev) => ({
+      ...prev,
+      variants: prev.variants.map((variant, index) => {
+        if (!selected.has(index)) {
+          return variant;
+        }
+
+        return {
+          ...variant,
+          material: shouldUpdateMaterial ? bulkMaterial.trim() : variant.material,
+          price: shouldUpdatePrice ? bulkPrice.trim() : variant.price,
+          compareAtPrice: shouldUpdateCompareAtPrice
+            ? bulkCompareAtPrice.trim()
+            : variant.compareAtPrice,
+          isActive:
+            shouldUpdateActive ? bulkActiveState === "true" : variant.isActive,
+          [inventoryKey]: shouldUpdateInventory ? Math.max(0, inventoryValue) : variant[inventoryKey],
+        };
+      }),
+    }));
+
+    setBulkFeedback(`Updated ${selectedVariantIndexes.length} selected variants.`);
+  }
+
+  function removeSelectedVariants() {
+    if (selectedVariantIndexes.length === 0) {
+      setBulkFeedback("Select variants to remove.");
+      return;
+    }
+
+    const selected = new Set(selectedVariantIndexes);
+    onDraftChange((prev) => {
+      const filtered = prev.variants
+        .filter((_, index) => !selected.has(index))
+        .map((variant, index) => ({ ...variant, sortOrder: index }));
+
+      return {
+        ...prev,
+        variants: filtered.length > 0 ? filtered : [makeEmptyVariant(0)],
+      };
+    });
+
+    setSelectedVariantIndexes([]);
+    setBulkFeedback("Removed selected variants.");
+  }
 
   return (
     <div className="space-y-4">
@@ -934,40 +1132,109 @@ function ProductFormFields({
       </div>
 
       <div className="space-y-2 rounded-md border border-sepia-border p-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-ink">Variants</h3>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() =>
-              onDraftChange((prev) =>
-                ({
-                  ...prev,
-                  variants: [
-                    ...prev.variants,
-                    {
-                      sku: "",
-                      name: "",
-                      color: "",
-                      size: "",
-                      material: "",
-                      price: "",
-                      compareAtPrice: "",
-                      inventory: 0,
-                      initialInventory: 0,
-                      isActive: true,
-                      sortOrder: prev.variants.length,
-                    },
-                  ],
-                })
-              )
-            }
-          >
-            Add Variant
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setSelectedVariantIndexes(draft.variants.map((_, index) => index))}
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setSelectedVariantIndexes([])}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() =>
+                onDraftChange((prev) =>
+                  ({
+                    ...prev,
+                    variants: [...prev.variants, makeEmptyVariant(prev.variants.length)],
+                  })
+                )
+              }
+            >
+              Add Variant
+            </button>
+          </div>
         </div>
+        <p className="text-xs text-charcoal">{selectedVariantIndexes.length} selected</p>
+
+        <div className="space-y-2 rounded-md border border-sepia-border/70 p-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-charcoal">
+            Bulk Apply to Selected
+          </h4>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              value={bulkMaterial}
+              onChange={(event) => setBulkMaterial(event.target.value)}
+              placeholder="Material"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={bulkPrice}
+              onChange={(event) => setBulkPrice(event.target.value)}
+              placeholder="Price"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={bulkCompareAtPrice}
+              onChange={(event) => setBulkCompareAtPrice(event.target.value)}
+              placeholder="Compare-at price"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              value={bulkInventory}
+              onChange={(event) => setBulkInventory(event.target.value)}
+              placeholder={mode === "create" ? "Inventory" : "Initial inventory"}
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <select
+              value={bulkActiveState}
+              onChange={(event) => setBulkActiveState(event.target.value as "" | "true" | "false")}
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            >
+              <option value="">Leave active state unchanged</option>
+              <option value="true">Set active</option>
+              <option value="false">Set inactive</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn-secondary" onClick={applyBulkVariantFields}>
+              Apply Bulk Changes
+            </button>
+            <button type="button" className="btn-secondary" onClick={removeSelectedVariants}>
+              Remove Selected
+            </button>
+            {bulkFeedback ? <p className="text-xs text-charcoal">{bulkFeedback}</p> : null}
+          </div>
+        </div>
+
         {draft.variants.map((variant, index) => (
           <div key={`variant-${variant.id ?? index}`} className="rounded-md border border-sepia-border/70 p-3">
+            <label className="mb-2 inline-flex items-center gap-2 text-xs text-charcoal">
+              <input
+                type="checkbox"
+                checked={selectedVariantIndexes.includes(index)}
+                onChange={(event) =>
+                  setSelectedVariantIndexes((prev) => {
+                    if (event.target.checked) {
+                      return [...prev, index].sort((a, b) => a - b);
+                    }
+                    return prev.filter((item) => item !== index);
+                  })
+                }
+              />
+              Select
+            </label>
             <div className="grid gap-2 sm:grid-cols-2">
               <input
                 value={variant.sku}
@@ -1064,6 +1331,63 @@ function ProductFormFields({
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="space-y-3 rounded-md border border-sepia-border p-3">
+        <h3 className="text-sm font-semibold text-ink">Variant Matrix Generator</h3>
+        <p className="text-xs text-charcoal">
+          Generate color x size combinations and append only missing variants.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input
+            value={matrixNamePrefix}
+            onChange={(event) => setMatrixNamePrefix(event.target.value)}
+            placeholder="Name prefix (e.g. Core Hoodie)"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <input
+            value={matrixSkuPrefix}
+            onChange={(event) => setMatrixSkuPrefix(event.target.value)}
+            placeholder="SKU prefix (e.g. CORE-HOODIE)"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <textarea
+            value={matrixColors}
+            onChange={(event) => setMatrixColors(event.target.value)}
+            placeholder="Colors (comma or newline separated)"
+            className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <textarea
+            value={matrixSizes}
+            onChange={(event) => setMatrixSizes(event.target.value)}
+            placeholder="Sizes (comma or newline separated)"
+            className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <input
+            value={matrixMaterial}
+            onChange={(event) => setMatrixMaterial(event.target.value)}
+            placeholder="Material (optional)"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            value={matrixInitialInventory}
+            onChange={(event) => setMatrixInitialInventory(event.target.value)}
+            placeholder="Initial inventory"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void generateVariantsFromMatrix()}
+            disabled={generatingMatrix}
+            className="btn-secondary disabled:opacity-60"
+          >
+            {generatingMatrix ? "Generating..." : "Generate Missing Variants"}
+          </button>
+          {matrixFeedback ? <p className="text-xs text-charcoal">{matrixFeedback}</p> : null}
+        </div>
       </div>
     </div>
   );
