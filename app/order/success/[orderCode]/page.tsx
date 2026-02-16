@@ -44,6 +44,12 @@ export default async function OrderSuccessPage({
         <p className="mt-1 text-charcoal">
           Please keep your phone available. Our team will call to confirm your order.
         </p>
+        {order.shippingZoneLabel ? (
+          <p className="mt-1 text-charcoal">Shipping zone: {order.shippingZoneLabel}</p>
+        ) : null}
+        {order.shippingEtaLabel ? (
+          <p className="mt-1 text-charcoal">Estimated delivery: {order.shippingEtaLabel}</p>
+        ) : null}
       </div>
 
       <div className="mt-8">

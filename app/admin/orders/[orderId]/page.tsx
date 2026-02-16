@@ -16,7 +16,11 @@ type OrderDetail = {
   customerEmail: string | null;
   customerNote: string | null;
   totalAmount: string;
+  deliveryFeeAmount: string;
   currency: string;
+  shippingZoneKey: string | null;
+  shippingZoneLabel: string | null;
+  shippingEtaLabel: string | null;
   address: {
     stateRegion: string;
     townshipCity: string;
@@ -182,9 +186,14 @@ export default function AdminOrderDetailPage() {
   return (
     <main className="vintage-shell max-w-5xl">
       <div className="mb-6 flex items-center justify-between">
-        <Link href="/admin/orders" className="btn-secondary">
-          Back to Orders
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/orders" className="btn-secondary">
+            Back to Orders
+          </Link>
+          <Link href="/admin/shipping-rules" className="btn-secondary">
+            Shipping Rules
+          </Link>
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -288,6 +297,11 @@ export default function AdminOrderDetailPage() {
                 Customer note: {order.customerNote}
               </p>
             ) : null}
+            <div className="mt-3 grid gap-1 text-sm text-charcoal">
+              <p>Delivery fee: {Number(order.deliveryFeeAmount).toLocaleString()} MMK</p>
+              <p>Shipping zone: {order.shippingZoneLabel ?? order.shippingZoneKey ?? "N/A"}</p>
+              <p>Delivery ETA: {order.shippingEtaLabel ?? "N/A"}</p>
+            </div>
           </section>
 
           <section className="vintage-panel p-5">

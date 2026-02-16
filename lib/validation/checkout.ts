@@ -17,7 +17,6 @@ export const checkoutSchema = z.object({
   addressLine1: z.string().trim().min(4).max(255),
   addressLine2: z.string().trim().max(255).optional(),
   postalCode: z.string().trim().max(20).optional(),
-  deliveryFeeAmount: z.number().min(0).max(1000000).optional(),
   termsAccepted: z.boolean().refine((value) => value === true, {
     message: "You must agree to the Terms and Privacy Policy before placing an order.",
   }),

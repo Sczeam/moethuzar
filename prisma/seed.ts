@@ -1,6 +1,7 @@
 import { PrismaClient, ProductStatus, UserRole } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { defaultShippingRulesSeed } from "../lib/validation/shipping-rule";
 
 async function main() {
   const adminAuthUserId =
@@ -57,6 +58,37 @@ async function main() {
       role: UserRole.ADMIN,
     },
   });
+
+  for (const rule of defaultShippingRulesSeed) {
+    await prisma.shippingRule.upsert({
+      where: { zoneKey: rule.zoneKey },
+      update: {
+        name: rule.name,
+        country: rule.country,
+        stateRegion: rule.stateRegion || null,
+        townshipCity: rule.townshipCity || null,
+        feeAmount: rule.feeAmount,
+        freeShippingThreshold: rule.freeShippingThreshold ?? null,
+        etaLabel: rule.etaLabel,
+        isFallback: rule.isFallback,
+        isActive: rule.isActive,
+        sortOrder: rule.sortOrder,
+      },
+      create: {
+        zoneKey: rule.zoneKey,
+        name: rule.name,
+        country: rule.country,
+        stateRegion: rule.stateRegion || null,
+        townshipCity: rule.townshipCity || null,
+        feeAmount: rule.feeAmount,
+        freeShippingThreshold: rule.freeShippingThreshold ?? null,
+        etaLabel: rule.etaLabel,
+        isFallback: rule.isFallback,
+        isActive: rule.isActive,
+        sortOrder: rule.sortOrder,
+      },
+    });
+  }
 
   const tshirtCategory = await prisma.category.findUniqueOrThrow({
     where: { slug: "t-shirts" },

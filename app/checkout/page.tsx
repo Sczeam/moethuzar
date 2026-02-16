@@ -23,6 +23,14 @@ type CartData = {
   }>;
 };
 
+type ShippingQuote = {
+  ruleId: string;
+  zoneKey: string;
+  zoneLabel: string;
+  etaLabel: string;
+  feeAmount: number;
+};
+
 type CheckoutForm = {
   country: string;
   customerName: string;
@@ -59,6 +67,9 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState<CartData | null>(null);
   const [form, setForm] = useState<CheckoutForm>(initialForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
+  const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
+  const [shippingQuoteError, setShippingQuoteError] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [statusText, setStatusText] = useState("");
@@ -82,11 +93,103 @@ export default function CheckoutPage() {
   }, []);
 
   const isCartEmpty = useMemo(() => !cart || cart.items.length === 0, [cart]);
+  const subtotalAmountInt = useMemo(() => {
+    if (!cart) {
+      return 0;
+    }
+
+    return Math.round(Number(cart.subtotalAmount));
+  }, [cart]);
+
+  const canRequestShippingQuote = useMemo(() => {
+    if (isCartEmpty || !cart) {
+      return false;
+    }
+
+    return Boolean(form.country && form.stateRegion && form.townshipCity);
+  }, [cart, form.country, form.stateRegion, form.townshipCity, isCartEmpty]);
+
+  const deliveryFeeAmount = shippingQuote?.feeAmount ?? 0;
+  const grandTotalAmount = subtotalAmountInt + deliveryFeeAmount;
 
   function onChange<K extends keyof CheckoutForm>(key: K, value: CheckoutForm[K]) {
     setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  useEffect(() => {
+    if (!canRequestShippingQuote) {
+      setShippingQuote(null);
+      setShippingQuoteError("");
+      return;
+    }
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const loadShippingQuote = async () => {
+      setShippingQuoteLoading(true);
+      setShippingQuoteError("");
+
+      try {
+        const response = await fetch("/api/checkout/shipping-quote", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            country: form.country,
+            stateRegion: form.stateRegion,
+            townshipCity: form.townshipCity,
+            subtotalAmount: subtotalAmountInt,
+          }),
+          signal: controller.signal,
+        });
+
+        const data = await response.json();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!response.ok || !data.ok) {
+          setShippingQuote(null);
+          setShippingQuoteError(
+            typeof data?.error === "string"
+              ? data.error
+              : "Shipping is temporarily unavailable for this location.",
+          );
+          return;
+        }
+
+        setShippingQuote(data.quote as ShippingQuote);
+      } catch (error) {
+        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) {
+          return;
+        }
+
+        setShippingQuote(null);
+        setShippingQuoteError("Unable to fetch shipping quote. Please try again.");
+      } finally {
+        if (!cancelled) {
+          setShippingQuoteLoading(false);
+        }
+      }
+    };
+
+    void loadShippingQuote();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [
+    canRequestShippingQuote,
+    form.country,
+    form.stateRegion,
+    form.townshipCity,
+    subtotalAmountInt,
+  ]);
 
   function validateForm(): FieldErrors {
     const errors: FieldErrors = {};
@@ -139,6 +242,13 @@ export default function CheckoutPage() {
     }
 
     setFieldErrors({});
+    if (!shippingQuote) {
+      setStatusText(
+        shippingQuoteError || "Shipping quote is not ready. Please check your address and try again.",
+      );
+      return;
+    }
+
     setSubmitting(true);
     setStatusText("");
     if (!idempotencyKeyRef.current) {
@@ -152,10 +262,7 @@ export default function CheckoutPage() {
           "Content-Type": "application/json",
           "x-idempotency-key": idempotencyKeyRef.current,
         },
-        body: JSON.stringify({
-          ...form,
-          deliveryFeeAmount: 0,
-        }),
+        body: JSON.stringify(form),
       });
 
       let data: unknown = null;
@@ -362,6 +469,12 @@ export default function CheckoutPage() {
           <button type="submit" disabled={submitting} className="btn-primary w-full disabled:opacity-60 sm:w-auto">
             {submitting ? "Placing order..." : "Place Order (Cash on Delivery)"}
           </button>
+          {shippingQuoteLoading ? (
+            <p className="text-xs text-charcoal">Calculating shipping fee...</p>
+          ) : null}
+          {shippingQuoteError ? (
+            <p className="text-xs text-seal-wax">{shippingQuoteError}</p>
+          ) : null}
         </form>
 
         <aside className="vintage-panel p-5">
@@ -380,6 +493,20 @@ export default function CheckoutPage() {
             <p className="font-semibold">Subtotal</p>
             <p className="font-semibold">{formatMoney(cart.subtotalAmount, cart.currency)}</p>
           </div>
+          <div className="mt-2 flex items-center justify-between text-sm">
+            <p>Shipping</p>
+            <p>{formatMoney(String(deliveryFeeAmount), cart.currency)}</p>
+          </div>
+          <div className="mt-2 flex items-center justify-between border-t border-sepia-border pt-2 text-base font-semibold">
+            <p>Total</p>
+            <p>{formatMoney(String(grandTotalAmount), cart.currency)}</p>
+          </div>
+          {shippingQuote ? (
+            <div className="mt-3 rounded border border-sepia-border/70 bg-parchment p-2 text-xs text-charcoal">
+              <p>Zone: {shippingQuote.zoneLabel}</p>
+              <p>Estimated delivery: {shippingQuote.etaLabel}</p>
+            </div>
+          ) : null}
         </aside>
       </div>
 

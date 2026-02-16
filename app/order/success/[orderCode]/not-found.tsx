@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ORDER_CODE_EXAMPLES } from "@/lib/order-code";
 
 export default function OrderSuccessNotFoundPage() {
   return (
@@ -9,7 +10,8 @@ export default function OrderSuccessNotFoundPage() {
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-ink">We could not find that order.</h1>
         <p className="mt-3 text-sm text-charcoal">
-          Check your order code and try again. Order codes look like MZT-20260214-0001.
+          Check your order code and try again. Order codes look like {ORDER_CODE_EXAMPLES[0]} or{" "}
+          {ORDER_CODE_EXAMPLES[1]}.
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2">
