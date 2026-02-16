@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney } from "@/lib/format";
+import { buildProductGalleryImages } from "@/lib/storefront/product-gallery";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -115,38 +116,7 @@ export default function ProductView({ product }: ProductViewProps) {
   const isOutOfStock = !selectedVariant || selectedVariant.inventory <= 0;
 
   const galleryImages = useMemo(() => {
-    if (product.images.length === 0) {
-      return [];
-    }
-
-    const sourceImages = (() => {
-      if (!selectedVariant) {
-        return product.images;
-      }
-
-      const mapped = product.images.filter((image) => image.variantId === selectedVariant.id);
-      if (mapped.length > 0) {
-        return mapped;
-      }
-
-      const unassigned = product.images.filter((image) => image.variantId === null);
-      if (unassigned.length > 0) {
-        return unassigned;
-      }
-
-      return product.images;
-    })();
-
-    if (sourceImages.length >= 4) {
-      return sourceImages.slice(0, 6);
-    }
-
-    const repeated = [...sourceImages];
-    while (repeated.length < 4) {
-      repeated.push(sourceImages[repeated.length % sourceImages.length]);
-    }
-
-    return repeated;
+    return buildProductGalleryImages(product.images, selectedVariant?.id ?? null);
   }, [product.images, selectedVariant]);
 
   const getColorSwatchClass = (color: string) => {
