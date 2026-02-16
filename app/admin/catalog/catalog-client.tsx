@@ -47,6 +47,16 @@ type VariantMatrixRow = {
   exists: boolean;
 };
 
+type VariantPreset = {
+  id: string;
+  name: string;
+  namePrefix: string;
+  skuPrefix: string;
+  material: string;
+  colors: string[];
+  sizes: string[];
+};
+
 type ProductItem = {
   id: string;
   name: string;
@@ -853,6 +863,9 @@ function ProductFormFields({
   const [bulkFeedback, setBulkFeedback] = useState("");
   const [bulkSkuPrefix, setBulkSkuPrefix] = useState("");
   const [bulkNamePrefix, setBulkNamePrefix] = useState("");
+  const [presets, setPresets] = useState<VariantPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [presetFeedback, setPresetFeedback] = useState("");
 
   useEffect(() => {
     if (!matrixSkuPrefix && draft.slug) {
@@ -883,6 +896,37 @@ function ProductFormFields({
       prev.filter((index) => index >= 0 && index < draft.variants.length)
     );
   }, [draft.variants.length]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPresets() {
+      try {
+        const response = await fetch("/api/admin/catalog/variant-presets");
+        const data = await response.json();
+        if (!mounted) {
+          return;
+        }
+
+        if (!response.ok || !data.ok) {
+          setPresetFeedback("Unable to load presets.");
+          return;
+        }
+
+        setPresets((data.presets as VariantPreset[]) ?? []);
+      } catch {
+        if (mounted) {
+          setPresetFeedback("Unable to load presets.");
+        }
+      }
+    }
+
+    void loadPresets();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function generateVariantsFromMatrix() {
     const colors = parseListInput(matrixColors);
@@ -1141,6 +1185,21 @@ function ProductFormFields({
     });
 
     setBulkFeedback("Auto-filled selected variant names and SKUs.");
+  }
+
+  function applySelectedPreset() {
+    const preset = presets.find((item) => item.id === selectedPresetId);
+    if (!preset) {
+      setPresetFeedback("Select a preset first.");
+      return;
+    }
+
+    setMatrixNamePrefix(preset.namePrefix);
+    setMatrixSkuPrefix(preset.skuPrefix);
+    setMatrixMaterial(preset.material);
+    setMatrixColors(preset.colors.join(", "));
+    setMatrixSizes(preset.sizes.join(", "));
+    setPresetFeedback(`Applied preset: ${preset.name}`);
   }
 
   return (
@@ -1524,6 +1583,24 @@ function ProductFormFields({
         <p className="text-xs text-charcoal">
           Generate color x size combinations and append only missing variants.
         </p>
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <select
+            value={selectedPresetId}
+            onChange={(event) => setSelectedPresetId(event.target.value)}
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          >
+            <option value="">Select preset</option>
+            {presets.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.name}
+              </option>
+            ))}
+          </select>
+          <button type="button" className="btn-secondary" onClick={applySelectedPreset}>
+            Apply Preset
+          </button>
+        </div>
+        {presetFeedback ? <p className="text-xs text-charcoal">{presetFeedback}</p> : null}
         <div className="grid gap-2 sm:grid-cols-2">
           <input
             value={matrixNamePrefix}
