@@ -28,6 +28,7 @@ describeIfDatabase("cart reliability integration", () => {
   let variantId = "";
   let cartId = "";
   let orderId = "";
+  let shippingFallbackRuleId = "";
 
   beforeAll(async () => {
     ({ prisma } = await import("@/lib/prisma"));
@@ -69,6 +70,20 @@ describeIfDatabase("cart reliability integration", () => {
 
     productId = product.id;
     variantId = product.variants[0].id;
+
+    const fallbackRule = await prisma.shippingRule.create({
+      data: {
+        zoneKey: `IT-REL-OTHER-${suffix.toUpperCase()}`,
+        name: "Reliability Other",
+        country: "Myanmar",
+        feeAmount: 2000,
+        etaLabel: "2-4 business days",
+        isFallback: true,
+        isActive: true,
+        sortOrder: 9999,
+      },
+    });
+    shippingFallbackRuleId = fallbackRule.id;
   });
 
   afterAll(async () => {
@@ -94,6 +109,7 @@ describeIfDatabase("cart reliability integration", () => {
 
     await prisma.productVariant.deleteMany({ where: { productId } });
     await prisma.product.deleteMany({ where: { id: productId } });
+    await prisma.shippingRule.deleteMany({ where: { id: shippingFallbackRuleId } });
     await prisma.category.deleteMany({ where: { id: categoryId } });
   });
 
@@ -137,7 +153,6 @@ describeIfDatabase("cart reliability integration", () => {
         stateRegion: "Yangon Region",
         townshipCity: "Sanchaung",
         addressLine1: "No. 1, Reliability Street",
-        deliveryFeeAmount: 0,
         customerEmail: "",
         customerNote: "",
         addressLine2: "",

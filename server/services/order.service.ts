@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { CheckoutInput } from "@/lib/validation/checkout";
 import { AppError } from "@/server/errors";
+import { resolveShippingQuote } from "@/server/services/shipping-rule.service";
 import {
   CartStatus,
   InventoryChangeType,
@@ -50,6 +51,9 @@ type CreateOrderResult = {
   customerPhone: string;
   customerEmail: string | null;
   customerNote: string | null;
+  shippingZoneKey: string | null;
+  shippingZoneLabel: string | null;
+  shippingEtaLabel: string | null;
   createdAt: Date;
   items: Array<{
     id: string;
@@ -97,6 +101,9 @@ export async function createOrderFromCart(
         customerPhone: existingOrder.customerPhone,
         customerEmail: existingOrder.customerEmail,
         customerNote: existingOrder.customerNote,
+        shippingZoneKey: existingOrder.shippingZoneKey,
+        shippingZoneLabel: existingOrder.shippingZoneLabel,
+        shippingEtaLabel: existingOrder.shippingEtaLabel,
         createdAt: existingOrder.createdAt,
         items: existingOrder.items.map((item) => ({
           id: item.id,
@@ -173,7 +180,14 @@ export async function createOrderFromCart(
           return acc + unitPrice * item.quantity;
         }, 0);
 
-        const deliveryFeeAmount = input.deliveryFeeAmount ?? 0;
+        const shippingQuote = await resolveShippingQuote({
+          country: input.country,
+          stateRegion: input.stateRegion,
+          townshipCity: input.townshipCity,
+          subtotalAmount: Math.round(subtotalAmount),
+        });
+
+        const deliveryFeeAmount = shippingQuote.feeAmount;
         const totalAmount = subtotalAmount + deliveryFeeAmount;
 
         const now = new Date();
@@ -193,6 +207,9 @@ export async function createOrderFromCart(
             currency: cart.currency,
             subtotalAmount: subtotalAmount.toFixed(2),
             deliveryFeeAmount: deliveryFeeAmount.toFixed(2),
+            shippingZoneKey: shippingQuote.zoneKey,
+            shippingZoneLabel: shippingQuote.zoneLabel,
+            shippingEtaLabel: shippingQuote.etaLabel,
             totalAmount: totalAmount.toFixed(2),
             customerName: input.customerName.trim(),
             customerPhone: input.customerPhone.trim(),
@@ -297,6 +314,9 @@ export async function createOrderFromCart(
         customerPhone: order.customerPhone,
         customerEmail: order.customerEmail,
         customerNote: order.customerNote,
+        shippingZoneKey: order.shippingZoneKey,
+        shippingZoneLabel: order.shippingZoneLabel,
+        shippingEtaLabel: order.shippingEtaLabel,
         createdAt: order.createdAt,
         items: order.items.map((item) => ({
           id: item.id,
@@ -346,6 +366,9 @@ export async function createOrderFromCart(
             customerPhone: existingOrder.customerPhone,
             customerEmail: existingOrder.customerEmail,
             customerNote: existingOrder.customerNote,
+            shippingZoneKey: existingOrder.shippingZoneKey,
+            shippingZoneLabel: existingOrder.shippingZoneLabel,
+            shippingEtaLabel: existingOrder.shippingEtaLabel,
             createdAt: existingOrder.createdAt,
             items: existingOrder.items.map((item) => ({
               id: item.id,

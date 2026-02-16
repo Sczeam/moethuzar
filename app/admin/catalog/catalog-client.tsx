@@ -545,6 +545,9 @@ export default function CatalogClient() {
           <Link href="/admin/orders" className="btn-secondary">
             Orders
           </Link>
+          <Link href="/admin/shipping-rules" className="btn-secondary">
+            Shipping Rules
+          </Link>
           <Link href="/" className="btn-secondary">
             Storefront
           </Link>

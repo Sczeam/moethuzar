@@ -133,6 +133,9 @@ export default function OrdersClient({
           <Link href="/admin/catalog" className="btn-secondary">
             Catalog
           </Link>
+          <Link href="/admin/shipping-rules" className="btn-secondary">
+            Shipping Rules
+          </Link>
           <button type="button" onClick={onExportCsv} className="btn-secondary">
             Export CSV
           </button>
