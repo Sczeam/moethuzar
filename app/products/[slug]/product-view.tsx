@@ -22,7 +22,7 @@ type ProductViewProps = {
     description: string | null;
     currency: string;
     basePrice: string;
-    images: { id: string; url: string; alt: string | null }[];
+    images: { id: string; url: string; alt: string | null; variantId: string | null }[];
     variants: Variant[];
   };
 };
@@ -119,17 +119,35 @@ export default function ProductView({ product }: ProductViewProps) {
       return [];
     }
 
-    if (product.images.length >= 4) {
-      return product.images.slice(0, 6);
+    const sourceImages = (() => {
+      if (!selectedVariant) {
+        return product.images;
+      }
+
+      const mapped = product.images.filter((image) => image.variantId === selectedVariant.id);
+      if (mapped.length > 0) {
+        return mapped;
+      }
+
+      const unassigned = product.images.filter((image) => image.variantId === null);
+      if (unassigned.length > 0) {
+        return unassigned;
+      }
+
+      return product.images;
+    })();
+
+    if (sourceImages.length >= 4) {
+      return sourceImages.slice(0, 6);
     }
 
-    const repeated = [...product.images];
+    const repeated = [...sourceImages];
     while (repeated.length < 4) {
-      repeated.push(product.images[repeated.length % product.images.length]);
+      repeated.push(sourceImages[repeated.length % sourceImages.length]);
     }
 
     return repeated;
-  }, [product.images]);
+  }, [product.images, selectedVariant]);
 
   const getColorSwatchClass = (color: string) => {
     const normalized = color.toLowerCase();

@@ -15,6 +15,7 @@ type ProductImageItem = {
   id?: string;
   url: string;
   alt: string | null;
+  variantId?: string | null;
   sortOrder: number;
 };
 
@@ -112,7 +113,7 @@ function makeInitialDraft(categoryId = ""): ProductDraft {
     currency: "MMK",
     status: "DRAFT",
     categoryId,
-    images: [{ url: "", alt: "", sortOrder: 0 }],
+    images: [{ url: "", alt: "", variantId: null, sortOrder: 0 }],
     variants: [makeEmptyVariant(0)],
   };
 }
@@ -264,9 +265,10 @@ export default function CatalogClient() {
               id: image.id,
               url: image.url,
               alt: image.alt ?? "",
+              variantId: image.variantId ?? null,
               sortOrder: image.sortOrder,
             }))
-          : [{ url: "", alt: "", sortOrder: 0 }],
+          : [{ url: "", alt: "", variantId: null, sortOrder: 0 }],
       variants:
         product.variants.length > 0
           ? product.variants.map((variant) => ({
@@ -330,6 +332,7 @@ export default function CatalogClient() {
         .map((image, index) => ({
           url: image.url,
           alt: image.alt ?? "",
+          variantId: image.variantId ?? "",
           sortOrder: Number.isFinite(image.sortOrder) ? image.sortOrder : index,
         })),
       variants: createDraft.variants.map((variant, index) => ({
@@ -402,6 +405,7 @@ export default function CatalogClient() {
         .map((image, index) => ({
           url: image.url,
           alt: image.alt ?? "",
+          variantId: image.variantId ?? "",
           sortOrder: Number.isFinite(image.sortOrder) ? image.sortOrder : index,
         })),
       variants: editingProduct.variants.map((variant, index) => ({
@@ -518,6 +522,8 @@ export default function CatalogClient() {
         target.url = value;
       } else if (key === "alt") {
         target.alt = value;
+      } else if (key === "variantId") {
+        target.variantId = value || null;
       }
       images[index] = target;
       next.images = images;
@@ -585,6 +591,7 @@ export default function CatalogClient() {
           {
             url: data.url,
             alt: "",
+            variantId: null,
             sortOrder: prev.images.length,
           },
         ],
@@ -1204,6 +1211,11 @@ function ProductFormFields({
 
   return (
     <div className="space-y-4">
+      {mode === "create" ? (
+        <p className="text-xs text-charcoal">
+          Variant image mapping is available after first save (when variant IDs exist).
+        </p>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <input
           value={draft.name}
@@ -1308,7 +1320,10 @@ function ProductFormFields({
               onClick={() =>
                 onDraftChange((prev) => ({
                   ...prev,
-                  images: [...prev.images, { url: "", alt: "", sortOrder: prev.images.length }],
+                  images: [
+                    ...prev.images,
+                    { url: "", alt: "", variantId: null, sortOrder: prev.images.length },
+                  ],
                 }))
               }
             >
@@ -1317,7 +1332,10 @@ function ProductFormFields({
           </div>
         </div>
         {draft.images.map((image, index) => (
-          <div key={`image-${index}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_100px_auto]">
+          <div
+            key={`image-${index}`}
+            className="grid gap-2 sm:grid-cols-[1fr_1fr_180px_100px_auto]"
+          >
             <input
               value={image.url}
               onChange={(event) => onImageChange(index, "url", event.target.value)}
@@ -1330,6 +1348,22 @@ function ProductFormFields({
               placeholder="Alt text"
               className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
             />
+            <select
+              value={image.variantId ?? ""}
+              onChange={(event) => onImageChange(index, "variantId", event.target.value)}
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            >
+              <option value="">Unassigned (all variants)</option>
+              {draft.variants
+                .filter((variant): variant is ProductVariantItem & { id: string } => Boolean(variant.id))
+                .map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.sku} {variant.color ? `(${variant.color}` : ""}{" "}
+                    {variant.size ? `${variant.color ? "/" : "("}${variant.size}` : ""}
+                    {variant.color || variant.size ? ")" : ""}
+                  </option>
+                ))}
+            </select>
             <input
               type="number"
               value={image.sortOrder}

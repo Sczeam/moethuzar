@@ -6,6 +6,7 @@ const priceStringSchema = z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Invalid 
 const productImageInputSchema = z.object({
   url: z.string().trim().url(),
   alt: z.string().trim().max(255).optional().or(z.literal("")),
+  variantId: z.string().uuid().optional().or(z.literal("")),
   sortOrder: z.number().int().min(0).max(1000),
 });
 

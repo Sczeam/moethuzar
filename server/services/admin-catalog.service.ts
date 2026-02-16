@@ -15,6 +15,11 @@ function normalizeOptionalText(value?: string) {
   return trimmed ? trimmed : null;
 }
 
+function normalizeOptionalUuid(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 function toPriceString(value: unknown): string {
   if (value && typeof value === "object" && "toString" in value) {
     return value.toString();
@@ -59,6 +64,7 @@ function serializeProduct(
       id: image.id,
       url: image.url,
       alt: image.alt,
+      variantId: image.variantId,
       sortOrder: image.sortOrder,
     })),
     variants: product.variants.map((variant) => ({
@@ -138,6 +144,8 @@ export async function createAdminProduct(input: AdminCatalogCreateInput) {
           create: input.images.map((image) => ({
             url: image.url.trim(),
             alt: normalizeOptionalText(image.alt),
+            // New products cannot safely map images to freshly-created variants in one request.
+            variantId: null,
             sortOrder: image.sortOrder,
           })),
         },
@@ -195,14 +203,6 @@ export async function updateAdminProduct(productId: string, input: AdminCatalogU
           currency: input.currency.trim().toUpperCase(),
           status: input.status,
           categoryId: input.categoryId,
-          images: {
-            deleteMany: {},
-            create: input.images.map((image) => ({
-              url: image.url.trim(),
-              alt: normalizeOptionalText(image.alt),
-              sortOrder: image.sortOrder,
-            })),
-          },
         },
       });
 
@@ -261,6 +261,28 @@ export async function updateAdminProduct(productId: string, input: AdminCatalogU
           data: {
             isActive: false,
           },
+        });
+      }
+
+      const validVariantIds = new Set(touchedVariantIds);
+      await tx.productImage.deleteMany({
+        where: { productId },
+      });
+      if (input.images.length > 0) {
+        await tx.productImage.createMany({
+          data: input.images.map((image) => ({
+            productId,
+            url: image.url.trim(),
+            alt: normalizeOptionalText(image.alt),
+            sortOrder: image.sortOrder,
+            variantId: (() => {
+              const variantId = normalizeOptionalUuid(image.variantId);
+              if (!variantId) {
+                return null;
+              }
+              return validVariantIds.has(variantId) ? variantId : null;
+            })(),
+          })),
         });
       }
 

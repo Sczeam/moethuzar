@@ -102,6 +102,7 @@ model ProductVariant {
   cartItems      CartItem[]
   orderItems     OrderItem[]
   logs           InventoryLog[]
+  images         ProductImage[]
 
   @@index([productId, isActive])
   @@index([productId, sortOrder])
@@ -110,13 +111,16 @@ model ProductVariant {
 model ProductImage {
   id        String   @id @default(uuid()) @db.Uuid
   productId String   @db.Uuid
+  variantId String?  @db.Uuid
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   url       String
   alt       String?
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
   @@index([productId, sortOrder])
+  @@index([variantId])
 }
 
 model Cart {
