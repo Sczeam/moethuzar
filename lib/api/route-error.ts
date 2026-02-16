@@ -34,7 +34,7 @@ function toErrorPayload(error: unknown) {
       };
     }
 
-    if (error.code === "P2021") {
+    if (error.code === "P2021" || error.code === "P2022") {
       return {
         status: 500,
         body: {
