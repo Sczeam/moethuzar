@@ -23,20 +23,15 @@ function normalizeOptionalText(value?: string) {
   return trimmed ? trimmed : null;
 }
 
-function createOrderCode(now: Date, sequence: number) {
+function createOrderCode(now: Date) {
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const d = String(now.getDate()).padStart(2, "0");
-  const seq = String(sequence).padStart(4, "0");
-  return `MZT-${y}${m}${d}-${seq}`;
-}
-
-function orderDateRange(now: Date) {
-  const dayStart = new Date(now);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-  return { dayStart, dayEnd };
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  const rand = crypto.randomUUID().slice(0, 6).toUpperCase();
+  return `MZT-${y}${m}${d}-${hh}${mm}${ss}${rand}`;
 }
 
 type CreateOrderResult = {
@@ -191,13 +186,7 @@ export async function createOrderFromCart(
         const totalAmount = subtotalAmount + deliveryFeeAmount;
 
         const now = new Date();
-        const { dayStart, dayEnd } = orderDateRange(now);
-        const sequence = (await tx.order.count({
-          where: {
-            createdAt: { gte: dayStart, lt: dayEnd },
-          },
-        })) + 1;
-        const orderCode = createOrderCode(now, sequence);
+        const orderCode = createOrderCode(now);
 
         const created = await tx.order.create({
           data: {
