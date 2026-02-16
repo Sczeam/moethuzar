@@ -1,6 +1,6 @@
 "use client";
 
-import { normalizeOrderCode } from "@/lib/order-code";
+import { ORDER_CODE_EXAMPLES, normalizeOrderCode } from "@/lib/order-code";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -15,7 +15,7 @@ export default function OrderTrackPage() {
     const normalized = normalizeOrderCode(orderCode);
 
     if (!normalized) {
-      setStatusText("Enter a valid order code like MZT-20260214-0001.");
+      setStatusText(`Enter a valid order code like ${ORDER_CODE_EXAMPLES[1]}.`);
       return;
     }
 
@@ -39,7 +39,7 @@ export default function OrderTrackPage() {
             type="text"
             value={orderCode}
             onChange={(event) => setOrderCode(event.target.value)}
-            placeholder="MZT-20260214-0001"
+            placeholder={ORDER_CODE_EXAMPLES[1]}
             className="field-input"
           />
           <div className="flex flex-wrap gap-2">
