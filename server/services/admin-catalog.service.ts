@@ -1,13 +1,21 @@
 import { prisma } from "@/lib/prisma";
 import type {
   AdminCatalogCreateInput,
+  AdminCatalogDraftValidationInput,
   AdminCatalogUpdateInput,
   AdminInventoryAdjustmentInput,
+  AdminVariantMatrixGenerateInput,
 } from "@/lib/validation/admin-catalog";
+import { generateVariantMatrix } from "@/server/domain/admin-variant-matrix";
 import { AppError } from "@/server/errors";
 import { InventoryChangeType, Prisma } from "@prisma/client";
 
 function normalizeOptionalText(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeOptionalUuid(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 }
@@ -56,6 +64,7 @@ function serializeProduct(
       id: image.id,
       url: image.url,
       alt: image.alt,
+      variantId: image.variantId,
       sortOrder: image.sortOrder,
     })),
     variants: product.variants.map((variant) => ({
@@ -135,6 +144,8 @@ export async function createAdminProduct(input: AdminCatalogCreateInput) {
           create: input.images.map((image) => ({
             url: image.url.trim(),
             alt: normalizeOptionalText(image.alt),
+            // New products cannot safely map images to freshly-created variants in one request.
+            variantId: null,
             sortOrder: image.sortOrder,
           })),
         },
@@ -192,14 +203,6 @@ export async function updateAdminProduct(productId: string, input: AdminCatalogU
           currency: input.currency.trim().toUpperCase(),
           status: input.status,
           categoryId: input.categoryId,
-          images: {
-            deleteMany: {},
-            create: input.images.map((image) => ({
-              url: image.url.trim(),
-              alt: normalizeOptionalText(image.alt),
-              sortOrder: image.sortOrder,
-            })),
-          },
         },
       });
 
@@ -258,6 +261,28 @@ export async function updateAdminProduct(productId: string, input: AdminCatalogU
           data: {
             isActive: false,
           },
+        });
+      }
+
+      const validVariantIds = new Set(touchedVariantIds);
+      await tx.productImage.deleteMany({
+        where: { productId },
+      });
+      if (input.images.length > 0) {
+        await tx.productImage.createMany({
+          data: input.images.map((image) => ({
+            productId,
+            url: image.url.trim(),
+            alt: normalizeOptionalText(image.alt),
+            sortOrder: image.sortOrder,
+            variantId: (() => {
+              const variantId = normalizeOptionalUuid(image.variantId);
+              if (!variantId) {
+                return null;
+              }
+              return validVariantIds.has(variantId) ? variantId : null;
+            })(),
+          })),
         });
       }
 
@@ -337,4 +362,105 @@ export async function adjustVariantInventory(
 
     return updatedVariant;
   });
+}
+
+export function generateAdminVariantMatrixPreview(input: AdminVariantMatrixGenerateInput) {
+  const rows = generateVariantMatrix({
+    namePrefix: input.namePrefix,
+    skuPrefix: input.skuPrefix,
+    colors: input.colors,
+    sizes: input.sizes,
+    material: input.material,
+    basePrice: input.basePrice,
+    compareAtPrice: input.compareAtPrice,
+    initialInventory: input.initialInventory,
+    isActive: input.isActive,
+    existing: input.existing,
+  });
+
+  return {
+    rows,
+    summary: {
+      generated: rows.length,
+      existing: rows.filter((row) => row.exists).length,
+      newRows: rows.filter((row) => !row.exists).length,
+    },
+  };
+}
+
+export type AdminCatalogDraftIssue = {
+  code: "DUPLICATE_SKU_IN_DRAFT" | "DUPLICATE_OPTION_COMBINATION_IN_DRAFT" | "SKU_ALREADY_EXISTS";
+  message: string;
+  path: string;
+};
+
+export async function validateAdminCatalogDraft(input: AdminCatalogDraftValidationInput) {
+  const issues: AdminCatalogDraftIssue[] = [];
+
+  const skuCounter = new Map<string, number>();
+  const optionCounter = new Map<string, number>();
+  const skuToPath = new Map<string, string>();
+
+  input.variants.forEach((variant, index) => {
+    const sku = variant.sku.trim().toUpperCase();
+    const skuPath = `variants.${index}.sku`;
+    const optionKey = `${(variant.color ?? "").trim().toLowerCase()}__${(variant.size ?? "")
+      .trim()
+      .toLowerCase()}`;
+
+    skuCounter.set(sku, (skuCounter.get(sku) ?? 0) + 1);
+    optionCounter.set(optionKey, (optionCounter.get(optionKey) ?? 0) + 1);
+    if (!skuToPath.has(sku)) {
+      skuToPath.set(sku, skuPath);
+    }
+  });
+
+  for (const [sku, count] of skuCounter.entries()) {
+    if (count > 1) {
+      issues.push({
+        code: "DUPLICATE_SKU_IN_DRAFT",
+        message: `Duplicate SKU in draft: ${sku}.`,
+        path: skuToPath.get(sku) ?? "variants",
+      });
+    }
+  }
+
+  for (const [optionKey, count] of optionCounter.entries()) {
+    if (count > 1) {
+      const [color, size] = optionKey.split("__");
+      issues.push({
+        code: "DUPLICATE_OPTION_COMBINATION_IN_DRAFT",
+        message: `Duplicate color/size combination in draft: ${color || "(no color)"} / ${
+          size || "(no size)"
+        }.`,
+        path: "variants",
+      });
+    }
+  }
+
+  const uniqueSkus = [...new Set(input.variants.map((variant) => variant.sku.trim().toUpperCase()))];
+  if (uniqueSkus.length > 0) {
+    const variantIds = input.variants.map((variant) => variant.id).filter(Boolean) as string[];
+    const existingSkus = await prisma.productVariant.findMany({
+      where: {
+        sku: { in: uniqueSkus },
+        ...(variantIds.length > 0 ? { id: { notIn: variantIds } } : {}),
+        ...(input.productId ? { productId: { not: input.productId } } : {}),
+      },
+      select: { sku: true },
+    });
+
+    for (const row of existingSkus) {
+      issues.push({
+        code: "SKU_ALREADY_EXISTS",
+        message: `SKU already exists: ${row.sku}.`,
+        path: skuToPath.get(row.sku) ?? "variants",
+      });
+    }
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues,
+  };
 }

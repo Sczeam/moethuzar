@@ -1,5 +1,6 @@
 "use client";
 
+import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -15,6 +16,7 @@ type ProductImageItem = {
   id?: string;
   url: string;
   alt: string | null;
+  variantId?: string | null;
   sortOrder: number;
 };
 
@@ -31,6 +33,30 @@ type ProductVariantItem = {
   initialInventory?: number;
   isActive: boolean;
   sortOrder: number;
+};
+
+type VariantMatrixRow = {
+  key: string;
+  sku: string;
+  name: string;
+  color: string;
+  size: string;
+  material: string | null;
+  price: string | null;
+  compareAtPrice: string | null;
+  initialInventory: number;
+  isActive: boolean;
+  exists: boolean;
+};
+
+type VariantPreset = {
+  id: string;
+  name: string;
+  namePrefix: string;
+  skuPrefix: string;
+  material: string;
+  colors: string[];
+  sizes: string[];
 };
 
 type ProductItem = {
@@ -62,6 +88,31 @@ type ProductDraft = {
 type DraftSetter = (updater: (prev: ProductDraft) => ProductDraft) => void;
 
 const statusOptions: ProductStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
+const editorSteps = ["BASICS", "IMAGES", "VARIANTS", "REVIEW"] as const;
+type EditorStep = (typeof editorSteps)[number];
+
+function editorStepLabel(step: EditorStep): string {
+  if (step === "BASICS") return "Basics";
+  if (step === "IMAGES") return "Images";
+  if (step === "VARIANTS") return "Variants";
+  return "Review";
+}
+
+function makeEmptyVariant(sortOrder: number): ProductVariantItem {
+  return {
+    sku: "",
+    name: "",
+    color: "",
+    size: "",
+    material: "",
+    price: "",
+    compareAtPrice: "",
+    inventory: 0,
+    initialInventory: 0,
+    isActive: true,
+    sortOrder,
+  };
+}
 
 function makeInitialDraft(categoryId = ""): ProductDraft {
   return {
@@ -72,22 +123,8 @@ function makeInitialDraft(categoryId = ""): ProductDraft {
     currency: "MMK",
     status: "DRAFT",
     categoryId,
-    images: [{ url: "", alt: "", sortOrder: 0 }],
-    variants: [
-      {
-        sku: "",
-        name: "",
-        color: "",
-        size: "",
-        material: "",
-        price: "",
-        compareAtPrice: "",
-        inventory: 0,
-        initialInventory: 0,
-        isActive: true,
-        sortOrder: 0,
-      },
-    ],
+    images: [{ url: "", alt: "", variantId: null, sortOrder: 0 }],
+    variants: [makeEmptyVariant(0)],
   };
 }
 
@@ -106,6 +143,14 @@ function statusBadge(status: ProductStatus): string {
 function toInt(value: string, fallback = 0): number {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseListInput(value: string): string[] {
+  const parts = value.split(/[,\n]/g).map((item) => item.trim()).filter(Boolean);
+  return [...new Set(parts.map((item) => item.toLowerCase()))].map((lower) => {
+    const found = parts.find((item) => item.toLowerCase() === lower);
+    return found ?? lower;
+  });
 }
 
 function readValidationMessage(data: unknown, fallback: string): string {
@@ -222,9 +267,10 @@ export default function CatalogClient() {
               id: image.id,
               url: image.url,
               alt: image.alt ?? "",
+              variantId: image.variantId ?? null,
               sortOrder: image.sortOrder,
             }))
-          : [{ url: "", alt: "", sortOrder: 0 }],
+          : [{ url: "", alt: "", variantId: null, sortOrder: 0 }],
       variants:
         product.variants.length > 0
           ? product.variants.map((variant) => ({
@@ -241,21 +287,7 @@ export default function CatalogClient() {
               isActive: variant.isActive,
               sortOrder: variant.sortOrder,
             }))
-          : [
-              {
-                sku: "",
-                name: "",
-                color: "",
-                size: "",
-                material: "",
-                price: "",
-                compareAtPrice: "",
-                inventory: 0,
-                initialInventory: 0,
-                isActive: true,
-                sortOrder: 0,
-              },
-            ],
+          : [makeEmptyVariant(0)],
     };
   }
 
@@ -302,6 +334,7 @@ export default function CatalogClient() {
         .map((image, index) => ({
           url: image.url,
           alt: image.alt ?? "",
+          variantId: image.variantId ?? "",
           sortOrder: Number.isFinite(image.sortOrder) ? image.sortOrder : index,
         })),
       variants: createDraft.variants.map((variant, index) => ({
@@ -319,6 +352,24 @@ export default function CatalogClient() {
     };
 
     try {
+      const draftCheck = await fetch("/api/admin/catalog/validate-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          variants: payload.variants,
+        }),
+      });
+      const draftCheckData = await draftCheck.json();
+      if (!draftCheck.ok) {
+        setStatusText(readValidationMessage(draftCheckData, "Failed to validate product draft."));
+        return;
+      }
+      if (!draftCheckData.valid || draftCheckData.issues?.length > 0) {
+        const firstIssue = draftCheckData.issues?.[0];
+        setStatusText(firstIssue?.message ?? "Fix draft issues before creating this product.");
+        return;
+      }
+
       const response = await fetch("/api/admin/catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -356,6 +407,7 @@ export default function CatalogClient() {
         .map((image, index) => ({
           url: image.url,
           alt: image.alt ?? "",
+          variantId: image.variantId ?? "",
           sortOrder: Number.isFinite(image.sortOrder) ? image.sortOrder : index,
         })),
       variants: editingProduct.variants.map((variant, index) => ({
@@ -374,6 +426,25 @@ export default function CatalogClient() {
     };
 
     try {
+      const draftCheck = await fetch("/api/admin/catalog/validate-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: editingProductId,
+          variants: payload.variants,
+        }),
+      });
+      const draftCheckData = await draftCheck.json();
+      if (!draftCheck.ok) {
+        setStatusText(readValidationMessage(draftCheckData, "Failed to validate product draft."));
+        return;
+      }
+      if (!draftCheckData.valid || draftCheckData.issues?.length > 0) {
+        const firstIssue = draftCheckData.issues?.[0];
+        setStatusText(firstIssue?.message ?? "Fix draft issues before saving this product.");
+        return;
+      }
+
       const response = await fetch(`/api/admin/catalog/${editingProductId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -453,6 +524,8 @@ export default function CatalogClient() {
         target.url = value;
       } else if (key === "alt") {
         target.alt = value;
+      } else if (key === "variantId") {
+        target.variantId = value || null;
       }
       images[index] = target;
       next.images = images;
@@ -520,6 +593,7 @@ export default function CatalogClient() {
           {
             url: data.url,
             alt: "",
+            variantId: null,
             sortOrder: prev.images.length,
           },
         ],
@@ -781,9 +855,462 @@ function ProductFormFields({
   mode: "create" | "edit";
 }) {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [matrixColors, setMatrixColors] = useState("");
+  const [matrixSizes, setMatrixSizes] = useState("");
+  const [matrixSkuPrefix, setMatrixSkuPrefix] = useState("");
+  const [matrixNamePrefix, setMatrixNamePrefix] = useState("");
+  const [matrixMaterial, setMatrixMaterial] = useState("");
+  const [matrixInitialInventory, setMatrixInitialInventory] = useState("0");
+  const [generatingMatrix, setGeneratingMatrix] = useState(false);
+  const [matrixFeedback, setMatrixFeedback] = useState("");
+  const [selectedVariantIndexes, setSelectedVariantIndexes] = useState<number[]>([]);
+  const [bulkMaterial, setBulkMaterial] = useState("");
+  const [bulkPrice, setBulkPrice] = useState("");
+  const [bulkCompareAtPrice, setBulkCompareAtPrice] = useState("");
+  const [bulkInventory, setBulkInventory] = useState("");
+  const [bulkActiveState, setBulkActiveState] = useState<"" | "true" | "false">("");
+  const [bulkFeedback, setBulkFeedback] = useState("");
+  const [bulkSkuPrefix, setBulkSkuPrefix] = useState("");
+  const [bulkNamePrefix, setBulkNamePrefix] = useState("");
+  const [presets, setPresets] = useState<VariantPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [presetFeedback, setPresetFeedback] = useState("");
+  const [currentStep, setCurrentStep] = useState<EditorStep>("BASICS");
+  const [stepFeedback, setStepFeedback] = useState("");
+  const variantDiagnostics = useMemo(() => buildVariantDiagnostics(draft.variants), [draft.variants]);
+
+  useEffect(() => {
+    if (!matrixSkuPrefix && draft.slug) {
+      setMatrixSkuPrefix(draft.slug);
+    }
+  }, [draft.slug, matrixSkuPrefix]);
+
+  useEffect(() => {
+    if (!matrixNamePrefix && draft.name) {
+      setMatrixNamePrefix(draft.name);
+    }
+  }, [draft.name, matrixNamePrefix]);
+
+  useEffect(() => {
+    if (!bulkSkuPrefix && draft.slug) {
+      setBulkSkuPrefix(draft.slug);
+    }
+  }, [bulkSkuPrefix, draft.slug]);
+
+  useEffect(() => {
+    if (!bulkNamePrefix && draft.name) {
+      setBulkNamePrefix(draft.name);
+    }
+  }, [bulkNamePrefix, draft.name]);
+
+  useEffect(() => {
+    setSelectedVariantIndexes((prev) =>
+      prev.filter((index) => index >= 0 && index < draft.variants.length)
+    );
+  }, [draft.variants.length]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPresets() {
+      try {
+        const response = await fetch("/api/admin/catalog/variant-presets");
+        const data = await response.json();
+        if (!mounted) {
+          return;
+        }
+
+        if (!response.ok || !data.ok) {
+          setPresetFeedback("Unable to load presets.");
+          return;
+        }
+
+        setPresets((data.presets as VariantPreset[]) ?? []);
+      } catch {
+        if (mounted) {
+          setPresetFeedback("Unable to load presets.");
+        }
+      }
+    }
+
+    void loadPresets();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function generateVariantsFromMatrix() {
+    const colors = parseListInput(matrixColors);
+    const sizes = parseListInput(matrixSizes);
+    const skuPrefix = matrixSkuPrefix.trim() || draft.slug.trim();
+    const namePrefix = matrixNamePrefix.trim() || draft.name.trim();
+
+    if (!namePrefix || !skuPrefix || colors.length === 0 || sizes.length === 0) {
+      setMatrixFeedback("Name prefix, SKU prefix, colors, and sizes are required.");
+      return;
+    }
+
+    setGeneratingMatrix(true);
+    setMatrixFeedback("");
+
+    try {
+      const response = await fetch("/api/admin/catalog/variant-matrix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          namePrefix,
+          skuPrefix,
+          colors,
+          sizes,
+          material: matrixMaterial.trim(),
+          basePrice: draft.price.trim(),
+          compareAtPrice: "",
+          initialInventory: toInt(matrixInitialInventory, 0),
+          isActive: true,
+          existing: draft.variants.map((variant) => ({
+            color: variant.color ?? "",
+            size: variant.size ?? "",
+          })),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setMatrixFeedback(readValidationMessage(data, "Failed to generate variant matrix."));
+        return;
+      }
+
+      const rows = (data.rows as VariantMatrixRow[]) ?? [];
+      const newRows = rows.filter((row) => !row.exists);
+
+      if (newRows.length === 0) {
+        setMatrixFeedback("All combinations already exist in this draft.");
+        return;
+      }
+
+      onDraftChange((prev) => {
+        const nextSortOrderStart = prev.variants.length;
+        const appended: ProductVariantItem[] = newRows.map((row, index) => ({
+          sku: row.sku,
+          name: row.name,
+          color: row.color,
+          size: row.size,
+          material: row.material ?? "",
+          price: row.price ?? "",
+          compareAtPrice: row.compareAtPrice ?? "",
+          inventory: row.initialInventory,
+          initialInventory: row.initialInventory,
+          isActive: row.isActive,
+          sortOrder: nextSortOrderStart + index,
+        }));
+
+        return {
+          ...prev,
+          variants: [...prev.variants, ...appended],
+        };
+      });
+
+      setMatrixFeedback(
+        `Generated ${data.summary.newRows} new variants (${data.summary.existing} already existed).`
+      );
+    } catch {
+      setMatrixFeedback("Unexpected error while generating variants.");
+    } finally {
+      setGeneratingMatrix(false);
+    }
+  }
+
+  function applyBulkVariantFields() {
+    if (selectedVariantIndexes.length === 0) {
+      setBulkFeedback("Select at least one variant first.");
+      return;
+    }
+
+    const shouldUpdateMaterial = bulkMaterial.trim().length > 0;
+    const shouldUpdatePrice = bulkPrice.trim().length > 0;
+    const shouldUpdateCompareAtPrice = bulkCompareAtPrice.trim().length > 0;
+    const shouldUpdateInventory = bulkInventory.trim().length > 0;
+    const shouldUpdateActive = bulkActiveState !== "";
+
+    if (
+      !shouldUpdateMaterial &&
+      !shouldUpdatePrice &&
+      !shouldUpdateCompareAtPrice &&
+      !shouldUpdateInventory &&
+      !shouldUpdateActive
+    ) {
+      setBulkFeedback("Set at least one field to apply.");
+      return;
+    }
+
+    const selected = new Set(selectedVariantIndexes);
+    const selectedWithStock = draft.variants.filter(
+      (variant, index) => selected.has(index) && (variant.inventory ?? 0) > 0
+    ).length;
+    if (shouldUpdateActive && bulkActiveState === "false" && selectedWithStock > 0) {
+      const confirmed = window.confirm(
+        `${selectedWithStock} selected variant(s) still have stock and will be set inactive. Continue?`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    const inventoryValue = toInt(bulkInventory, 0);
+    const inventoryKey: "inventory" | "initialInventory" =
+      mode === "create" ? "inventory" : "initialInventory";
+
+    onDraftChange((prev) => ({
+      ...prev,
+      variants: prev.variants.map((variant, index) => {
+        if (!selected.has(index)) {
+          return variant;
+        }
+
+        return {
+          ...variant,
+          material: shouldUpdateMaterial ? bulkMaterial.trim() : variant.material,
+          price: shouldUpdatePrice ? bulkPrice.trim() : variant.price,
+          compareAtPrice: shouldUpdateCompareAtPrice
+            ? bulkCompareAtPrice.trim()
+            : variant.compareAtPrice,
+          isActive:
+            shouldUpdateActive ? bulkActiveState === "true" : variant.isActive,
+          [inventoryKey]: shouldUpdateInventory ? Math.max(0, inventoryValue) : variant[inventoryKey],
+        };
+      }),
+    }));
+
+    setBulkFeedback(`Updated ${selectedVariantIndexes.length} selected variants.`);
+  }
+
+  function removeSelectedVariants() {
+    if (selectedVariantIndexes.length === 0) {
+      setBulkFeedback("Select variants to remove.");
+      return;
+    }
+
+    const selected = new Set(selectedVariantIndexes);
+    const selectedWithStock = draft.variants.filter(
+      (variant, index) => selected.has(index) && (variant.inventory ?? 0) > 0
+    ).length;
+    const confirmMessage =
+      selectedWithStock > 0
+        ? `You are removing ${selectedVariantIndexes.length} variant(s), including ${selectedWithStock} with stock. Continue?`
+        : `Remove ${selectedVariantIndexes.length} selected variant(s)?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    onDraftChange((prev) => {
+      const filtered = prev.variants
+        .filter((_, index) => !selected.has(index))
+        .map((variant, index) => ({ ...variant, sortOrder: index }));
+
+      return {
+        ...prev,
+        variants: filtered.length > 0 ? filtered : [makeEmptyVariant(0)],
+      };
+    });
+
+    setSelectedVariantIndexes([]);
+    setBulkFeedback("Removed selected variants.");
+  }
+
+  function normalizeVariantSortOrder() {
+    onDraftChange((prev) => ({
+      ...prev,
+      variants: prev.variants.map((variant, index) => ({
+        ...variant,
+        sortOrder: index,
+      })),
+    }));
+    setBulkFeedback("Normalized variant sort order.");
+  }
+
+  function duplicateSelectedVariants() {
+    if (selectedVariantIndexes.length === 0) {
+      setBulkFeedback("Select variants to duplicate.");
+      return;
+    }
+
+    const selected = new Set(selectedVariantIndexes);
+    onDraftChange((prev) => {
+      const clones = prev.variants
+        .filter((_, index) => selected.has(index))
+        .map((variant, offset) => ({
+          ...variant,
+          id: undefined,
+          sku: `${variant.sku}-COPY-${offset + 1}`,
+          initialInventory: 0,
+          inventory: mode === "create" ? variant.inventory ?? 0 : 0,
+          sortOrder: prev.variants.length + offset,
+        }));
+
+      return {
+        ...prev,
+        variants: [...prev.variants, ...clones],
+      };
+    });
+
+    setBulkFeedback(`Duplicated ${selectedVariantIndexes.length} variants.`);
+  }
+
+  function autofillSelectedVariantIdentity() {
+    if (selectedVariantIndexes.length === 0) {
+      setBulkFeedback("Select variants first.");
+      return;
+    }
+
+    const selected = new Set(selectedVariantIndexes);
+    const skuPrefix = toSkuToken(bulkSkuPrefix || draft.slug);
+    const namePrefix = bulkNamePrefix.trim() || draft.name.trim();
+    if (!skuPrefix || !namePrefix) {
+      setBulkFeedback("SKU prefix and name prefix are required.");
+      return;
+    }
+
+    onDraftChange((prev) => {
+      const usedSku = new Set(
+        prev.variants
+          .map((variant, index) => (selected.has(index) ? "" : variant.sku.trim().toUpperCase()))
+          .filter(Boolean)
+      );
+
+      const nextVariants = prev.variants.map((variant, index) => {
+        if (!selected.has(index)) {
+          return variant;
+        }
+
+        const color = (variant.color ?? "").trim();
+        const size = (variant.size ?? "").trim();
+        let candidateSku = variant.sku.trim().toUpperCase();
+
+        if (!candidateSku) {
+          const core = `${skuPrefix}-${toSkuToken(color || "NA")}-${toSkuToken(size || "NA")}`;
+          candidateSku = core;
+          let seq = 2;
+          while (usedSku.has(candidateSku)) {
+            candidateSku = `${core}-${seq}`;
+            seq += 1;
+          }
+        } else if (usedSku.has(candidateSku)) {
+          const core = `${skuPrefix}-${toSkuToken(color || "NA")}-${toSkuToken(size || "NA")}`;
+          candidateSku = core;
+          let seq = 2;
+          while (usedSku.has(candidateSku)) {
+            candidateSku = `${core}-${seq}`;
+            seq += 1;
+          }
+        }
+
+        usedSku.add(candidateSku);
+        return {
+          ...variant,
+          sku: candidateSku,
+          name: variant.name.trim() || `${namePrefix} - ${color || "Default"} / ${size || "Default"}`,
+        };
+      });
+
+      return {
+        ...prev,
+        variants: nextVariants,
+      };
+    });
+
+    setBulkFeedback("Auto-filled selected variant names and SKUs.");
+  }
+
+  function applySelectedPreset() {
+    const preset = presets.find((item) => item.id === selectedPresetId);
+    if (!preset) {
+      setPresetFeedback("Select a preset first.");
+      return;
+    }
+
+    setMatrixNamePrefix(preset.namePrefix);
+    setMatrixSkuPrefix(preset.skuPrefix);
+    setMatrixMaterial(preset.material);
+    setMatrixColors(preset.colors.join(", "));
+    setMatrixSizes(preset.sizes.join(", "));
+    setPresetFeedback(`Applied preset: ${preset.name}`);
+  }
+
+  function validateStep(step: EditorStep): string | null {
+    if (step === "BASICS") {
+      if (!draft.name.trim()) return "Product name is required.";
+      if (!draft.slug.trim()) return "Product slug is required.";
+      if (!draft.price.trim()) return "Base price is required.";
+      if (!draft.categoryId.trim()) return "Category is required.";
+    }
+
+    if (step === "IMAGES") {
+      const hasImage = draft.images.some((image) => image.url.trim().length > 0);
+      if (!hasImage) return "Add at least one image URL or upload an image.";
+    }
+
+    if (step === "VARIANTS") {
+      if (variantDiagnostics.hasBlocking) {
+        return "Resolve variant warnings before moving to review.";
+      }
+    }
+
+    return null;
+  }
+
+  function goToNextStep() {
+    const error = validateStep(currentStep);
+    if (error) {
+      setStepFeedback(error);
+      return;
+    }
+
+    const currentIndex = editorSteps.indexOf(currentStep);
+    if (currentIndex < editorSteps.length - 1) {
+      setCurrentStep(editorSteps[currentIndex + 1]);
+      setStepFeedback("");
+    }
+  }
+
+  function goToPreviousStep() {
+    const currentIndex = editorSteps.indexOf(currentStep);
+    if (currentIndex > 0) {
+      setCurrentStep(editorSteps[currentIndex - 1]);
+      setStepFeedback("");
+    }
+  }
 
   return (
     <div className="space-y-4">
+      <div className="rounded-md border border-sepia-border/70 bg-paper-light/30 p-3">
+        <p className="mb-2 text-xs uppercase tracking-[0.08em] text-charcoal">Editor Steps</p>
+        <div className="flex flex-wrap gap-2">
+          {editorSteps.map((step) => (
+            <button
+              key={step}
+              type="button"
+              className={`border px-3 py-1.5 text-xs uppercase tracking-[0.08em] ${
+                currentStep === step
+                  ? "border-ink bg-ink text-paper-light"
+                  : "border-sepia-border text-charcoal"
+              }`}
+              onClick={() => {
+                setCurrentStep(step);
+                setStepFeedback("");
+              }}
+            >
+              {editorStepLabel(step)}
+            </button>
+          ))}
+        </div>
+        {stepFeedback ? <p className="mt-2 text-xs text-seal-wax">{stepFeedback}</p> : null}
+      </div>
+
+      <div className={currentStep === "BASICS" ? "space-y-4" : "hidden"}>
+      {mode === "create" ? (
+        <p className="text-xs text-charcoal">
+          Variant image mapping is available after first save (when variant IDs exist).
+        </p>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <input
           value={draft.name}
@@ -857,8 +1384,9 @@ function ProductFormFields({
           ))}
         </select>
       </div>
+      </div>
 
-      <div className="space-y-2 rounded-md border border-sepia-border p-3">
+      <div className={`${currentStep === "IMAGES" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-ink">Images</h3>
           <div className="flex flex-wrap items-center gap-2">
@@ -888,7 +1416,10 @@ function ProductFormFields({
               onClick={() =>
                 onDraftChange((prev) => ({
                   ...prev,
-                  images: [...prev.images, { url: "", alt: "", sortOrder: prev.images.length }],
+                  images: [
+                    ...prev.images,
+                    { url: "", alt: "", variantId: null, sortOrder: prev.images.length },
+                  ],
                 }))
               }
             >
@@ -897,7 +1428,10 @@ function ProductFormFields({
           </div>
         </div>
         {draft.images.map((image, index) => (
-          <div key={`image-${index}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_100px_auto]">
+          <div
+            key={`image-${index}`}
+            className="grid gap-2 sm:grid-cols-[1fr_1fr_180px_100px_auto]"
+          >
             <input
               value={image.url}
               onChange={(event) => onImageChange(index, "url", event.target.value)}
@@ -910,6 +1444,22 @@ function ProductFormFields({
               placeholder="Alt text"
               className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
             />
+            <select
+              value={image.variantId ?? ""}
+              onChange={(event) => onImageChange(index, "variantId", event.target.value)}
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            >
+              <option value="">Unassigned (all variants)</option>
+              {draft.variants
+                .filter((variant): variant is ProductVariantItem & { id: string } => Boolean(variant.id))
+                .map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.sku} {variant.color ? `(${variant.color}` : ""}{" "}
+                    {variant.size ? `${variant.color ? "/" : "("}${variant.size}` : ""}
+                    {variant.color || variant.size ? ")" : ""}
+                  </option>
+                ))}
+            </select>
             <input
               type="number"
               value={image.sortOrder}
@@ -933,41 +1483,140 @@ function ProductFormFields({
         ))}
       </div>
 
-      <div className="space-y-2 rounded-md border border-sepia-border p-3">
-        <div className="flex items-center justify-between">
+      <div className={`${currentStep === "VARIANTS" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-ink">Variants</h3>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() =>
-              onDraftChange((prev) =>
-                ({
-                  ...prev,
-                  variants: [
-                    ...prev.variants,
-                    {
-                      sku: "",
-                      name: "",
-                      color: "",
-                      size: "",
-                      material: "",
-                      price: "",
-                      compareAtPrice: "",
-                      inventory: 0,
-                      initialInventory: 0,
-                      isActive: true,
-                      sortOrder: prev.variants.length,
-                    },
-                  ],
-                })
-              )
-            }
-          >
-            Add Variant
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setSelectedVariantIndexes(draft.variants.map((_, index) => index))}
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setSelectedVariantIndexes([])}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() =>
+                onDraftChange((prev) =>
+                  ({
+                    ...prev,
+                    variants: [...prev.variants, makeEmptyVariant(prev.variants.length)],
+                  })
+                )
+              }
+            >
+              Add Variant
+            </button>
+          </div>
         </div>
+        <p className="text-xs text-charcoal">{selectedVariantIndexes.length} selected</p>
+
+        <div className="space-y-2 rounded-md border border-sepia-border/70 p-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-charcoal">
+            Bulk Apply to Selected
+          </h4>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              value={bulkNamePrefix}
+              onChange={(event) => setBulkNamePrefix(event.target.value)}
+              placeholder="Name prefix for autofill"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={bulkSkuPrefix}
+              onChange={(event) => setBulkSkuPrefix(event.target.value)}
+              placeholder="SKU prefix for autofill"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              value={bulkMaterial}
+              onChange={(event) => setBulkMaterial(event.target.value)}
+              placeholder="Material"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={bulkPrice}
+              onChange={(event) => setBulkPrice(event.target.value)}
+              placeholder="Price"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={bulkCompareAtPrice}
+              onChange={(event) => setBulkCompareAtPrice(event.target.value)}
+              placeholder="Compare-at price"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              value={bulkInventory}
+              onChange={(event) => setBulkInventory(event.target.value)}
+              placeholder={mode === "create" ? "Inventory" : "Initial inventory"}
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <select
+              value={bulkActiveState}
+              onChange={(event) => setBulkActiveState(event.target.value as "" | "true" | "false")}
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            >
+              <option value="">Leave active state unchanged</option>
+              <option value="true">Set active</option>
+              <option value="false">Set inactive</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn-secondary" onClick={applyBulkVariantFields}>
+              Apply Bulk Changes
+            </button>
+            <button type="button" className="btn-secondary" onClick={autofillSelectedVariantIdentity}>
+              Auto-fill Name/SKU
+            </button>
+            <button type="button" className="btn-secondary" onClick={duplicateSelectedVariants}>
+              Duplicate Selected
+            </button>
+            <button type="button" className="btn-secondary" onClick={normalizeVariantSortOrder}>
+              Normalize Sort Order
+            </button>
+            <button type="button" className="btn-secondary" onClick={removeSelectedVariants}>
+              Remove Selected
+            </button>
+            {bulkFeedback ? <p className="text-xs text-charcoal">{bulkFeedback}</p> : null}
+          </div>
+        </div>
+
         {draft.variants.map((variant, index) => (
-          <div key={`variant-${variant.id ?? index}`} className="rounded-md border border-sepia-border/70 p-3">
+          <div
+            key={`variant-${variant.id ?? index}`}
+            className={`rounded-md border p-3 ${
+              (variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0
+                ? "border-seal-wax/70 bg-seal-wax/5"
+                : "border-sepia-border/70"
+            }`}
+          >
+            <label className="mb-2 inline-flex items-center gap-2 text-xs text-charcoal">
+              <input
+                type="checkbox"
+                checked={selectedVariantIndexes.includes(index)}
+                onChange={(event) =>
+                  setSelectedVariantIndexes((prev) => {
+                    if (event.target.checked) {
+                      return [...prev, index].sort((a, b) => a - b);
+                    }
+                    return prev.filter((item) => item !== index);
+                  })
+                }
+              />
+              Select
+            </label>
             <div className="grid gap-2 sm:grid-cols-2">
               <input
                 value={variant.sku}
@@ -1048,7 +1697,17 @@ function ProductFormFields({
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() =>
+                onClick={() => {
+                  const hasStock = (variant.inventory ?? 0) > 0;
+                  const confirmed = window.confirm(
+                    hasStock
+                      ? `This variant has stock (${variant.inventory ?? 0}). Remove it anyway?`
+                      : "Remove this variant?"
+                  );
+                  if (!confirmed) {
+                    return;
+                  }
+
                   onDraftChange((prev) =>
                     prev.variants.length > 1
                       ? {
@@ -1056,14 +1715,136 @@ function ProductFormFields({
                           variants: prev.variants.filter((_, itemIndex) => itemIndex !== index),
                         }
                       : prev
-                  )
-                }
+                  );
+                }}
               >
                 Remove Variant
               </button>
             </div>
+            {(variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0 ? (
+              <ul className="mt-2 list-disc pl-5 text-xs text-seal-wax">
+                {variantDiagnostics.issuesByIndex[index].map((issue) => (
+                  <li key={`${index}-${issue}`}>{issue}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         ))}
+      </div>
+
+      <div className={`${currentStep === "VARIANTS" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-3`}>
+        <h3 className="text-sm font-semibold text-ink">Variant Matrix Generator</h3>
+        <p className="text-xs text-charcoal">
+          Generate color x size combinations and append only missing variants.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <select
+            value={selectedPresetId}
+            onChange={(event) => setSelectedPresetId(event.target.value)}
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          >
+            <option value="">Select preset</option>
+            {presets.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.name}
+              </option>
+            ))}
+          </select>
+          <button type="button" className="btn-secondary" onClick={applySelectedPreset}>
+            Apply Preset
+          </button>
+        </div>
+        {presetFeedback ? <p className="text-xs text-charcoal">{presetFeedback}</p> : null}
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input
+            value={matrixNamePrefix}
+            onChange={(event) => setMatrixNamePrefix(event.target.value)}
+            placeholder="Name prefix (e.g. Core Hoodie)"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <input
+            value={matrixSkuPrefix}
+            onChange={(event) => setMatrixSkuPrefix(event.target.value)}
+            placeholder="SKU prefix (e.g. CORE-HOODIE)"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <textarea
+            value={matrixColors}
+            onChange={(event) => setMatrixColors(event.target.value)}
+            placeholder="Colors (comma or newline separated)"
+            className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <textarea
+            value={matrixSizes}
+            onChange={(event) => setMatrixSizes(event.target.value)}
+            placeholder="Sizes (comma or newline separated)"
+            className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <input
+            value={matrixMaterial}
+            onChange={(event) => setMatrixMaterial(event.target.value)}
+            placeholder="Material (optional)"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            value={matrixInitialInventory}
+            onChange={(event) => setMatrixInitialInventory(event.target.value)}
+            placeholder="Initial inventory"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void generateVariantsFromMatrix()}
+            disabled={generatingMatrix}
+            className="btn-secondary disabled:opacity-60"
+          >
+            {generatingMatrix ? "Generating..." : "Generate Missing Variants"}
+          </button>
+          {matrixFeedback ? <p className="text-xs text-charcoal">{matrixFeedback}</p> : null}
+        </div>
+      </div>
+
+      <section className={`${currentStep === "REVIEW" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-4`}>
+        <h3 className="text-lg font-semibold text-ink">Review Before Save</h3>
+        <div className="grid gap-2 text-sm text-charcoal sm:grid-cols-2">
+          <p><span className="font-semibold text-ink">Name:</span> {draft.name || "-"}</p>
+          <p><span className="font-semibold text-ink">Slug:</span> {draft.slug || "-"}</p>
+          <p>
+            <span className="font-semibold text-ink">Category:</span>{" "}
+            {categories.find((item) => item.id === draft.categoryId)?.name ?? "-"}
+          </p>
+          <p><span className="font-semibold text-ink">Base Price:</span> {draft.price || "-"} {draft.currency}</p>
+          <p><span className="font-semibold text-ink">Images:</span> {draft.images.filter((image) => image.url.trim()).length}</p>
+          <p><span className="font-semibold text-ink">Variants:</span> {draft.variants.length}</p>
+          <p><span className="font-semibold text-ink">Active Variants:</span> {draft.variants.filter((variant) => variant.isActive).length}</p>
+          <p><span className="font-semibold text-ink">New Variants:</span> {draft.variants.filter((variant) => !variant.id).length}</p>
+        </div>
+        <p className="text-xs text-charcoal">
+          Use the Save/Create button below when this summary looks correct.
+        </p>
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sepia-border/60 pt-3">
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={goToPreviousStep}
+          disabled={currentStep === "BASICS"}
+        >
+          Back
+        </button>
+        <p className="text-xs uppercase tracking-[0.08em] text-charcoal">{editorStepLabel(currentStep)}</p>
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={goToNextStep}
+          disabled={currentStep === "REVIEW"}
+        >
+          Next
+        </button>
       </div>
     </div>
   );

@@ -6,10 +6,12 @@ const priceStringSchema = z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Invalid 
 const productImageInputSchema = z.object({
   url: z.string().trim().url(),
   alt: z.string().trim().max(255).optional().or(z.literal("")),
+  variantId: z.string().uuid().optional().or(z.literal("")),
   sortOrder: z.number().int().min(0).max(1000),
 });
 
 const createVariantInputSchema = z.object({
+  id: z.string().uuid().optional(),
   sku: z.string().trim().min(2).max(64),
   name: z.string().trim().min(2).max(120),
   color: z.string().trim().max(64).optional().or(z.literal("")),
@@ -65,6 +67,48 @@ export const adminInventoryAdjustmentSchema = z.object({
   note: z.string().trim().min(4).max(500),
 });
 
+const matrixOptionValueSchema = z.string().trim().min(1).max(64);
+
+export const adminVariantMatrixGenerateSchema = z
+  .object({
+    namePrefix: z.string().trim().min(2).max(120),
+    skuPrefix: z.string().trim().min(2).max(64),
+    colors: z.array(matrixOptionValueSchema).min(1).max(30),
+    sizes: z.array(matrixOptionValueSchema).min(1).max(30),
+    material: z.string().trim().max(64).optional().or(z.literal("")),
+    basePrice: priceStringSchema.optional().or(z.literal("")),
+    compareAtPrice: priceStringSchema.optional().or(z.literal("")),
+    initialInventory: z.number().int().min(0).max(100000).default(0),
+    isActive: z.boolean().default(true),
+    existing: z
+      .array(
+        z.object({
+          color: z.string().trim().max(64),
+          size: z.string().trim().max(64),
+        })
+      )
+      .max(500)
+      .optional()
+      .default([]),
+  })
+  .superRefine((value, ctx) => {
+    if (value.colors.length * value.sizes.length > 200) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Variant matrix is too large. Keep combinations to 200 or fewer.",
+        path: ["colors"],
+      });
+    }
+  });
+
 export type AdminCatalogCreateInput = z.infer<typeof adminCatalogCreateSchema>;
 export type AdminCatalogUpdateInput = z.infer<typeof adminCatalogUpdateSchema>;
 export type AdminInventoryAdjustmentInput = z.infer<typeof adminInventoryAdjustmentSchema>;
+export type AdminVariantMatrixGenerateInput = z.infer<typeof adminVariantMatrixGenerateSchema>;
+
+export const adminCatalogDraftValidationSchema = z.object({
+  productId: z.string().uuid().optional(),
+  variants: z.array(createVariantInputSchema).min(1).max(300),
+});
+
+export type AdminCatalogDraftValidationInput = z.infer<typeof adminCatalogDraftValidationSchema>;

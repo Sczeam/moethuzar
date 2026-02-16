@@ -30,6 +30,7 @@ export default async function ProductPage({
           id: image.id,
           url: image.url,
           alt: image.alt,
+          variantId: image.variantId ?? null,
         })),
         variants: product.variants.map((variant: ActiveProductVariant) => ({
           id: variant.id,
