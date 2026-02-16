@@ -87,6 +87,15 @@ type ProductDraft = {
 type DraftSetter = (updater: (prev: ProductDraft) => ProductDraft) => void;
 
 const statusOptions: ProductStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
+const editorSteps = ["BASICS", "IMAGES", "VARIANTS", "REVIEW"] as const;
+type EditorStep = (typeof editorSteps)[number];
+
+function editorStepLabel(step: EditorStep): string {
+  if (step === "BASICS") return "Basics";
+  if (step === "IMAGES") return "Images";
+  if (step === "VARIANTS") return "Variants";
+  return "Review";
+}
 
 function makeEmptyVariant(sortOrder: number): ProductVariantItem {
   return {
@@ -873,6 +882,8 @@ function ProductFormFields({
   const [presets, setPresets] = useState<VariantPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [presetFeedback, setPresetFeedback] = useState("");
+  const [currentStep, setCurrentStep] = useState<EditorStep>("BASICS");
+  const [stepFeedback, setStepFeedback] = useState("");
 
   useEffect(() => {
     if (!matrixSkuPrefix && draft.slug) {
@@ -1209,8 +1220,78 @@ function ProductFormFields({
     setPresetFeedback(`Applied preset: ${preset.name}`);
   }
 
+  function validateStep(step: EditorStep): string | null {
+    if (step === "BASICS") {
+      if (!draft.name.trim()) return "Product name is required.";
+      if (!draft.slug.trim()) return "Product slug is required.";
+      if (!draft.price.trim()) return "Base price is required.";
+      if (!draft.categoryId.trim()) return "Category is required.";
+    }
+
+    if (step === "IMAGES") {
+      const hasImage = draft.images.some((image) => image.url.trim().length > 0);
+      if (!hasImage) return "Add at least one image URL or upload an image.";
+    }
+
+    if (step === "VARIANTS") {
+      const invalidVariant = draft.variants.find(
+        (variant) => !variant.sku.trim() || !variant.name.trim()
+      );
+      if (invalidVariant) return "Every variant must include SKU and name.";
+    }
+
+    return null;
+  }
+
+  function goToNextStep() {
+    const error = validateStep(currentStep);
+    if (error) {
+      setStepFeedback(error);
+      return;
+    }
+
+    const currentIndex = editorSteps.indexOf(currentStep);
+    if (currentIndex < editorSteps.length - 1) {
+      setCurrentStep(editorSteps[currentIndex + 1]);
+      setStepFeedback("");
+    }
+  }
+
+  function goToPreviousStep() {
+    const currentIndex = editorSteps.indexOf(currentStep);
+    if (currentIndex > 0) {
+      setCurrentStep(editorSteps[currentIndex - 1]);
+      setStepFeedback("");
+    }
+  }
+
   return (
     <div className="space-y-4">
+      <div className="rounded-md border border-sepia-border/70 bg-paper-light/30 p-3">
+        <p className="mb-2 text-xs uppercase tracking-[0.08em] text-charcoal">Editor Steps</p>
+        <div className="flex flex-wrap gap-2">
+          {editorSteps.map((step) => (
+            <button
+              key={step}
+              type="button"
+              className={`border px-3 py-1.5 text-xs uppercase tracking-[0.08em] ${
+                currentStep === step
+                  ? "border-ink bg-ink text-paper-light"
+                  : "border-sepia-border text-charcoal"
+              }`}
+              onClick={() => {
+                setCurrentStep(step);
+                setStepFeedback("");
+              }}
+            >
+              {editorStepLabel(step)}
+            </button>
+          ))}
+        </div>
+        {stepFeedback ? <p className="mt-2 text-xs text-seal-wax">{stepFeedback}</p> : null}
+      </div>
+
+      <div className={currentStep === "BASICS" ? "space-y-4" : "hidden"}>
       {mode === "create" ? (
         <p className="text-xs text-charcoal">
           Variant image mapping is available after first save (when variant IDs exist).
@@ -1289,8 +1370,9 @@ function ProductFormFields({
           ))}
         </select>
       </div>
+      </div>
 
-      <div className="space-y-2 rounded-md border border-sepia-border p-3">
+      <div className={`${currentStep === "IMAGES" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-ink">Images</h3>
           <div className="flex flex-wrap items-center gap-2">
@@ -1387,7 +1469,7 @@ function ProductFormFields({
         ))}
       </div>
 
-      <div className="space-y-2 rounded-md border border-sepia-border p-3">
+      <div className={`${currentStep === "VARIANTS" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-ink">Variants</h3>
           <div className="flex flex-wrap items-center gap-2">
@@ -1612,7 +1694,7 @@ function ProductFormFields({
         ))}
       </div>
 
-      <div className="space-y-3 rounded-md border border-sepia-border p-3">
+      <div className={`${currentStep === "VARIANTS" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-3`}>
         <h3 className="text-sm font-semibold text-ink">Variant Matrix Generator</h3>
         <p className="text-xs text-charcoal">
           Generate color x size combinations and append only missing variants.
@@ -1685,6 +1767,46 @@ function ProductFormFields({
           </button>
           {matrixFeedback ? <p className="text-xs text-charcoal">{matrixFeedback}</p> : null}
         </div>
+      </div>
+
+      <section className={`${currentStep === "REVIEW" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-4`}>
+        <h3 className="text-lg font-semibold text-ink">Review Before Save</h3>
+        <div className="grid gap-2 text-sm text-charcoal sm:grid-cols-2">
+          <p><span className="font-semibold text-ink">Name:</span> {draft.name || "-"}</p>
+          <p><span className="font-semibold text-ink">Slug:</span> {draft.slug || "-"}</p>
+          <p>
+            <span className="font-semibold text-ink">Category:</span>{" "}
+            {categories.find((item) => item.id === draft.categoryId)?.name ?? "-"}
+          </p>
+          <p><span className="font-semibold text-ink">Base Price:</span> {draft.price || "-"} {draft.currency}</p>
+          <p><span className="font-semibold text-ink">Images:</span> {draft.images.filter((image) => image.url.trim()).length}</p>
+          <p><span className="font-semibold text-ink">Variants:</span> {draft.variants.length}</p>
+          <p><span className="font-semibold text-ink">Active Variants:</span> {draft.variants.filter((variant) => variant.isActive).length}</p>
+          <p><span className="font-semibold text-ink">New Variants:</span> {draft.variants.filter((variant) => !variant.id).length}</p>
+        </div>
+        <p className="text-xs text-charcoal">
+          Use the Save/Create button below when this summary looks correct.
+        </p>
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sepia-border/60 pt-3">
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={goToPreviousStep}
+          disabled={currentStep === "BASICS"}
+        >
+          Back
+        </button>
+        <p className="text-xs uppercase tracking-[0.08em] text-charcoal">{editorStepLabel(currentStep)}</p>
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={goToNextStep}
+          disabled={currentStep === "REVIEW"}
+        >
+          Next
+        </button>
       </div>
     </div>
   );
