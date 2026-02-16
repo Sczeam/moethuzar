@@ -1,6 +1,7 @@
 import { AppError } from "@/server/errors";
 import { logError } from "@/lib/observability";
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 
 type RouteErrorOptions = {
@@ -15,6 +16,38 @@ function getRequestId(request: Request): string {
 }
 
 function toErrorPayload(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      const target =
+        Array.isArray(error.meta?.target) && error.meta?.target.length > 0
+          ? error.meta.target.join(", ")
+          : "unique field";
+
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          code: "CONFLICT",
+          error: `A record with the same ${target} already exists.`,
+        },
+        logCode: "CONFLICT",
+      };
+    }
+
+    if (error.code === "P2021") {
+      return {
+        status: 500,
+        body: {
+          ok: false as const,
+          code: "SCHEMA_NOT_SYNCED",
+          error:
+            "Database schema is not up to date. Please run the latest Prisma migration.",
+        },
+        logCode: "SCHEMA_NOT_SYNCED",
+      };
+    }
+  }
+
   if (error instanceof ZodError) {
     return {
       status: 400,

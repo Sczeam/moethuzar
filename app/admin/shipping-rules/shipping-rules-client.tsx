@@ -96,6 +96,36 @@ function inferFallbackFromZoneKey(zoneKey: string) {
   return zoneKey.trim().toUpperCase().replace(/\s+/g, "_") === FALLBACK_SHIPPING_ZONE_KEY;
 }
 
+function apiErrorText(data: unknown, fallback: string) {
+  if (!data || typeof data !== "object") {
+    return fallback;
+  }
+
+  const payload = data as {
+    error?: unknown;
+    code?: unknown;
+    requestId?: unknown;
+  };
+
+  const errorText = typeof payload.error === "string" ? payload.error : fallback;
+  const codeText = typeof payload.code === "string" ? payload.code : null;
+  const requestIdText = typeof payload.requestId === "string" ? payload.requestId : null;
+
+  if (codeText && requestIdText) {
+    return `${errorText} (${codeText}, requestId: ${requestIdText})`;
+  }
+
+  if (codeText) {
+    return `${errorText} (${codeText})`;
+  }
+
+  if (requestIdText) {
+    return `${errorText} (requestId: ${requestIdText})`;
+  }
+
+  return errorText;
+}
+
 export default function ShippingRulesClient() {
   const [rules, setRules] = useState<ShippingRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,7 +150,7 @@ export default function ShippingRulesClient() {
       const response = await fetch("/api/admin/shipping-rules");
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to load shipping rules.");
+        setStatusText(apiErrorText(data, "Failed to load shipping rules."));
         return;
       }
 
@@ -150,7 +180,7 @@ export default function ShippingRulesClient() {
 
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to create shipping rule.");
+        setStatusText(apiErrorText(data, "Failed to create shipping rule."));
         return;
       }
 
@@ -182,7 +212,7 @@ export default function ShippingRulesClient() {
 
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to update shipping rule.");
+        setStatusText(apiErrorText(data, "Failed to update shipping rule."));
         return;
       }
 
@@ -205,7 +235,7 @@ export default function ShippingRulesClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to delete shipping rule.");
+        setStatusText(apiErrorText(data, "Failed to delete shipping rule."));
         return;
       }
 
