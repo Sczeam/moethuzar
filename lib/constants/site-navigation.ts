@@ -9,5 +9,4 @@ export const SITE_NAV_ITEMS: SiteNavItem[] = [
   { href: "/search", label: "Search" },
   { href: "/cart", label: "Cart" },
   { href: "/order/track", label: "Track Order" },
-  { href: "/contact", label: "Contact" },
 ];

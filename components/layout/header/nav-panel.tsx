@@ -123,6 +123,24 @@ export function HeaderNavPanel({
             </button>
           </form>
         </div>
+
+        <div className="mt-8 border-t border-paper-light/20 pt-5">
+          <p className="text-xs uppercase tracking-[0.2em] text-aged-gold">Utility (coming soon)</p>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {["Contact", "Favourites", "Account"].map((item) => (
+              <button
+                key={item}
+                type="button"
+                disabled
+                aria-disabled="true"
+                title="Coming soon"
+                className="min-h-9 border border-paper-light/25 px-2 py-1 text-[11px] uppercase tracking-[0.1em] text-paper-light/50"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
