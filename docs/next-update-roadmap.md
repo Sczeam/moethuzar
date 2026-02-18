@@ -1,6 +1,6 @@
 # Next Update Roadmap
 
-Last updated: 15 February 2026
+Last updated: 18 February 2026
 
 ## Goal
 Ship the next commerce upgrade set with high business impact and low operational risk for a COD-first Myanmar apparel store.
@@ -103,6 +103,103 @@ Current product authoring flow is too manual and error-prone for apparel combina
 - Variant bulk edits reduce repeated manual input significantly.
 - Catalog creation/editing support load drops (fewer admin input mistakes).
 
+## Phase F: Storefront UX + Conversion Polish
+
+### Why
+Storefront browsing currently has high interaction cost. For example, product cards show only name, so customers must click deeper to see basic buying info.
+
+### High-Level Reanalysis Plan (Section by Section)
+
+#### 1) Global Layout Shell
+- Reassess spacing rhythm, section width strategy, and vertical flow consistency across home/search/PDP/cart/checkout.
+- Verify desktop/tablet/mobile behavior before section-specific polish to avoid local fixes that break globally.
+
+#### 2) Navbar + Navigation System
+- Re-evaluate discoverability of primary routes (home, shop/search, cart, track order).
+- Reassess rail/menu behavior on mobile vs desktop for clarity and minimal friction.
+- Validate interaction feedback, accessibility states, and motion subtlety.
+
+#### 3) Hero Section
+- Reassess content hierarchy (brand, supporting copy, CTA) and immediate user comprehension.
+- Validate balance between visual mood and practical shopping intent.
+- Ensure hero supports fast entry into product discovery.
+
+#### 4) Product Grid (Listing Layer)
+- Re-evaluate scan efficiency, information density, and card-to-card consistency.
+- Validate pagination/navigation discoverability and state clarity.
+- Ensure listing behavior remains strong across different image aspect ratios.
+
+#### 5) Product Card
+- Reassess which decision-critical data must be visible at card level (name, price, stock/availability signal).
+- Validate CTA clarity and hover/tap behavior for both desktop and touch devices.
+- Ensure card design reduces unnecessary click depth.
+
+#### 6) Search Experience
+- Reassess search entry, result readability, and query context.
+- Validate empty/no-result recovery paths and refinement guidance.
+- Ensure consistent card and sorting/filter interaction with main listing.
+
+#### 7) Product Detail Page (PDP)
+- Reassess gallery + purchase panel balance and visual priority.
+- Validate variant selection clarity (color/size availability), stock messaging, and add-to-cart confidence.
+- Ensure error/success feedback is explicit and low-friction.
+
+#### 8) Cart + Checkout Experience
+- Reassess readability of totals, shipping fee, and required actions.
+- Validate form clarity, validation messaging, and trust signals.
+- Ensure consistent styling and interaction model with storefront shell.
+
+#### 9) Trust + Policy + Footer Layer
+- Re-evaluate discoverability of terms/privacy/returns/contact and operational trust copy.
+- Validate whether support and policy entry points are visible at decision moments.
+
+#### 10) Accessibility + Performance Pass
+- Run contrast and focus-state review on updated storefront surfaces.
+- Reassess LCP/CLS-sensitive components (hero/listing images, interactive overlays).
+- Ensure motion remains optional and reduced-motion safe.
+
+### Execution Approach (High Level)
+- Step 1: Audit each section and capture issues by severity (`critical`, `important`, `polish`).
+- Step 2: Convert issues into grouped implementation batches (layout, interaction, content hierarchy).
+- Step 3: Ship section-wise improvements incrementally with visual + functional QA per batch.
+- Step 4: Run final storefront coherence pass to ensure one unified UX language.
+
+### Scope
+- Product card information upgrade:
+  - show primary price (or price range if variant prices differ)
+  - show quick stock signal (`In Stock`, `Low Stock`, `Sold Out`)
+  - show compact variant hints (e.g. color count / top sizes available)
+  - keep image hover behavior but improve content hierarchy for scanning
+- Product listing interaction polish:
+  - preserve current aesthetic but reduce "extra click" friction
+  - ensure card footer hierarchy (name, price, CTA) is consistent on all breakpoints
+  - strengthen empty/edge states for pagination/search results
+- PDP conversion polish:
+  - show selected variant summary clearly (color, size, unit price, stock status)
+  - prevent invalid combinations early and keep disabled states explicit
+  - add micro-feedback around add-to-cart success/failure
+- Search UX improvement:
+  - improve search result readability with same enriched product cards
+  - add applied-query context and clearer zero-result recovery actions
+- Mobile-first UX hardening:
+  - verify tap targets, spacing, sticky action behavior, and no overlap issues
+  - remove layout breaks and maintain fast visual scan on smaller devices
+- Accessibility + trust pass:
+  - ensure text contrast and interactive focus states meet accessibility baseline
+  - keep checkout/cart visual consistency and reduce ambiguous field states
+
+### Non-goals
+- Full recommendation engine/personalization
+- Ratings/reviews platform integration
+- Multi-language or multi-currency rollout
+
+### Acceptance criteria
+- Product cards on home/search show at least: name, price, stock signal.
+- Customers can identify buyability from listing pages without opening every PDP.
+- Mobile storefront flow (home -> PDP -> cart) works without layout breakage.
+- Search zero-results path clearly guides users back to product discovery.
+- Accessibility baseline is re-verified for updated storefront surfaces.
+
 ## Phase B: Customer Accounts + Order History
 
 ### Why
@@ -132,19 +229,22 @@ Improves daily operational visibility.
 
 ## Priority Order After Phase A
 1. Phase E (Admin UX Improvement)
-2. Phase C (Promotion Engine)
-3. Phase B (Customer Accounts + Order History)
-4. Phase D (Admin Ops Dashboard + Inventory Alerts)
+2. Phase F (Storefront UX + Conversion Polish)
+3. Phase C (Promotion Engine)
+4. Phase B (Customer Accounts + Order History)
+5. Phase D (Admin Ops Dashboard + Inventory Alerts)
 
 Rationale:
 - Phase E has the highest immediate operational impact and reduces daily admin friction.
-- Phase C is the fastest direct revenue lever after admin flow efficiency improves.
+- Phase F directly improves storefront conversion by lowering browse-to-cart friction.
+- Phase C is the next direct revenue lever after storefront readability and conversion flow improve.
 - Phase B improves retention, but guest checkout already covers current MVP conversion path.
 - Phase D is valuable for visibility but less urgent than core authoring and conversion levers.
 
 ## Suggested Branching / Delivery Strategy
 - `feat/shipping-rules-phase-a`
 - `feat/admin-ux-phase-e`
+- `feat/storefront-ux-phase-f`
 - `feat/promo-engine-phase-c`
 - `feat/customer-accounts-phase-b`
 - `feat/admin-ops-dashboard-phase-d`
