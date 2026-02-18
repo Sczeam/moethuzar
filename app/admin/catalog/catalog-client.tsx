@@ -689,7 +689,6 @@ export default function CatalogClient() {
                     <tr key={product.id} className="border-t border-sepia-border/60">
                       <td className="px-3 py-2">
                         <p className="font-semibold">{product.name}</p>
-                        <p className="text-xs text-charcoal/75">{product.slug}</p>
                       </td>
                       <td className="px-3 py-2">
                         <span className={`status-pill ${statusBadge(product.status)}`}>
@@ -900,7 +899,6 @@ function ProductFormFields({
   const [presetFeedback, setPresetFeedback] = useState("");
   const [currentStep, setCurrentStep] = useState<EditorStep>("BASICS");
   const [stepFeedback, setStepFeedback] = useState("");
-  const [autoSlugEnabled, setAutoSlugEnabled] = useState(mode === "create");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategorySlug, setNewCategorySlug] = useState("");
   const [autoCategorySlugEnabled, setAutoCategorySlugEnabled] = useState(true);
@@ -909,13 +907,7 @@ function ProductFormFields({
   const variantDiagnostics = useMemo(() => buildVariantDiagnostics(draft.variants), [draft.variants]);
 
   useEffect(() => {
-    if (mode === "edit") {
-      setAutoSlugEnabled(false);
-    }
-  }, [mode]);
-
-  useEffect(() => {
-    if (!autoSlugEnabled) {
+    if (mode !== "create") {
       return;
     }
 
@@ -925,7 +917,7 @@ function ProductFormFields({
     }
 
     onDraftChange((prev) => ({ ...prev, slug: generatedSlug }));
-  }, [autoSlugEnabled, draft.name, draft.slug, onDraftChange]);
+  }, [mode, draft.name, draft.slug, onDraftChange]);
 
   useEffect(() => {
     if (!autoCategorySlugEnabled) {
@@ -1338,7 +1330,9 @@ function ProductFormFields({
   function validateStep(step: EditorStep): string | null {
     if (step === "BASICS") {
       if (!draft.name.trim()) return "Product name is required.";
-      if (!draft.slug.trim()) return "Product slug is required.";
+      if (!draft.slug.trim()) {
+        return "Product name must include letters or numbers.";
+      }
       if (!draft.price.trim()) return "Base price is required.";
       if (!draft.categoryId.trim()) return "Category is required.";
     }
@@ -1411,7 +1405,7 @@ function ProductFormFields({
           Variant image mapping is available after first save (when variant IDs exist).
         </p>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-1">
         <input
           value={draft.name}
           onChange={(event) => {
@@ -1421,43 +1415,6 @@ function ProductFormFields({
           placeholder="Product name"
           className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
         />
-        <div className="space-y-2">
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-            <input
-              value={draft.slug}
-              onChange={(event) => {
-                setAutoSlugEnabled(false);
-                onDraftChange((prev) => ({ ...prev, slug: event.target.value }));
-              }}
-              placeholder="product-slug"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
-            />
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
-                const generatedSlug = slugify(draft.name);
-                if (!generatedSlug) {
-                  setStepFeedback("Enter a product name first to generate slug.");
-                  return;
-                }
-                setAutoSlugEnabled(true);
-                setStepFeedback("");
-                onDraftChange((prev) => ({ ...prev, slug: generatedSlug }));
-              }}
-            >
-              Regenerate
-            </button>
-          </div>
-          <label className="inline-flex items-center gap-2 text-xs text-charcoal">
-            <input
-              type="checkbox"
-              checked={autoSlugEnabled}
-              onChange={(event) => setAutoSlugEnabled(event.target.checked)}
-            />
-            Auto-generate slug from product name
-          </label>
-        </div>
       </div>
 
       <textarea
@@ -1985,7 +1942,6 @@ function ProductFormFields({
         <h3 className="text-lg font-semibold text-ink">Review Before Save</h3>
         <div className="grid gap-2 text-sm text-charcoal sm:grid-cols-2">
           <p><span className="font-semibold text-ink">Name:</span> {draft.name || "-"}</p>
-          <p><span className="font-semibold text-ink">Slug:</span> {draft.slug || "-"}</p>
           <p>
             <span className="font-semibold text-ink">Category:</span>{" "}
             {categories.find((item) => item.id === draft.categoryId)?.name ?? "-"}
