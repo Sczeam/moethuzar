@@ -1,35 +1,41 @@
 # Moethuzar
 
-Production-oriented apparel storefront built with Next.js App Router, Prisma, Supabase Postgres, Supabase SSR auth, and Cloudflare R2.
+Production-oriented apparel storefront for Myanmar, built with Next.js App Router, Prisma, Supabase Postgres/Auth, and Cloudflare R2.
 
-## References
+## Documentation
 
 - MVP scope: `docs/foundation-mvp.md`
 - Frontend architecture: `docs/frontend-architecture.md`
-- Launch runbook: `docs/launch-ops-runbook.md`
-- Manual QA: `docs/mvp-qa-checklist.md`
+- Launch operations runbook: `docs/launch-ops-runbook.md`
+- Manual QA checklist: `docs/mvp-qa-checklist.md`
 
 ## Tech Stack
 
-- Next.js `16` (App Router)
-- React `19`
-- TypeScript
-- Prisma `7` + PostgreSQL adapter
-- Supabase Postgres + Supabase SSR auth
-- Tailwind CSS `4`
+- Next.js 16 (App Router)
+- React 19 + TypeScript
+- Tailwind CSS 4
+- Prisma 7 + PostgreSQL adapter (`@prisma/adapter-pg`)
+- Supabase Postgres + Supabase SSR Auth
+- Cloudflare R2 (catalog image storage)
 - GSAP (menu/search motion)
-- Cloudflare R2 (admin image uploads)
 
-## Prerequisites
+## Current MVP Capabilities
 
-- Node.js `20+`
-- pnpm
-- Supabase project (Postgres + Auth)
-- Cloudflare R2 bucket (for catalog images)
+- Variant-based catalog (color/size variants, SKU-level inventory)
+- Cart + checkout (cash on delivery)
+- Shipping fee rules by Myanmar zones
+- Order tracking and admin order workflow
+- Admin catalog editor with:
+  - bulk variant editing
+  - matrix generation
+  - draft validation
+  - drag/drop multi-image upload queue
+  - real upload progress (signed R2 upload)
+  - inline category creation flow from dropdown modal
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill values.
+Copy `.env.example` to `.env` and fill all required values.
 
 ```bash
 DATABASE_URL="postgresql://..."
@@ -48,9 +54,13 @@ R2_BUCKET="..."
 R2_PUBLIC_BASE_URL="https://pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
 ```
 
-If DB password contains special characters (`@`, `#`, `*`, etc.), URL-encode it.
+Notes:
 
-## Local Setup
+- URL-encode special characters in DB passwords.
+- `DATABASE_URL` should use Supabase pooler URL.
+- `DIRECT_URL` should use direct DB URL for Prisma migrations.
+
+## Local Development
 
 ```bash
 pnpm install
@@ -73,22 +83,28 @@ pnpm dev
 - `pnpm prisma:seed`
 - `pnpm prisma:studio`
 
-## Main App Pages
+## Main Pages
 
-- `/` home + hero + latest products
-- `/search` product search results page
-- `/products/[slug]` product detail page
+Storefront:
+
+- `/`
+- `/search`
+- `/products/[slug]`
 - `/cart`
-- `/checkout` (COD + required terms/privacy consent checkbox)
+- `/checkout`
 - `/order/success/[orderCode]`
 - `/order/track`
 - `/terms`
 - `/privacy`
 - `/returns`
 - `/contact`
+
+Admin:
+
 - `/admin/login`
 - `/admin/catalog`
 - `/admin/orders`
+- `/admin/shipping-rules`
 
 ## API Surface
 
@@ -104,6 +120,7 @@ Storefront/customer:
 - `PATCH /api/cart` body: `{ "variantId": "uuid", "quantity": 2 }`
 - `DELETE /api/cart` body: `{ "variantId": "uuid" }`
 - `POST /api/checkout`
+- `POST /api/checkout/shipping-quote`
 - `GET /api/orders/[orderCode]`
 
 Admin:
@@ -116,16 +133,25 @@ Admin:
 - `GET /api/admin/catalog/[productId]`
 - `PATCH /api/admin/catalog/[productId]`
 - `POST /api/admin/catalog/[productId]/inventory`
+- `POST /api/admin/catalog/categories`
 - `POST /api/admin/catalog/upload-image`
+- `POST /api/admin/catalog/upload-image/sign`
+- `POST /api/admin/catalog/validate-draft`
+- `POST /api/admin/catalog/variant-matrix`
+- `GET /api/admin/catalog/variant-presets`
 - `GET /api/admin/orders` supports `status`, `q`, `from`, `to`, `page`, `pageSize`, `format=json|csv`
 - `GET /api/admin/orders/[orderId]`
 - `PATCH /api/admin/orders/[orderId]/status`
+- `GET /api/admin/shipping-rules`
+- `POST /api/admin/shipping-rules`
+- `PATCH /api/admin/shipping-rules/[ruleId]`
+- `DELETE /api/admin/shipping-rules/[ruleId]`
 
-## Admin Bootstrap
+## Admin Access Bootstrap
 
 Admin access requires both:
 
-1. Supabase user metadata includes admin role.
+1. Supabase Auth user has admin role metadata.
 2. Prisma `AdminUser` row exists with matching `authUserId` and `isActive=true`.
 
 Example Supabase SQL:
@@ -136,15 +162,16 @@ set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"ad
 where email = 'admin@yourdomain.com';
 ```
 
-## Notes
+## Deployment Notes (Vercel + Supabase + R2)
 
-- Cart is variant-based (`variantId`), and cart token is rotated after checkout.
-- Inventory source of truth is `ProductVariant.inventory`.
-- Structured API error payloads include `requestId`.
-- Core storefront images use Next.js `Image` with remote R2 config in `next.config.ts`.
+- Add all environment variables in Vercel Project Settings.
+- Ensure `DIRECT_URL` exists in CI/build environment (required for `pnpm prisma:generate`).
+- For direct browser uploads to R2 via signed URLs, configure bucket CORS to allow your site origin and `PUT`.
+- Current uploader has server-upload fallback if direct upload is blocked.
 
-## CI / Protected Branch
+## Operational Notes
 
-- `master` is protected: merge via PR only.
-- CI workflow runs lint, typecheck, test, and build.
-- `pnpm prisma:generate` needs `DIRECT_URL` present in CI env.
+- Inventory source of truth: `ProductVariant.inventory`.
+- Cart is variant-based; cart token rotates after successful checkout.
+- API errors return consistent structured payloads with `requestId`.
+- `master` is protected; merge through PR.
