@@ -65,6 +65,7 @@ type UploadQueueItem = {
   id: string;
   file: File;
   status: UploadQueueStatus;
+  progressPct: number;
   error?: string;
 };
 
@@ -597,23 +598,61 @@ export default function CatalogClient() {
     });
   }
 
-  async function uploadImage(file: File, mode: "create" | "edit") {
+  async function uploadImage(
+    file: File,
+    mode: "create" | "edit",
+    onProgress: (progressPct: number) => void
+  ) {
     if (mode === "edit" && !editingProduct) {
       return;
     }
     try {
-      const formData = new FormData();
-      formData.set("file", file);
-
-      const response = await fetch("/api/admin/catalog/upload-image", {
+      onProgress(5);
+      const signResponse = await fetch("/api/admin/catalog/upload-image/sign", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+        }),
       });
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to upload image.");
-        return;
+      const signData = await signResponse.json();
+      if (!signResponse.ok || !signData.ok) {
+        setStatusText(readValidationMessage(signData, "Failed to prepare upload."));
+        throw new Error("SIGN_UPLOAD_FAILED");
       }
+
+      const uploadUrl = signData.uploadUrl as string;
+      const publicUrl = signData.publicUrl as string;
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", file.type);
+
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable || event.total <= 0) {
+            return;
+          }
+
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(Math.max(5, Math.min(percent, 98)));
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            onProgress(100);
+            resolve();
+            return;
+          }
+
+          reject(new Error(`UPLOAD_FAILED_${xhr.status}`));
+        };
+
+        xhr.onerror = () => reject(new Error("UPLOAD_NETWORK_ERROR"));
+        xhr.send(file);
+      });
 
       const setter = mode === "create" ? setCreateDraftSafe : setEditingDraftSafe;
       setter((prev) => ({
@@ -621,7 +660,7 @@ export default function CatalogClient() {
         images: [
           ...prev.images,
           {
-            url: data.url,
+            url: publicUrl,
             alt: "",
             variantId: null,
             sortOrder: prev.images.length,
@@ -631,8 +670,40 @@ export default function CatalogClient() {
 
       setStatusText("Image uploaded to R2.");
     } catch (error) {
-      setStatusText("Unexpected error while uploading image.");
-      throw error;
+      try {
+        // Fallback path for environments where direct browser upload is blocked (usually CORS).
+        const formData = new FormData();
+        formData.set("file", file);
+        const fallbackResponse = await fetch("/api/admin/catalog/upload-image", {
+          method: "POST",
+          body: formData,
+        });
+        const fallbackData = await fallbackResponse.json();
+        if (!fallbackResponse.ok || !fallbackData.ok) {
+          setStatusText(readValidationMessage(fallbackData, "Failed to upload image."));
+          throw error;
+        }
+
+        const setter = mode === "create" ? setCreateDraftSafe : setEditingDraftSafe;
+        setter((prev) => ({
+          ...prev,
+          images: [
+            ...prev.images,
+            {
+              url: fallbackData.url as string,
+              alt: "",
+              variantId: null,
+              sortOrder: prev.images.length,
+            },
+          ],
+        }));
+
+        onProgress(100);
+        setStatusText("Image uploaded to R2.");
+      } catch {
+        setStatusText("Unexpected error while uploading image.");
+        throw error;
+      }
     }
   }
 
@@ -744,7 +815,7 @@ export default function CatalogClient() {
                 onVariantChange={(index, key, value) =>
                   updateDraftVariant(setCreateDraftSafe, index, key, value)
                 }
-                onUploadImage={(file) => uploadImage(file, "create")}
+                onUploadImage={(file, onProgress) => uploadImage(file, "create", onProgress)}
                 mode="create"
               />
               <button type="submit" disabled={creating} className="btn-primary disabled:opacity-60">
@@ -769,7 +840,7 @@ export default function CatalogClient() {
                   onVariantChange={(index, key, value) =>
                     updateDraftVariant(setEditingDraftSafe, index, key, value)
                   }
-                  onUploadImage={(file) => uploadImage(file, "edit")}
+                  onUploadImage={(file, onProgress) => uploadImage(file, "edit", onProgress)}
                   mode="edit"
                 />
                 <div className="flex gap-2">
@@ -875,7 +946,7 @@ function ProductFormFields({
     key: keyof ProductVariantItem,
     value: string | boolean
   ) => void;
-  onUploadImage: (file: File) => Promise<void>;
+  onUploadImage: (file: File, onProgress: (progressPct: number) => void) => Promise<void>;
   mode: "create" | "edit";
 }) {
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1046,6 +1117,7 @@ function ProductFormFields({
       id: crypto.randomUUID(),
       file,
       status: "queued",
+      progressPct: 0,
     }));
 
     setUploadQueue((prev) => [...queuedItems, ...prev].slice(0, 20));
@@ -1062,20 +1134,42 @@ function ProductFormFields({
     for (const item of items) {
       setUploadQueue((prev) =>
         prev.map((entry) =>
-          entry.id === item.id ? { ...entry, status: "uploading", error: undefined } : entry
+          entry.id === item.id
+            ? { ...entry, status: "uploading", progressPct: 0, error: undefined }
+            : entry
         )
       );
 
       try {
-        await onUploadImage(item.file);
+        await onUploadImage(item.file, (progressPct) => {
+          setUploadQueue((prev) =>
+            prev.map((entry) =>
+              entry.id === item.id
+                ? {
+                    ...entry,
+                    status: "uploading",
+                    progressPct,
+                    error: undefined,
+                  }
+                : entry
+            )
+          );
+        });
         setUploadQueue((prev) =>
-          prev.map((entry) => (entry.id === item.id ? { ...entry, status: "done" } : entry))
+          prev.map((entry) =>
+            entry.id === item.id ? { ...entry, status: "done", progressPct: 100 } : entry
+          )
         );
       } catch {
         setUploadQueue((prev) =>
           prev.map((entry) =>
             entry.id === item.id
-              ? { ...entry, status: "failed", error: "Upload failed. Try again." }
+              ? {
+                  ...entry,
+                  status: "failed",
+                  progressPct: 100,
+                  error: "Upload failed. Try again.",
+                }
               : entry
           )
         );
@@ -1093,10 +1187,10 @@ function ProductFormFields({
 
     setUploadQueue((prev) =>
       prev.map((entry) =>
-        entry.id === itemId ? { ...entry, status: "queued", error: undefined } : entry
+        entry.id === itemId ? { ...entry, status: "queued", progressPct: 0, error: undefined } : entry
       )
     );
-    void processUploadQueue([{ ...item, status: "queued", error: undefined }]);
+    void processUploadQueue([{ ...item, status: "queued", progressPct: 0, error: undefined }]);
   }
 
   function handleImageInputChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -1704,12 +1798,7 @@ function ProductFormFields({
               </div>
               <div className="mt-3 space-y-2">
                 {uploadQueue.map((item) => {
-                  const barWidth =
-                    item.status === "done" || item.status === "failed"
-                      ? 100
-                      : item.status === "uploading"
-                        ? 65
-                        : 5;
+                  const barWidth = Math.max(4, item.progressPct);
 
                   return (
                     <div key={item.id} className="rounded border border-sepia-border/60 bg-parchment p-2">
