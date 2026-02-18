@@ -2,7 +2,7 @@
 
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type CategoryItem = {
   id: string;
@@ -57,6 +57,15 @@ type VariantPreset = {
   material: string;
   colors: string[];
   sizes: string[];
+};
+
+type UploadQueueStatus = "queued" | "uploading" | "done" | "failed";
+
+type UploadQueueItem = {
+  id: string;
+  file: File;
+  status: UploadQueueStatus;
+  error?: string;
 };
 
 type ProductItem = {
@@ -196,6 +205,16 @@ function readValidationMessage(data: unknown, fallback: string): string {
   return fallback;
 }
 
+function formatFileSize(sizeInBytes: number): string {
+  if (sizeInBytes < 1024) {
+    return `${sizeInBytes} B`;
+  }
+  if (sizeInBytes < 1024 * 1024) {
+    return `${(sizeInBytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function CatalogClient() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -205,8 +224,6 @@ export default function CatalogClient() {
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [openingProductId, setOpeningProductId] = useState<string | null>(null);
-  const [uploadingCreateImage, setUploadingCreateImage] = useState(false);
-  const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const [adjustingVariantId, setAdjustingVariantId] = useState<string | null>(null);
   const [createDraft, setCreateDraft] = useState<ProductDraft>(makeInitialDraft());
   const [editingProduct, setEditingProduct] = useState<ProductDraft | null>(null);
@@ -584,13 +601,6 @@ export default function CatalogClient() {
     if (mode === "edit" && !editingProduct) {
       return;
     }
-
-    if (mode === "create") {
-      setUploadingCreateImage(true);
-    } else {
-      setUploadingEditImage(true);
-    }
-
     try {
       const formData = new FormData();
       formData.set("file", file);
@@ -620,14 +630,9 @@ export default function CatalogClient() {
       }));
 
       setStatusText("Image uploaded to R2.");
-    } catch {
+    } catch (error) {
       setStatusText("Unexpected error while uploading image.");
-    } finally {
-      if (mode === "create") {
-        setUploadingCreateImage(false);
-      } else {
-        setUploadingEditImage(false);
-      }
+      throw error;
     }
   }
 
@@ -740,7 +745,6 @@ export default function CatalogClient() {
                   updateDraftVariant(setCreateDraftSafe, index, key, value)
                 }
                 onUploadImage={(file) => uploadImage(file, "create")}
-                uploadingImage={uploadingCreateImage}
                 mode="create"
               />
               <button type="submit" disabled={creating} className="btn-primary disabled:opacity-60">
@@ -766,7 +770,6 @@ export default function CatalogClient() {
                     updateDraftVariant(setEditingDraftSafe, index, key, value)
                   }
                   onUploadImage={(file) => uploadImage(file, "edit")}
-                  uploadingImage={uploadingEditImage}
                   mode="edit"
                 />
                 <div className="flex gap-2">
@@ -860,7 +863,6 @@ function ProductFormFields({
   onImageChange,
   onVariantChange,
   onUploadImage,
-  uploadingImage,
   mode,
 }: {
   draft: ProductDraft;
@@ -874,10 +876,12 @@ function ProductFormFields({
     value: string | boolean
   ) => void;
   onUploadImage: (file: File) => Promise<void>;
-  uploadingImage: boolean;
   mode: "create" | "edit";
 }) {
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const imageFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
+  const [isQueueUploading, setIsQueueUploading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [matrixColors, setMatrixColors] = useState("");
   const [matrixSizes, setMatrixSizes] = useState("");
   const [matrixSkuPrefix, setMatrixSkuPrefix] = useState("");
@@ -1032,6 +1036,86 @@ function ProductFormFields({
       setCreatingCategory(false);
     }
   }
+
+  function queueFilesForUpload(files: File[]) {
+    if (files.length === 0) {
+      return;
+    }
+
+    const queuedItems: UploadQueueItem[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      status: "queued",
+    }));
+
+    setUploadQueue((prev) => [...queuedItems, ...prev].slice(0, 20));
+    void processUploadQueue(queuedItems);
+  }
+
+  async function processUploadQueue(items: UploadQueueItem[]) {
+    if (items.length === 0) {
+      return;
+    }
+
+    setIsQueueUploading(true);
+
+    for (const item of items) {
+      setUploadQueue((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id ? { ...entry, status: "uploading", error: undefined } : entry
+        )
+      );
+
+      try {
+        await onUploadImage(item.file);
+        setUploadQueue((prev) =>
+          prev.map((entry) => (entry.id === item.id ? { ...entry, status: "done" } : entry))
+        );
+      } catch {
+        setUploadQueue((prev) =>
+          prev.map((entry) =>
+            entry.id === item.id
+              ? { ...entry, status: "failed", error: "Upload failed. Try again." }
+              : entry
+          )
+        );
+      }
+    }
+
+    setIsQueueUploading(false);
+  }
+
+  function retryUploadItem(itemId: string) {
+    const item = uploadQueue.find((entry) => entry.id === itemId);
+    if (!item) {
+      return;
+    }
+
+    setUploadQueue((prev) =>
+      prev.map((entry) =>
+        entry.id === itemId ? { ...entry, status: "queued", error: undefined } : entry
+      )
+    );
+    void processUploadQueue([{ ...item, status: "queued", error: undefined }]);
+  }
+
+  function handleImageInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    queueFilesForUpload(files);
+    event.target.value = "";
+  }
+
+  function removeUploadQueueItem(itemId: string) {
+    setUploadQueue((prev) => prev.filter((item) => item.id !== itemId));
+  }
+
+  const completedUploadCount = uploadQueue.filter(
+    (item) => item.status === "done" || item.status === "failed"
+  ).length;
+  const overallUploadProgress =
+    uploadQueue.length > 0
+      ? Math.round((completedUploadCount / uploadQueue.length) * 100)
+      : 0;
 
   async function generateVariantsFromMatrix() {
     const colors = parseListInput(matrixColors);
@@ -1545,45 +1629,131 @@ function ProductFormFields({
       </div>
 
       <div className={`${currentStep === "IMAGES" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-ink">Images</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/avif"
-              onChange={(event) => setSelectedImageFile(event.target.files?.[0] ?? null)}
-              className="max-w-52 text-xs text-charcoal file:mr-2 file:rounded-md file:border file:border-sepia-border file:bg-paper-light file:px-2 file:py-1 file:text-xs"
-            />
-            <button
-              type="button"
-              disabled={!selectedImageFile || uploadingImage}
-              className="btn-secondary disabled:opacity-60"
-              onClick={async () => {
-                if (!selectedImageFile) {
-                  return;
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-ink">Images</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={imageFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                multiple
+                onChange={handleImageInputChange}
+                className="hidden"
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => imageFileInputRef.current?.click()}
+              >
+                Select Files
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  onDraftChange((prev) => ({
+                    ...prev,
+                    images: [
+                      ...prev.images,
+                      { url: "", alt: "", variantId: null, sortOrder: prev.images.length },
+                    ],
+                  }))
                 }
-                await onUploadImage(selectedImageFile);
-                setSelectedImageFile(null);
-              }}
-            >
-              {uploadingImage ? "Uploading..." : "Upload to R2"}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() =>
-                onDraftChange((prev) => ({
-                  ...prev,
-                  images: [
-                    ...prev.images,
-                    { url: "", alt: "", variantId: null, sortOrder: prev.images.length },
-                  ],
-                }))
-              }
-            >
-              Add URL Row
-            </button>
+              >
+                Add URL Row
+              </button>
+            </div>
           </div>
+
+          <div
+            className={`rounded-md border border-dashed p-4 text-sm transition-colors ${
+              isDragOver ? "border-antique-brass bg-antique-brass/10" : "border-sepia-border bg-paper-light/40"
+            }`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setIsDragOver(false);
+              const files = Array.from(event.dataTransfer.files ?? []);
+              queueFilesForUpload(files);
+            }}
+          >
+            <p className="font-medium text-ink">Drag and drop images here</p>
+            <p className="text-xs text-charcoal">
+              JPG, PNG, WEBP, AVIF up to 8 MB. Multiple files supported.
+            </p>
+          </div>
+
+          {uploadQueue.length > 0 ? (
+            <div className="rounded-md border border-sepia-border/70 bg-paper-light/30 p-3">
+              <div className="mb-2 flex items-center justify-between text-xs text-charcoal">
+                <span>
+                  Uploads: {completedUploadCount}/{uploadQueue.length}
+                </span>
+                <span>{isQueueUploading ? "Uploading..." : "Idle"}</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded bg-sepia-border/40">
+                <div
+                  className="h-full bg-antique-brass transition-all"
+                  style={{ width: `${overallUploadProgress}%` }}
+                />
+              </div>
+              <div className="mt-3 space-y-2">
+                {uploadQueue.map((item) => {
+                  const barWidth =
+                    item.status === "done" || item.status === "failed"
+                      ? 100
+                      : item.status === "uploading"
+                        ? 65
+                        : 5;
+
+                  return (
+                    <div key={item.id} className="rounded border border-sepia-border/60 bg-parchment p-2">
+                      <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                        <p className="truncate text-charcoal">
+                          {item.file.name} ({formatFileSize(item.file.size)})
+                        </p>
+                        <p className="uppercase tracking-wide text-charcoal">{item.status}</p>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded bg-sepia-border/40">
+                        <div
+                          className={`h-full transition-all ${
+                            item.status === "failed" ? "bg-seal-wax" : "bg-antique-brass"
+                          }`}
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                      {item.error ? <p className="mt-1 text-xs text-seal-wax">{item.error}</p> : null}
+                      <div className="mt-2 flex gap-2">
+                        {item.status === "failed" ? (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => retryUploadItem(item.id)}
+                          >
+                            Retry
+                          </button>
+                        ) : null}
+                        {(item.status === "done" || item.status === "failed") ? (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => removeUploadQueueItem(item.id)}
+                          >
+                            Dismiss
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
         {draft.images.map((image, index) => (
           <div
