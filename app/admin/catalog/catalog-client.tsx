@@ -899,9 +899,8 @@ function ProductFormFields({
   const [presetFeedback, setPresetFeedback] = useState("");
   const [currentStep, setCurrentStep] = useState<EditorStep>("BASICS");
   const [stepFeedback, setStepFeedback] = useState("");
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategorySlug, setNewCategorySlug] = useState("");
-  const [autoCategorySlugEnabled, setAutoCategorySlugEnabled] = useState(true);
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [categoryFeedback, setCategoryFeedback] = useState("");
   const variantDiagnostics = useMemo(() => buildVariantDiagnostics(draft.variants), [draft.variants]);
@@ -918,19 +917,6 @@ function ProductFormFields({
 
     onDraftChange((prev) => ({ ...prev, slug: generatedSlug }));
   }, [mode, draft.name, draft.slug, onDraftChange]);
-
-  useEffect(() => {
-    if (!autoCategorySlugEnabled) {
-      return;
-    }
-
-    const generatedSlug = slugify(newCategoryName);
-    if (generatedSlug === newCategorySlug) {
-      return;
-    }
-
-    setNewCategorySlug(generatedSlug);
-  }, [autoCategorySlugEnabled, newCategoryName, newCategorySlug]);
 
   useEffect(() => {
     if (!matrixSkuPrefix && draft.slug) {
@@ -993,12 +979,27 @@ function ProductFormFields({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isCategoryModalOpen) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsCategoryModalOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isCategoryModalOpen]);
+
   async function createCategoryInline() {
     const name = newCategoryName.trim();
-    const slug = newCategorySlug.trim();
+    const slug = slugify(name);
 
     if (!name || !slug) {
-      setCategoryFeedback("Category name and slug are required.");
+      setCategoryFeedback("Category name must include letters or numbers.");
       return;
     }
 
@@ -1022,8 +1023,7 @@ function ProductFormFields({
       onCategoryCreated(category);
       onDraftChange((prev) => ({ ...prev, categoryId: category.id }));
       setNewCategoryName("");
-      setNewCategorySlug("");
-      setAutoCategorySlugEnabled(true);
+      setIsCategoryModalOpen(false);
       setCategoryFeedback(`Created category "${category.name}".`);
     } catch {
       setCategoryFeedback("Unexpected error while creating category.");
@@ -1458,9 +1458,16 @@ function ProductFormFields({
         </select>
         <select
           value={draft.categoryId}
-          onChange={(event) =>
-            onDraftChange((prev) => ({ ...prev, categoryId: event.target.value }))
-          }
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value === "__create__") {
+              setCategoryFeedback("");
+              setNewCategoryName("");
+              setIsCategoryModalOpen(true);
+              return;
+            }
+            onDraftChange((prev) => ({ ...prev, categoryId: value }));
+          }}
           className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
         >
           <option value="">Select category</option>
@@ -1469,52 +1476,73 @@ function ProductFormFields({
               {category.name}
             </option>
           ))}
+          <option value="__create__">+ Create category</option>
         </select>
       </div>
-      <div className="rounded-md border border-sepia-border/70 bg-paper-light/30 p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-charcoal">
-          Create New Category
-        </p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-          <input
-            value={newCategoryName}
-            onChange={(event) => {
-              setNewCategoryName(event.target.value);
-              if (!newCategorySlug.trim()) {
-                setAutoCategorySlugEnabled(true);
-              }
-            }}
-            placeholder="Category name"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <input
-            value={newCategorySlug}
-            onChange={(event) => {
-              setAutoCategorySlugEnabled(false);
-              setNewCategorySlug(event.target.value);
-            }}
-            placeholder="category-slug"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <button
-            type="button"
-            disabled={creatingCategory}
-            onClick={() => void createCategoryInline()}
-            className="btn-secondary disabled:opacity-60"
+      {categoryFeedback ? <p className="text-xs text-charcoal">{categoryFeedback}</p> : null}
+      {isCategoryModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 bg-ink/45 backdrop-blur-[1px]"
+          role="presentation"
+          onClick={() => setIsCategoryModalOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Create category"
+            className="mx-auto mt-24 w-[min(92vw,460px)] border border-sepia-border bg-parchment p-5 shadow-lg"
+            onClick={(event) => event.stopPropagation()}
           >
-            {creatingCategory ? "Creating..." : "Create Category"}
-          </button>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Category</p>
+                <h4 className="text-lg font-semibold text-ink">Create New Category</h4>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setIsCategoryModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              <input
+                autoFocus
+                value={newCategoryName}
+                onChange={(event) => setNewCategoryName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void createCategoryInline();
+                  }
+                }}
+                placeholder="Category name"
+                className="w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-charcoal">Slug will be generated automatically.</p>
+              {categoryFeedback ? <p className="text-xs text-charcoal">{categoryFeedback}</p> : null}
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={creatingCategory}
+                  onClick={() => void createCategoryInline()}
+                  className="btn-primary disabled:opacity-60"
+                >
+                  {creatingCategory ? "Creating..." : "Create Category"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <label className="mt-2 inline-flex items-center gap-2 text-xs text-charcoal">
-          <input
-            type="checkbox"
-            checked={autoCategorySlugEnabled}
-            onChange={(event) => setAutoCategorySlugEnabled(event.target.checked)}
-          />
-          Auto-generate slug from category name
-        </label>
-        {categoryFeedback ? <p className="mt-2 text-xs text-charcoal">{categoryFeedback}</p> : null}
-      </div>
+      ) : null}
       </div>
 
       <div className={`${currentStep === "IMAGES" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
