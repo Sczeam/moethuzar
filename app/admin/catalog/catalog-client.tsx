@@ -438,6 +438,7 @@ export default function CatalogClient() {
         material: variant.material ?? "",
         price: variant.price ?? "",
         compareAtPrice: variant.compareAtPrice ?? "",
+        inventory: variant.inventory ?? 0,
         initialInventory: variant.initialInventory ?? 0,
         isActive: variant.isActive,
         sortOrder: Number.isFinite(variant.sortOrder) ? variant.sortOrder : index,
@@ -1149,8 +1150,6 @@ function ProductFormFields({
       }
     }
     const inventoryValue = toInt(bulkInventory, 0);
-    const inventoryKey: "inventory" | "initialInventory" =
-      mode === "create" ? "inventory" : "initialInventory";
 
     onDraftChange((prev) => ({
       ...prev,
@@ -1168,7 +1167,7 @@ function ProductFormFields({
             : variant.compareAtPrice,
           isActive:
             shouldUpdateActive ? bulkActiveState === "true" : variant.isActive,
-          [inventoryKey]: shouldUpdateInventory ? Math.max(0, inventoryValue) : variant[inventoryKey],
+          inventory: shouldUpdateInventory ? Math.max(0, inventoryValue) : variant.inventory,
         };
       }),
     }));
@@ -1719,7 +1718,7 @@ function ProductFormFields({
               type="number"
               value={bulkInventory}
               onChange={(event) => setBulkInventory(event.target.value)}
-              placeholder={mode === "create" ? "Inventory" : "Initial inventory"}
+              placeholder="Inventory"
               className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
             />
             <select
@@ -1830,9 +1829,9 @@ function ProductFormFields({
               ) : (
                 <input
                   type="number"
-                  value={variant.initialInventory ?? 0}
-                  onChange={(event) => onVariantChange(index, "initialInventory", event.target.value)}
-                  placeholder="Initial inventory (new variants only)"
+                  value={variant.inventory ?? 0}
+                  onChange={(event) => onVariantChange(index, "inventory", event.target.value)}
+                  placeholder="Inventory"
                   className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
                 />
               )}

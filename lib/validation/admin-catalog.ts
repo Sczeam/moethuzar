@@ -33,6 +33,7 @@ const updateVariantInputSchema = z.object({
   material: z.string().trim().max(64).optional().or(z.literal("")),
   price: priceStringSchema.optional().or(z.literal("")),
   compareAtPrice: priceStringSchema.optional().or(z.literal("")),
+  inventory: z.number().int().min(0).max(100000).optional(),
   initialInventory: z.number().int().min(0).max(100000).optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).max(1000),
