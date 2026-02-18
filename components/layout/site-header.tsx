@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { IconSearch } from "@/components/layout/header/icons";
 import { HeaderNavPanel } from "@/components/layout/header/nav-panel";
@@ -15,10 +15,12 @@ type SiteHeaderProps = {
 
 export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const menuId = "site-navigation-panel";
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [cartItemCount, setCartItemCount] = useState(0);
   const overlayRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const linkRefs = useRef<Array<HTMLAnchorElement | null>>([]);
@@ -93,6 +95,37 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
       ease: NAV_MENU_ANIMATION.overlay.easeIn,
     });
   }, [open]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCartMeta() {
+      try {
+        const response = await fetch("/api/cart", { cache: "no-store" });
+        const data = await response.json();
+        if (!active) {
+          return;
+        }
+        if (response.ok && data.ok && data.cart && typeof data.cart.itemCount === "number") {
+          setCartItemCount(data.cart.itemCount);
+          return;
+        }
+        setCartItemCount(0);
+      } catch {
+        if (active) {
+          setCartItemCount(0);
+        }
+      }
+    }
+
+    void loadCartMeta();
+    const onWindowFocus = () => void loadCartMeta();
+    window.addEventListener("focus", onWindowFocus);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", onWindowFocus);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (!searchShellRef.current || !searchGlowRef.current) {
@@ -294,6 +327,7 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
       <HeaderNavRail
         isOpen={open}
         menuControlsId={menuId}
+        cartItemCount={cartItemCount}
         onToggleMenu={() => {
           setSearchOpen(false);
           setOpen((current) => !current);
@@ -315,6 +349,8 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         overlayRef={overlayRef}
         linkRefs={linkRefs}
         items={SITE_NAV_ITEMS}
+        currentPathname={pathname}
+        cartItemCount={cartItemCount}
         onClose={() => setOpen(false)}
       />
     </>

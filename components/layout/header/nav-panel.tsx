@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MutableRefObject, RefObject } from "react";
 import type { SiteNavItem } from "@/lib/constants/site-navigation";
+import { IconClose } from "@/components/layout/header/icons";
 
 type HeaderNavPanelProps = {
   menuId: string;
@@ -9,6 +10,8 @@ type HeaderNavPanelProps = {
   overlayRef: RefObject<HTMLButtonElement | null>;
   linkRefs: MutableRefObject<Array<HTMLAnchorElement | null>>;
   items: SiteNavItem[];
+  currentPathname: string;
+  cartItemCount: number;
   onClose: () => void;
 };
 
@@ -19,8 +22,22 @@ export function HeaderNavPanel({
   overlayRef,
   linkRefs,
   items,
+  currentPathname,
+  cartItemCount,
   onClose,
 }: HeaderNavPanelProps) {
+  const isActive = (href: string) => {
+    if (href.startsWith("/#")) {
+      return currentPathname === "/";
+    }
+
+    if (href === "/") {
+      return currentPathname === "/";
+    }
+
+    return currentPathname === href || currentPathname.startsWith(`${href}/`);
+  };
+
   return (
     <div className={`fixed inset-0 z-40 ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
@@ -41,6 +58,31 @@ export function HeaderNavPanel({
       >
         <div className="flex items-center justify-between">
           <p className="text-sm uppercase tracking-[0.22em] text-aged-gold">Moethuzar</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center border border-paper-light/40 text-paper-light transition hover:border-aged-gold hover:text-aged-gold focus-visible:border-aged-gold focus-visible:text-aged-gold"
+            aria-label="Close navigation menu"
+          >
+            <IconClose />
+          </button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <Link
+            href="/#latest-products"
+            onClick={onClose}
+            className="btn-secondary !min-h-9 !border-paper-light/45 !bg-transparent !px-3 !py-1.5 !text-[11px] !tracking-[0.12em] !text-paper-light hover:!text-aged-gold"
+          >
+            Shop Now
+          </Link>
+          <Link
+            href="/cart"
+            onClick={onClose}
+            className="btn-secondary !min-h-9 !border-paper-light/45 !bg-transparent !px-3 !py-1.5 !text-[11px] !tracking-[0.12em] !text-paper-light hover:!text-aged-gold"
+          >
+            Cart {cartItemCount > 0 ? `(${cartItemCount})` : ""}
+          </Link>
         </div>
 
         <nav className="mt-8 grid gap-3 sm:mt-10 sm:gap-4">
@@ -52,7 +94,12 @@ export function HeaderNavPanel({
               ref={(element) => {
                 linkRefs.current[index] = element;
               }}
-              className="text-3xl font-semibold text-paper-light transition hover:text-aged-gold focus-visible:text-aged-gold focus-visible:underline sm:text-4xl lg:text-5xl"
+              aria-current={isActive(item.href) ? "page" : undefined}
+              className={`text-3xl font-semibold transition focus-visible:underline sm:text-4xl lg:text-5xl ${
+                isActive(item.href)
+                  ? "text-aged-gold underline underline-offset-8"
+                  : "text-paper-light hover:text-aged-gold focus-visible:text-aged-gold"
+              }`}
             >
               {item.label}
             </Link>
