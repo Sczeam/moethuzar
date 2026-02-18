@@ -117,9 +117,16 @@ export type AdminCatalogCategoryCreateInput = z.infer<typeof adminCatalogCategor
 export type AdminInventoryAdjustmentInput = z.infer<typeof adminInventoryAdjustmentSchema>;
 export type AdminVariantMatrixGenerateInput = z.infer<typeof adminVariantMatrixGenerateSchema>;
 
+const draftVariantValidationSchema = z.object({
+  id: z.string().uuid().optional(),
+  sku: z.string().trim().min(2).max(64),
+  color: z.string().trim().max(64).optional().or(z.literal("")),
+  size: z.string().trim().max(64).optional().or(z.literal("")),
+});
+
 export const adminCatalogDraftValidationSchema = z.object({
   productId: z.string().uuid().optional(),
-  variants: z.array(createVariantInputSchema).min(1).max(300),
+  variants: z.array(draftVariantValidationSchema).min(1).max(300),
 });
 
 export type AdminCatalogDraftValidationInput = z.infer<typeof adminCatalogDraftValidationSchema>;
