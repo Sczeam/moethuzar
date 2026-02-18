@@ -29,10 +29,10 @@ export async function PATCH(
   context: { params: Promise<{ productId: string }> }
 ) {
   try {
-    await requireAdminUserId(request);
+    const adminUserId = await requireAdminUserId(request);
     const params = adminCatalogProductIdParamSchema.parse(await context.params);
     const payload = adminCatalogUpdateSchema.parse(await request.json());
-    const product = await updateAdminProduct(params.productId, payload);
+    const product = await updateAdminProduct(params.productId, payload, adminUserId);
     return NextResponse.json({ ok: true, product }, { status: 200 });
   } catch (error) {
     return routeErrorResponse(error, { request, route: "api/admin/catalog/[productId]#PATCH" });

@@ -33,6 +33,7 @@ const updateVariantInputSchema = z.object({
   material: z.string().trim().max(64).optional().or(z.literal("")),
   price: priceStringSchema.optional().or(z.literal("")),
   compareAtPrice: priceStringSchema.optional().or(z.literal("")),
+  inventory: z.number().int().min(0).max(100000).optional(),
   initialInventory: z.number().int().min(0).max(100000).optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).max(1000),
@@ -59,6 +60,16 @@ export const adminCatalogUpdateSchema = baseProductSchema.extend({
 
 export const adminCatalogProductIdParamSchema = z.object({
   productId: z.string().uuid(),
+});
+
+export const adminCatalogCategoryCreateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  slug: z
+    .string()
+    .trim()
+    .min(2)
+    .max(180)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
 });
 
 export const adminInventoryAdjustmentSchema = z.object({
@@ -103,12 +114,20 @@ export const adminVariantMatrixGenerateSchema = z
 
 export type AdminCatalogCreateInput = z.infer<typeof adminCatalogCreateSchema>;
 export type AdminCatalogUpdateInput = z.infer<typeof adminCatalogUpdateSchema>;
+export type AdminCatalogCategoryCreateInput = z.infer<typeof adminCatalogCategoryCreateSchema>;
 export type AdminInventoryAdjustmentInput = z.infer<typeof adminInventoryAdjustmentSchema>;
 export type AdminVariantMatrixGenerateInput = z.infer<typeof adminVariantMatrixGenerateSchema>;
 
+const draftVariantValidationSchema = z.object({
+  id: z.string().uuid().optional(),
+  sku: z.string().trim().min(2).max(64),
+  color: z.string().trim().max(64).optional().or(z.literal("")),
+  size: z.string().trim().max(64).optional().or(z.literal("")),
+});
+
 export const adminCatalogDraftValidationSchema = z.object({
   productId: z.string().uuid().optional(),
-  variants: z.array(createVariantInputSchema).min(1).max(300),
+  variants: z.array(draftVariantValidationSchema).min(1).max(300),
 });
 
 export type AdminCatalogDraftValidationInput = z.infer<typeof adminCatalogDraftValidationSchema>;

@@ -101,37 +101,41 @@ describeIfDatabase("admin catalog integration", () => {
   });
 
   it("updates product status and adjusts variant inventory with logs", async () => {
-    const updated = await updateAdminProduct(productId, {
-      name: "Catalog Integration Tee Updated",
-      slug: productSlug,
-      description: "Updated description",
-      price: "62.00",
-      currency: "MMK",
-      status: enums.ProductStatus.ACTIVE,
-      categoryId,
-      images: [
-        {
-          url: "https://example.com/catalog-test-updated.jpg",
-          alt: "Updated image",
-          sortOrder: 0,
-        },
-      ],
-      variants: [
-        {
-          id: variantId,
-          sku: variantSku,
-          name: "Black / M",
-          color: "Black",
-          size: "M",
-          material: "Cotton",
-          price: "62.00",
-          compareAtPrice: "",
-          initialInventory: 0,
-          isActive: true,
-          sortOrder: 0,
-        },
-      ],
-    });
+    const updated = await updateAdminProduct(
+      productId,
+      {
+        name: "Catalog Integration Tee Updated",
+        slug: productSlug,
+        description: "Updated description",
+        price: "62.00",
+        currency: "MMK",
+        status: enums.ProductStatus.ACTIVE,
+        categoryId,
+        images: [
+          {
+            url: "https://example.com/catalog-test-updated.jpg",
+            alt: "Updated image",
+            sortOrder: 0,
+          },
+        ],
+        variants: [
+          {
+            id: variantId,
+            sku: variantSku,
+            name: "Black / M",
+            color: "Black",
+            size: "M",
+            material: "Cotton",
+            price: "62.00",
+            compareAtPrice: "",
+            initialInventory: 0,
+            isActive: true,
+            sortOrder: 0,
+          },
+        ],
+      },
+      "integration-admin"
+    );
 
     expect(updated.status).toBe(enums.ProductStatus.ACTIVE);
     expect(updated.price).toBe("62");

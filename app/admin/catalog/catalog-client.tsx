@@ -2,7 +2,7 @@
 
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type CategoryItem = {
   id: string;
@@ -57,6 +57,16 @@ type VariantPreset = {
   material: string;
   colors: string[];
   sizes: string[];
+};
+
+type UploadQueueStatus = "queued" | "uploading" | "done" | "failed";
+
+type UploadQueueItem = {
+  id: string;
+  file: File;
+  status: UploadQueueStatus;
+  progressPct: number;
+  error?: string;
 };
 
 type ProductItem = {
@@ -153,6 +163,16 @@ function parseListInput(value: string): string[] {
   });
 }
 
+function slugify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function readValidationMessage(data: unknown, fallback: string): string {
   if (!data || typeof data !== "object") {
     return fallback;
@@ -186,6 +206,16 @@ function readValidationMessage(data: unknown, fallback: string): string {
   return fallback;
 }
 
+function formatFileSize(sizeInBytes: number): string {
+  if (sizeInBytes < 1024) {
+    return `${sizeInBytes} B`;
+  }
+  if (sizeInBytes < 1024 * 1024) {
+    return `${(sizeInBytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function CatalogClient() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -195,8 +225,6 @@ export default function CatalogClient() {
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [openingProductId, setOpeningProductId] = useState<string | null>(null);
-  const [uploadingCreateImage, setUploadingCreateImage] = useState(false);
-  const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const [adjustingVariantId, setAdjustingVariantId] = useState<string | null>(null);
   const [createDraft, setCreateDraft] = useState<ProductDraft>(makeInitialDraft());
   const [editingProduct, setEditingProduct] = useState<ProductDraft | null>(null);
@@ -221,6 +249,15 @@ export default function CatalogClient() {
       }),
     []
   );
+  const onCategoryCreated = useCallback((category: CategoryItem) => {
+    setCategories((prev) => {
+      if (prev.some((item) => item.id === category.id)) {
+        return prev;
+      }
+
+      return [...prev, category].sort((a, b) => a.name.localeCompare(b.name));
+    });
+  }, []);
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
@@ -419,6 +456,7 @@ export default function CatalogClient() {
         material: variant.material ?? "",
         price: variant.price ?? "",
         compareAtPrice: variant.compareAtPrice ?? "",
+        inventory: variant.inventory ?? 0,
         initialInventory: variant.initialInventory ?? 0,
         isActive: variant.isActive,
         sortOrder: Number.isFinite(variant.sortOrder) ? variant.sortOrder : index,
@@ -560,30 +598,61 @@ export default function CatalogClient() {
     });
   }
 
-  async function uploadImage(file: File, mode: "create" | "edit") {
+  async function uploadImage(
+    file: File,
+    mode: "create" | "edit",
+    onProgress: (progressPct: number) => void
+  ) {
     if (mode === "edit" && !editingProduct) {
       return;
     }
-
-    if (mode === "create") {
-      setUploadingCreateImage(true);
-    } else {
-      setUploadingEditImage(true);
-    }
-
     try {
-      const formData = new FormData();
-      formData.set("file", file);
-
-      const response = await fetch("/api/admin/catalog/upload-image", {
+      onProgress(5);
+      const signResponse = await fetch("/api/admin/catalog/upload-image/sign", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+        }),
       });
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to upload image.");
-        return;
+      const signData = await signResponse.json();
+      if (!signResponse.ok || !signData.ok) {
+        setStatusText(readValidationMessage(signData, "Failed to prepare upload."));
+        throw new Error("SIGN_UPLOAD_FAILED");
       }
+
+      const uploadUrl = signData.uploadUrl as string;
+      const publicUrl = signData.publicUrl as string;
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", file.type);
+
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable || event.total <= 0) {
+            return;
+          }
+
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(Math.max(5, Math.min(percent, 98)));
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            onProgress(100);
+            resolve();
+            return;
+          }
+
+          reject(new Error(`UPLOAD_FAILED_${xhr.status}`));
+        };
+
+        xhr.onerror = () => reject(new Error("UPLOAD_NETWORK_ERROR"));
+        xhr.send(file);
+      });
 
       const setter = mode === "create" ? setCreateDraftSafe : setEditingDraftSafe;
       setter((prev) => ({
@@ -591,7 +660,7 @@ export default function CatalogClient() {
         images: [
           ...prev.images,
           {
-            url: data.url,
+            url: publicUrl,
             alt: "",
             variantId: null,
             sortOrder: prev.images.length,
@@ -600,13 +669,40 @@ export default function CatalogClient() {
       }));
 
       setStatusText("Image uploaded to R2.");
-    } catch {
-      setStatusText("Unexpected error while uploading image.");
-    } finally {
-      if (mode === "create") {
-        setUploadingCreateImage(false);
-      } else {
-        setUploadingEditImage(false);
+    } catch (error) {
+      try {
+        // Fallback path for environments where direct browser upload is blocked (usually CORS).
+        const formData = new FormData();
+        formData.set("file", file);
+        const fallbackResponse = await fetch("/api/admin/catalog/upload-image", {
+          method: "POST",
+          body: formData,
+        });
+        const fallbackData = await fallbackResponse.json();
+        if (!fallbackResponse.ok || !fallbackData.ok) {
+          setStatusText(readValidationMessage(fallbackData, "Failed to upload image."));
+          throw error;
+        }
+
+        const setter = mode === "create" ? setCreateDraftSafe : setEditingDraftSafe;
+        setter((prev) => ({
+          ...prev,
+          images: [
+            ...prev.images,
+            {
+              url: fallbackData.url as string,
+              alt: "",
+              variantId: null,
+              sortOrder: prev.images.length,
+            },
+          ],
+        }));
+
+        onProgress(100);
+        setStatusText("Image uploaded to R2.");
+      } catch {
+        setStatusText("Unexpected error while uploading image.");
+        throw error;
       }
     }
   }
@@ -670,7 +766,6 @@ export default function CatalogClient() {
                     <tr key={product.id} className="border-t border-sepia-border/60">
                       <td className="px-3 py-2">
                         <p className="font-semibold">{product.name}</p>
-                        <p className="text-xs text-charcoal/75">{product.slug}</p>
                       </td>
                       <td className="px-3 py-2">
                         <span className={`status-pill ${statusBadge(product.status)}`}>
@@ -712,6 +807,7 @@ export default function CatalogClient() {
               <ProductFormFields
                 draft={createDraft}
                 categories={categories}
+                onCategoryCreated={onCategoryCreated}
                 onDraftChange={setCreateDraftSafe}
                 onImageChange={(index, key, value) =>
                   updateDraftImage(setCreateDraftSafe, index, key, value)
@@ -719,8 +815,7 @@ export default function CatalogClient() {
                 onVariantChange={(index, key, value) =>
                   updateDraftVariant(setCreateDraftSafe, index, key, value)
                 }
-                onUploadImage={(file) => uploadImage(file, "create")}
-                uploadingImage={uploadingCreateImage}
+                onUploadImage={(file, onProgress) => uploadImage(file, "create", onProgress)}
                 mode="create"
               />
               <button type="submit" disabled={creating} className="btn-primary disabled:opacity-60">
@@ -737,6 +832,7 @@ export default function CatalogClient() {
                 <ProductFormFields
                   draft={editingProduct}
                   categories={categories}
+                  onCategoryCreated={onCategoryCreated}
                   onDraftChange={setEditingDraftSafe}
                   onImageChange={(index, key, value) =>
                     updateDraftImage(setEditingDraftSafe, index, key, value)
@@ -744,8 +840,7 @@ export default function CatalogClient() {
                   onVariantChange={(index, key, value) =>
                     updateDraftVariant(setEditingDraftSafe, index, key, value)
                   }
-                  onUploadImage={(file) => uploadImage(file, "edit")}
-                  uploadingImage={uploadingEditImage}
+                  onUploadImage={(file, onProgress) => uploadImage(file, "edit", onProgress)}
                   mode="edit"
                 />
                 <div className="flex gap-2">
@@ -834,15 +929,16 @@ export default function CatalogClient() {
 function ProductFormFields({
   draft,
   categories,
+  onCategoryCreated,
   onDraftChange,
   onImageChange,
   onVariantChange,
   onUploadImage,
-  uploadingImage,
   mode,
 }: {
   draft: ProductDraft;
   categories: CategoryItem[];
+  onCategoryCreated: (category: CategoryItem) => void;
   onDraftChange: DraftSetter;
   onImageChange: (index: number, key: keyof ProductImageItem, value: string) => void;
   onVariantChange: (
@@ -850,11 +946,13 @@ function ProductFormFields({
     key: keyof ProductVariantItem,
     value: string | boolean
   ) => void;
-  onUploadImage: (file: File) => Promise<void>;
-  uploadingImage: boolean;
+  onUploadImage: (file: File, onProgress: (progressPct: number) => void) => Promise<void>;
   mode: "create" | "edit";
 }) {
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const imageFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
+  const [isQueueUploading, setIsQueueUploading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [matrixColors, setMatrixColors] = useState("");
   const [matrixSizes, setMatrixSizes] = useState("");
   const [matrixSkuPrefix, setMatrixSkuPrefix] = useState("");
@@ -877,7 +975,24 @@ function ProductFormFields({
   const [presetFeedback, setPresetFeedback] = useState("");
   const [currentStep, setCurrentStep] = useState<EditorStep>("BASICS");
   const [stepFeedback, setStepFeedback] = useState("");
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [categoryFeedback, setCategoryFeedback] = useState("");
   const variantDiagnostics = useMemo(() => buildVariantDiagnostics(draft.variants), [draft.variants]);
+
+  useEffect(() => {
+    if (mode !== "create") {
+      return;
+    }
+
+    const generatedSlug = slugify(draft.name);
+    if (!generatedSlug || draft.slug === generatedSlug) {
+      return;
+    }
+
+    onDraftChange((prev) => ({ ...prev, slug: generatedSlug }));
+  }, [mode, draft.name, draft.slug, onDraftChange]);
 
   useEffect(() => {
     if (!matrixSkuPrefix && draft.slug) {
@@ -939,6 +1054,162 @@ function ProductFormFields({
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isCategoryModalOpen) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsCategoryModalOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isCategoryModalOpen]);
+
+  async function createCategoryInline() {
+    const name = newCategoryName.trim();
+    const slug = slugify(name);
+
+    if (!name || !slug) {
+      setCategoryFeedback("Category name must include letters or numbers.");
+      return;
+    }
+
+    setCreatingCategory(true);
+    setCategoryFeedback("");
+
+    try {
+      const response = await fetch("/api/admin/catalog/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, slug }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setCategoryFeedback(readValidationMessage(data, "Failed to create category."));
+        return;
+      }
+
+      const category = data.category as CategoryItem;
+      onCategoryCreated(category);
+      onDraftChange((prev) => ({ ...prev, categoryId: category.id }));
+      setNewCategoryName("");
+      setIsCategoryModalOpen(false);
+      setCategoryFeedback(`Created category "${category.name}".`);
+    } catch {
+      setCategoryFeedback("Unexpected error while creating category.");
+    } finally {
+      setCreatingCategory(false);
+    }
+  }
+
+  function queueFilesForUpload(files: File[]) {
+    if (files.length === 0) {
+      return;
+    }
+
+    const queuedItems: UploadQueueItem[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      status: "queued",
+      progressPct: 0,
+    }));
+
+    setUploadQueue((prev) => [...queuedItems, ...prev].slice(0, 20));
+    void processUploadQueue(queuedItems);
+  }
+
+  async function processUploadQueue(items: UploadQueueItem[]) {
+    if (items.length === 0) {
+      return;
+    }
+
+    setIsQueueUploading(true);
+
+    for (const item of items) {
+      setUploadQueue((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id
+            ? { ...entry, status: "uploading", progressPct: 0, error: undefined }
+            : entry
+        )
+      );
+
+      try {
+        await onUploadImage(item.file, (progressPct) => {
+          setUploadQueue((prev) =>
+            prev.map((entry) =>
+              entry.id === item.id
+                ? {
+                    ...entry,
+                    status: "uploading",
+                    progressPct,
+                    error: undefined,
+                  }
+                : entry
+            )
+          );
+        });
+        setUploadQueue((prev) =>
+          prev.map((entry) =>
+            entry.id === item.id ? { ...entry, status: "done", progressPct: 100 } : entry
+          )
+        );
+      } catch {
+        setUploadQueue((prev) =>
+          prev.map((entry) =>
+            entry.id === item.id
+              ? {
+                  ...entry,
+                  status: "failed",
+                  progressPct: 100,
+                  error: "Upload failed. Try again.",
+                }
+              : entry
+          )
+        );
+      }
+    }
+
+    setIsQueueUploading(false);
+  }
+
+  function retryUploadItem(itemId: string) {
+    const item = uploadQueue.find((entry) => entry.id === itemId);
+    if (!item) {
+      return;
+    }
+
+    setUploadQueue((prev) =>
+      prev.map((entry) =>
+        entry.id === itemId ? { ...entry, status: "queued", progressPct: 0, error: undefined } : entry
+      )
+    );
+    void processUploadQueue([{ ...item, status: "queued", progressPct: 0, error: undefined }]);
+  }
+
+  function handleImageInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    queueFilesForUpload(files);
+    event.target.value = "";
+  }
+
+  function removeUploadQueueItem(itemId: string) {
+    setUploadQueue((prev) => prev.filter((item) => item.id !== itemId));
+  }
+
+  const completedUploadCount = uploadQueue.filter(
+    (item) => item.status === "done" || item.status === "failed"
+  ).length;
+  const overallUploadProgress =
+    uploadQueue.length > 0
+      ? Math.round((completedUploadCount / uploadQueue.length) * 100)
+      : 0;
 
   async function generateVariantsFromMatrix() {
     const colors = parseListInput(matrixColors);
@@ -1057,8 +1328,6 @@ function ProductFormFields({
       }
     }
     const inventoryValue = toInt(bulkInventory, 0);
-    const inventoryKey: "inventory" | "initialInventory" =
-      mode === "create" ? "inventory" : "initialInventory";
 
     onDraftChange((prev) => ({
       ...prev,
@@ -1076,7 +1345,7 @@ function ProductFormFields({
             : variant.compareAtPrice,
           isActive:
             shouldUpdateActive ? bulkActiveState === "true" : variant.isActive,
-          [inventoryKey]: shouldUpdateInventory ? Math.max(0, inventoryValue) : variant[inventoryKey],
+          inventory: shouldUpdateInventory ? Math.max(0, inventoryValue) : variant.inventory,
         };
       }),
     }));
@@ -1238,7 +1507,9 @@ function ProductFormFields({
   function validateStep(step: EditorStep): string | null {
     if (step === "BASICS") {
       if (!draft.name.trim()) return "Product name is required.";
-      if (!draft.slug.trim()) return "Product slug is required.";
+      if (!draft.slug.trim()) {
+        return "Product name must include letters or numbers.";
+      }
       if (!draft.price.trim()) return "Base price is required.";
       if (!draft.categoryId.trim()) return "Category is required.";
     }
@@ -1311,21 +1582,14 @@ function ProductFormFields({
           Variant image mapping is available after first save (when variant IDs exist).
         </p>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-1">
         <input
           value={draft.name}
-          onChange={(event) =>
-            onDraftChange((prev) => ({ ...prev, name: event.target.value }))
-          }
+          onChange={(event) => {
+            const nextName = event.target.value;
+            onDraftChange((prev) => ({ ...prev, name: nextName }));
+          }}
           placeholder="Product name"
-          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
-        />
-        <input
-          value={draft.slug}
-          onChange={(event) =>
-            onDraftChange((prev) => ({ ...prev, slug: event.target.value }))
-          }
-          placeholder="product-slug"
           className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
         />
       </div>
@@ -1371,9 +1635,16 @@ function ProductFormFields({
         </select>
         <select
           value={draft.categoryId}
-          onChange={(event) =>
-            onDraftChange((prev) => ({ ...prev, categoryId: event.target.value }))
-          }
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value === "__create__") {
+              setCategoryFeedback("");
+              setNewCategoryName("");
+              setIsCategoryModalOpen(true);
+              return;
+            }
+            onDraftChange((prev) => ({ ...prev, categoryId: value }));
+          }}
           className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
         >
           <option value="">Select category</option>
@@ -1382,50 +1653,196 @@ function ProductFormFields({
               {category.name}
             </option>
           ))}
+          <option value="__create__">+ Create category</option>
         </select>
       </div>
+      {categoryFeedback ? <p className="text-xs text-charcoal">{categoryFeedback}</p> : null}
+      {isCategoryModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 bg-ink/45 backdrop-blur-[1px]"
+          role="presentation"
+          onClick={() => setIsCategoryModalOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Create category"
+            className="mx-auto mt-24 w-[min(92vw,460px)] border border-sepia-border bg-parchment p-5 shadow-lg"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Category</p>
+                <h4 className="text-lg font-semibold text-ink">Create New Category</h4>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setIsCategoryModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              <input
+                autoFocus
+                value={newCategoryName}
+                onChange={(event) => setNewCategoryName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void createCategoryInline();
+                  }
+                }}
+                placeholder="Category name"
+                className="w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-charcoal">Slug will be generated automatically.</p>
+              {categoryFeedback ? <p className="text-xs text-charcoal">{categoryFeedback}</p> : null}
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={creatingCategory}
+                  onClick={() => void createCategoryInline()}
+                  className="btn-primary disabled:opacity-60"
+                >
+                  {creatingCategory ? "Creating..." : "Create Category"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       </div>
 
       <div className={`${currentStep === "IMAGES" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-ink">Images</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/avif"
-              onChange={(event) => setSelectedImageFile(event.target.files?.[0] ?? null)}
-              className="max-w-52 text-xs text-charcoal file:mr-2 file:rounded-md file:border file:border-sepia-border file:bg-paper-light file:px-2 file:py-1 file:text-xs"
-            />
-            <button
-              type="button"
-              disabled={!selectedImageFile || uploadingImage}
-              className="btn-secondary disabled:opacity-60"
-              onClick={async () => {
-                if (!selectedImageFile) {
-                  return;
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-ink">Images</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={imageFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                multiple
+                onChange={handleImageInputChange}
+                className="hidden"
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => imageFileInputRef.current?.click()}
+              >
+                Select Files
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  onDraftChange((prev) => ({
+                    ...prev,
+                    images: [
+                      ...prev.images,
+                      { url: "", alt: "", variantId: null, sortOrder: prev.images.length },
+                    ],
+                  }))
                 }
-                await onUploadImage(selectedImageFile);
-                setSelectedImageFile(null);
-              }}
-            >
-              {uploadingImage ? "Uploading..." : "Upload to R2"}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() =>
-                onDraftChange((prev) => ({
-                  ...prev,
-                  images: [
-                    ...prev.images,
-                    { url: "", alt: "", variantId: null, sortOrder: prev.images.length },
-                  ],
-                }))
-              }
-            >
-              Add URL Row
-            </button>
+              >
+                Add URL Row
+              </button>
+            </div>
           </div>
+
+          <div
+            className={`rounded-md border border-dashed p-4 text-sm transition-colors ${
+              isDragOver ? "border-antique-brass bg-antique-brass/10" : "border-sepia-border bg-paper-light/40"
+            }`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setIsDragOver(false);
+              const files = Array.from(event.dataTransfer.files ?? []);
+              queueFilesForUpload(files);
+            }}
+          >
+            <p className="font-medium text-ink">Drag and drop images here</p>
+            <p className="text-xs text-charcoal">
+              JPG, PNG, WEBP, AVIF up to 8 MB. Multiple files supported.
+            </p>
+          </div>
+
+          {uploadQueue.length > 0 ? (
+            <div className="rounded-md border border-sepia-border/70 bg-paper-light/30 p-3">
+              <div className="mb-2 flex items-center justify-between text-xs text-charcoal">
+                <span>
+                  Uploads: {completedUploadCount}/{uploadQueue.length}
+                </span>
+                <span>{isQueueUploading ? "Uploading..." : "Idle"}</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded bg-sepia-border/40">
+                <div
+                  className="h-full bg-antique-brass transition-all"
+                  style={{ width: `${overallUploadProgress}%` }}
+                />
+              </div>
+              <div className="mt-3 space-y-2">
+                {uploadQueue.map((item) => {
+                  const barWidth = Math.max(4, item.progressPct);
+
+                  return (
+                    <div key={item.id} className="rounded border border-sepia-border/60 bg-parchment p-2">
+                      <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                        <p className="truncate text-charcoal">
+                          {item.file.name} ({formatFileSize(item.file.size)})
+                        </p>
+                        <p className="uppercase tracking-wide text-charcoal">{item.status}</p>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded bg-sepia-border/40">
+                        <div
+                          className={`h-full transition-all ${
+                            item.status === "failed" ? "bg-seal-wax" : "bg-antique-brass"
+                          }`}
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                      {item.error ? <p className="mt-1 text-xs text-seal-wax">{item.error}</p> : null}
+                      <div className="mt-2 flex gap-2">
+                        {item.status === "failed" ? (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => retryUploadItem(item.id)}
+                          >
+                            Retry
+                          </button>
+                        ) : null}
+                        {(item.status === "done" || item.status === "failed") ? (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => removeUploadQueueItem(item.id)}
+                          >
+                            Dismiss
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
         {draft.images.map((image, index) => (
           <div
@@ -1560,7 +1977,7 @@ function ProductFormFields({
               type="number"
               value={bulkInventory}
               onChange={(event) => setBulkInventory(event.target.value)}
-              placeholder={mode === "create" ? "Inventory" : "Initial inventory"}
+              placeholder="Inventory"
               className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
             />
             <select
@@ -1671,9 +2088,9 @@ function ProductFormFields({
               ) : (
                 <input
                   type="number"
-                  value={variant.initialInventory ?? 0}
-                  onChange={(event) => onVariantChange(index, "initialInventory", event.target.value)}
-                  placeholder="Initial inventory (new variants only)"
+                  value={variant.inventory ?? 0}
+                  onChange={(event) => onVariantChange(index, "inventory", event.target.value)}
+                  placeholder="Inventory"
                   className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
                 />
               )}
@@ -1811,7 +2228,6 @@ function ProductFormFields({
         <h3 className="text-lg font-semibold text-ink">Review Before Save</h3>
         <div className="grid gap-2 text-sm text-charcoal sm:grid-cols-2">
           <p><span className="font-semibold text-ink">Name:</span> {draft.name || "-"}</p>
-          <p><span className="font-semibold text-ink">Slug:</span> {draft.slug || "-"}</p>
           <p>
             <span className="font-semibold text-ink">Category:</span>{" "}
             {categories.find((item) => item.id === draft.categoryId)?.name ?? "-"}

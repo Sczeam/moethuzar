@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type {
+  AdminCatalogCategoryCreateInput,
   AdminCatalogCreateInput,
   AdminCatalogDraftValidationInput,
   AdminCatalogUpdateInput,
@@ -107,6 +108,30 @@ export async function listAdminCatalog() {
   };
 }
 
+export async function createAdminCategory(input: AdminCatalogCategoryCreateInput) {
+  try {
+    const created = await prisma.category.create({
+      data: {
+        name: input.name.trim(),
+        slug: input.slug.trim(),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    });
+
+    return created;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new AppError("Category name or slug already exists.", 409, "UNIQUE_CONSTRAINT");
+    }
+
+    throw error;
+  }
+}
+
 export async function getAdminProductById(productId: string) {
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -177,12 +202,16 @@ export async function createAdminProduct(input: AdminCatalogCreateInput) {
   }
 }
 
-export async function updateAdminProduct(productId: string, input: AdminCatalogUpdateInput) {
+export async function updateAdminProduct(
+  productId: string,
+  input: AdminCatalogUpdateInput,
+  adminUserId: string
+) {
   const existing = await prisma.product.findUnique({
     where: { id: productId },
     include: {
       variants: {
-        select: { id: true },
+        select: { id: true, inventory: true },
       },
     },
   });
@@ -207,10 +236,15 @@ export async function updateAdminProduct(productId: string, input: AdminCatalogU
       });
 
       const existingVariantIds = new Set(existing.variants.map((variant) => variant.id));
+      const existingVariantById = new Map(existing.variants.map((variant) => [variant.id, variant]));
       const touchedVariantIds = new Set<string>();
 
       for (const variant of input.variants) {
         if (variant.id && existingVariantIds.has(variant.id)) {
+          const currentVariant = existingVariantById.get(variant.id);
+          const nextInventory = variant.inventory ?? currentVariant?.inventory ?? 0;
+          const quantityDelta = nextInventory - (currentVariant?.inventory ?? 0);
+
           await tx.productVariant.update({
             where: { id: variant.id },
             data: {
@@ -221,14 +255,28 @@ export async function updateAdminProduct(productId: string, input: AdminCatalogU
               material: normalizeOptionalText(variant.material),
               price: normalizeOptionalText(variant.price),
               compareAtPrice: normalizeOptionalText(variant.compareAtPrice),
+              inventory: nextInventory,
               isActive: variant.isActive,
               sortOrder: variant.sortOrder,
             },
           });
+
+          if (quantityDelta !== 0) {
+            await tx.inventoryLog.create({
+              data: {
+                productId,
+                variantId: variant.id,
+                changeType: InventoryChangeType.MANUAL_ADJUSTMENT,
+                quantity: quantityDelta,
+                note: `[admin:${adminUserId}] Catalog editor save`,
+              },
+            });
+          }
           touchedVariantIds.add(variant.id);
           continue;
         }
 
+        const initialInventory = variant.inventory ?? variant.initialInventory ?? 0;
         const createdVariant = await tx.productVariant.create({
           data: {
             productId,
@@ -239,12 +287,24 @@ export async function updateAdminProduct(productId: string, input: AdminCatalogU
             material: normalizeOptionalText(variant.material),
             price: normalizeOptionalText(variant.price),
             compareAtPrice: normalizeOptionalText(variant.compareAtPrice),
-            inventory: variant.initialInventory ?? 0,
+            inventory: initialInventory,
             isActive: variant.isActive,
             sortOrder: variant.sortOrder,
           },
           select: { id: true },
         });
+
+        if (initialInventory !== 0) {
+          await tx.inventoryLog.create({
+            data: {
+              productId,
+              variantId: createdVariant.id,
+              changeType: InventoryChangeType.MANUAL_ADJUSTMENT,
+              quantity: initialInventory,
+              note: `[admin:${adminUserId}] New variant initial stock from catalog editor`,
+            },
+          });
+        }
 
         touchedVariantIds.add(createdVariant.id);
       }
