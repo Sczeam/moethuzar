@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type {
+  AdminCatalogCategoryCreateInput,
   AdminCatalogCreateInput,
   AdminCatalogDraftValidationInput,
   AdminCatalogUpdateInput,
@@ -105,6 +106,30 @@ export async function listAdminCatalog() {
     })),
     products: products.map(serializeProduct),
   };
+}
+
+export async function createAdminCategory(input: AdminCatalogCategoryCreateInput) {
+  try {
+    const created = await prisma.category.create({
+      data: {
+        name: input.name.trim(),
+        slug: input.slug.trim(),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    });
+
+    return created;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new AppError("Category name or slug already exists.", 409, "UNIQUE_CONSTRAINT");
+    }
+
+    throw error;
+  }
 }
 
 export async function getAdminProductById(productId: string) {

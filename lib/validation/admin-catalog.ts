@@ -61,6 +61,16 @@ export const adminCatalogProductIdParamSchema = z.object({
   productId: z.string().uuid(),
 });
 
+export const adminCatalogCategoryCreateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  slug: z
+    .string()
+    .trim()
+    .min(2)
+    .max(180)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+});
+
 export const adminInventoryAdjustmentSchema = z.object({
   variantId: z.string().uuid(),
   quantityDelta: z.number().int().min(-100000).max(100000).refine((value) => value !== 0),
@@ -103,6 +113,7 @@ export const adminVariantMatrixGenerateSchema = z
 
 export type AdminCatalogCreateInput = z.infer<typeof adminCatalogCreateSchema>;
 export type AdminCatalogUpdateInput = z.infer<typeof adminCatalogUpdateSchema>;
+export type AdminCatalogCategoryCreateInput = z.infer<typeof adminCatalogCategoryCreateSchema>;
 export type AdminInventoryAdjustmentInput = z.infer<typeof adminInventoryAdjustmentSchema>;
 export type AdminVariantMatrixGenerateInput = z.infer<typeof adminVariantMatrixGenerateSchema>;
 

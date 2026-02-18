@@ -153,6 +153,16 @@ function parseListInput(value: string): string[] {
   });
 }
 
+function slugify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function readValidationMessage(data: unknown, fallback: string): string {
   if (!data || typeof data !== "object") {
     return fallback;
@@ -221,6 +231,15 @@ export default function CatalogClient() {
       }),
     []
   );
+  const onCategoryCreated = useCallback((category: CategoryItem) => {
+    setCategories((prev) => {
+      if (prev.some((item) => item.id === category.id)) {
+        return prev;
+      }
+
+      return [...prev, category].sort((a, b) => a.name.localeCompare(b.name));
+    });
+  }, []);
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
@@ -712,6 +731,7 @@ export default function CatalogClient() {
               <ProductFormFields
                 draft={createDraft}
                 categories={categories}
+                onCategoryCreated={onCategoryCreated}
                 onDraftChange={setCreateDraftSafe}
                 onImageChange={(index, key, value) =>
                   updateDraftImage(setCreateDraftSafe, index, key, value)
@@ -737,6 +757,7 @@ export default function CatalogClient() {
                 <ProductFormFields
                   draft={editingProduct}
                   categories={categories}
+                  onCategoryCreated={onCategoryCreated}
                   onDraftChange={setEditingDraftSafe}
                   onImageChange={(index, key, value) =>
                     updateDraftImage(setEditingDraftSafe, index, key, value)
@@ -834,6 +855,7 @@ export default function CatalogClient() {
 function ProductFormFields({
   draft,
   categories,
+  onCategoryCreated,
   onDraftChange,
   onImageChange,
   onVariantChange,
@@ -843,6 +865,7 @@ function ProductFormFields({
 }: {
   draft: ProductDraft;
   categories: CategoryItem[];
+  onCategoryCreated: (category: CategoryItem) => void;
   onDraftChange: DraftSetter;
   onImageChange: (index: number, key: keyof ProductImageItem, value: string) => void;
   onVariantChange: (
@@ -877,7 +900,45 @@ function ProductFormFields({
   const [presetFeedback, setPresetFeedback] = useState("");
   const [currentStep, setCurrentStep] = useState<EditorStep>("BASICS");
   const [stepFeedback, setStepFeedback] = useState("");
+  const [autoSlugEnabled, setAutoSlugEnabled] = useState(mode === "create");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategorySlug, setNewCategorySlug] = useState("");
+  const [autoCategorySlugEnabled, setAutoCategorySlugEnabled] = useState(true);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [categoryFeedback, setCategoryFeedback] = useState("");
   const variantDiagnostics = useMemo(() => buildVariantDiagnostics(draft.variants), [draft.variants]);
+
+  useEffect(() => {
+    if (mode === "edit") {
+      setAutoSlugEnabled(false);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (!autoSlugEnabled) {
+      return;
+    }
+
+    const generatedSlug = slugify(draft.name);
+    if (!generatedSlug || draft.slug === generatedSlug) {
+      return;
+    }
+
+    onDraftChange((prev) => ({ ...prev, slug: generatedSlug }));
+  }, [autoSlugEnabled, draft.name, draft.slug, onDraftChange]);
+
+  useEffect(() => {
+    if (!autoCategorySlugEnabled) {
+      return;
+    }
+
+    const generatedSlug = slugify(newCategoryName);
+    if (generatedSlug === newCategorySlug) {
+      return;
+    }
+
+    setNewCategorySlug(generatedSlug);
+  }, [autoCategorySlugEnabled, newCategoryName, newCategorySlug]);
 
   useEffect(() => {
     if (!matrixSkuPrefix && draft.slug) {
@@ -939,6 +1000,45 @@ function ProductFormFields({
       mounted = false;
     };
   }, []);
+
+  async function createCategoryInline() {
+    const name = newCategoryName.trim();
+    const slug = newCategorySlug.trim();
+
+    if (!name || !slug) {
+      setCategoryFeedback("Category name and slug are required.");
+      return;
+    }
+
+    setCreatingCategory(true);
+    setCategoryFeedback("");
+
+    try {
+      const response = await fetch("/api/admin/catalog/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, slug }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setCategoryFeedback(readValidationMessage(data, "Failed to create category."));
+        return;
+      }
+
+      const category = data.category as CategoryItem;
+      onCategoryCreated(category);
+      onDraftChange((prev) => ({ ...prev, categoryId: category.id }));
+      setNewCategoryName("");
+      setNewCategorySlug("");
+      setAutoCategorySlugEnabled(true);
+      setCategoryFeedback(`Created category "${category.name}".`);
+    } catch {
+      setCategoryFeedback("Unexpected error while creating category.");
+    } finally {
+      setCreatingCategory(false);
+    }
+  }
 
   async function generateVariantsFromMatrix() {
     const colors = parseListInput(matrixColors);
@@ -1314,20 +1414,50 @@ function ProductFormFields({
       <div className="grid gap-3 sm:grid-cols-2">
         <input
           value={draft.name}
-          onChange={(event) =>
-            onDraftChange((prev) => ({ ...prev, name: event.target.value }))
-          }
+          onChange={(event) => {
+            const nextName = event.target.value;
+            onDraftChange((prev) => ({ ...prev, name: nextName }));
+          }}
           placeholder="Product name"
           className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
         />
-        <input
-          value={draft.slug}
-          onChange={(event) =>
-            onDraftChange((prev) => ({ ...prev, slug: event.target.value }))
-          }
-          placeholder="product-slug"
-          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
-        />
+        <div className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <input
+              value={draft.slug}
+              onChange={(event) => {
+                setAutoSlugEnabled(false);
+                onDraftChange((prev) => ({ ...prev, slug: event.target.value }));
+              }}
+              placeholder="product-slug"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
+            />
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const generatedSlug = slugify(draft.name);
+                if (!generatedSlug) {
+                  setStepFeedback("Enter a product name first to generate slug.");
+                  return;
+                }
+                setAutoSlugEnabled(true);
+                setStepFeedback("");
+                onDraftChange((prev) => ({ ...prev, slug: generatedSlug }));
+              }}
+            >
+              Regenerate
+            </button>
+          </div>
+          <label className="inline-flex items-center gap-2 text-xs text-charcoal">
+            <input
+              type="checkbox"
+              checked={autoSlugEnabled}
+              onChange={(event) => setAutoSlugEnabled(event.target.checked)}
+            />
+            Auto-generate slug from product name
+          </label>
+        </div>
       </div>
 
       <textarea
@@ -1383,6 +1513,50 @@ function ProductFormFields({
             </option>
           ))}
         </select>
+      </div>
+      <div className="rounded-md border border-sepia-border/70 bg-paper-light/30 p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-charcoal">
+          Create New Category
+        </p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+          <input
+            value={newCategoryName}
+            onChange={(event) => {
+              setNewCategoryName(event.target.value);
+              if (!newCategorySlug.trim()) {
+                setAutoCategorySlugEnabled(true);
+              }
+            }}
+            placeholder="Category name"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <input
+            value={newCategorySlug}
+            onChange={(event) => {
+              setAutoCategorySlugEnabled(false);
+              setNewCategorySlug(event.target.value);
+            }}
+            placeholder="category-slug"
+            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            disabled={creatingCategory}
+            onClick={() => void createCategoryInline()}
+            className="btn-secondary disabled:opacity-60"
+          >
+            {creatingCategory ? "Creating..." : "Create Category"}
+          </button>
+        </div>
+        <label className="mt-2 inline-flex items-center gap-2 text-xs text-charcoal">
+          <input
+            type="checkbox"
+            checked={autoCategorySlugEnabled}
+            onChange={(event) => setAutoCategorySlugEnabled(event.target.checked)}
+          />
+          Auto-generate slug from category name
+        </label>
+        {categoryFeedback ? <p className="mt-2 text-xs text-charcoal">{categoryFeedback}</p> : null}
       </div>
       </div>
 
