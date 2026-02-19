@@ -127,7 +127,7 @@ export function HeaderCartPanel({
       role="dialog"
       aria-modal="true"
       aria-label="Cart drawer"
-      className={`fixed right-0 top-0 z-[60] h-[100dvh] w-full max-w-none border-l border-sepia-border/60 bg-parchment text-ink sm:max-w-[min(40vw,460px)] ${
+      className={`fixed right-0 top-0 z-[60] h-[100dvh] w-full max-w-none border-l border-sepia-border/60 bg-parchment text-ink opacity-0 sm:max-w-[min(40vw,460px)] ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
     >
