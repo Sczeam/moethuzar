@@ -194,7 +194,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         )}
       </div>
 
-      <div className="mt-auto min-h-[104px] border-t border-sepia-border px-4 py-3">
+      <div className="mt-auto min-h-[98px] border-t border-sepia-border px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <h3 className="line-clamp-2 pr-2 text-sm font-bold uppercase tracking-[0.06em] text-ink">
             {product.name}
@@ -204,7 +204,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </span>
         </div>
 
-        <div className="mt-2 flex min-h-6 items-center gap-1.5">
+        <div className="mt-1.5 flex min-h-6 items-center gap-2">
           {colorOptions.slice(0, 6).map((option) => (
             <button
               key={option.color}
@@ -219,7 +219,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               }}
               onMouseEnter={() => setHoverColor(option.color)}
               onMouseLeave={() => setHoverColor(null)}
-              className={`h-4 w-4 border border-sepia-border/70 transition ${
+              className={`h-5 w-5 border border-sepia-border/70 transition ${
                 selectedColor === option.color ? "ring-1 ring-ink" : ""
               } ${!option.inStock ? "opacity-30" : ""} ${getColorSwatchClass(option.color)}`}
             />
