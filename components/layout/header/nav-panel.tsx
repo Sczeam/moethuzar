@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useState } from "react";
 import type { RefObject } from "react";
 import { IconClose } from "@/components/layout/header/icons";
 
@@ -11,21 +12,20 @@ type HeaderNavPanelProps = {
   onOpenCart: () => void;
 };
 
-const shopLinks = [
+const collectionLinks = [
   { href: "/#latest-products", label: "New In" },
-  { href: "/#latest-products", label: "Dresses" },
-  { href: "/#latest-products", label: "Sets / Co-ords" },
-  { href: "/#latest-products", label: "Best Sellers" },
+  { href: "/search", label: "Search" },
 ];
 
-const utilityLinks = [
+const supportLinks = [
   { href: "/order/track", label: "Track Order" },
   { href: "/contact", label: "Contact" },
 ];
 
-const editorialLinks = [
-  { href: "/#latest-products", label: "Lookbook" },
-  { href: "/contact", label: "About" },
+const policyLinks = [
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "/returns", label: "Returns" },
 ];
 
 export function HeaderNavPanel({
@@ -36,6 +36,8 @@ export function HeaderNavPanel({
   onClose,
   onOpenCart,
 }: HeaderNavPanelProps) {
+  const [collectionsOpen, setCollectionsOpen] = useState(true);
+
   const isActive = (href: string) => {
     if (href.startsWith("/#")) {
       return currentPathname === "/";
@@ -71,71 +73,75 @@ export function HeaderNavPanel({
         </button>
       </div>
 
-      <div className="mt-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Shop</p>
-        <nav className="mt-3 grid gap-3">
-          {shopLinks.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={onClose}
-              aria-current={isActive(item.href) ? "page" : undefined}
-              className={`text-2xl font-semibold leading-tight transition hover:opacity-75 ${
-                isActive(item.href) ? "text-teak-brown underline underline-offset-8" : "text-ink"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
-
-      <div className="mt-8 border-t border-sepia-border/60 pt-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Utility</p>
-        <div className="mt-3 grid gap-2">
+      <div className="mt-10">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Browse</p>
+        <div className="mt-3">
           <button
             type="button"
-            onClick={onOpenCart}
-            className="inline-flex min-h-10 items-center justify-start border border-sepia-border bg-paper-light px-3 text-sm uppercase tracking-[0.08em] text-ink transition hover:border-antique-brass"
+            onClick={() => setCollectionsOpen((value) => !value)}
+            aria-expanded={collectionsOpen}
+            aria-controls="browse-collections"
+            className="inline-flex min-h-10 items-center justify-start text-2xl font-semibold leading-tight text-ink transition hover:opacity-75"
           >
-            Cart
+            Collections
           </button>
-          {utilityLinks.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={onClose}
-              className="inline-flex min-h-10 items-center justify-start border border-sepia-border bg-paper-light px-3 text-sm uppercase tracking-[0.08em] text-ink transition hover:border-antique-brass"
-            >
-              {item.label}
-            </Link>
-          ))}
-          <div className="mt-1 grid grid-cols-3 gap-2">
-            {['Contact', 'Favourites', 'Account'].map((item) => (
-              <button
-                key={item}
-                type="button"
-                disabled
-                aria-disabled="true"
-                title="Coming soon"
-                className="min-h-9 border border-sepia-border/60 bg-paper-light px-2 text-[10px] uppercase tracking-[0.1em] text-charcoal/55"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
+          <nav
+            id="browse-collections"
+            className={`mt-2 overflow-hidden transition-[max-height,opacity] duration-200 ${
+              collectionsOpen ? "max-h-52 opacity-100" : "max-h-0 opacity-0"
+            }`}
+          >
+            <div className="grid gap-2 pl-3">
+              {collectionLinks.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={onClose}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={`inline-flex min-h-9 items-center text-sm uppercase tracking-[0.08em] transition hover:text-teak-brown ${
+                    isActive(item.href) ? "text-teak-brown" : "text-ink"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
         </div>
       </div>
 
-      <div className="mt-8 border-t border-sepia-border/60 pt-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Editorial</p>
-        <nav className="mt-3 grid gap-2">
-          {editorialLinks.map((item) => (
+      <div className="mt-12">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Support</p>
+        <div className="mt-4 grid gap-1.5">
+          <button
+            type="button"
+            onClick={onOpenCart}
+            className="inline-flex min-h-10 items-center justify-start text-sm uppercase tracking-[0.08em] text-ink transition hover:text-teak-brown"
+          >
+            Cart
+          </button>
+          {supportLinks.map((item) => (
             <Link
               key={item.label}
               href={item.href}
               onClick={onClose}
-              className="inline-flex min-h-9 items-center text-base text-charcoal transition hover:text-ink"
+              className="inline-flex min-h-10 items-center justify-start text-sm uppercase tracking-[0.08em] text-ink transition hover:text-teak-brown"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-12">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Policies</p>
+        <nav className="mt-3 grid gap-1.5">
+          {policyLinks.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              onClick={onClose}
+              className="inline-flex min-h-9 items-center text-sm uppercase tracking-[0.08em] text-charcoal transition hover:text-ink"
             >
               {item.label}
             </Link>
@@ -143,7 +149,25 @@ export function HeaderNavPanel({
         </nav>
       </div>
 
-      <p className="mt-8 text-xs text-charcoal/80">Cash on delivery across Myanmar.</p>
+      <div className="mt-12">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Coming Soon</p>
+        <div className="mt-3 grid gap-1.5">
+          {["Favourites", "Account"].map((item) => (
+            <button
+              key={item}
+              type="button"
+              disabled
+              aria-disabled="true"
+              title="Coming soon"
+              className="inline-flex min-h-9 items-center justify-start text-sm uppercase tracking-[0.08em] text-charcoal/55"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p className="mt-12 text-xs text-charcoal/80">Cash on delivery across Myanmar.</p>
     </div>
   );
 }

@@ -36,10 +36,78 @@ type HeaderCartPanelProps = {
   statusText: string;
   busyVariantId: string | null;
   onClose: () => void;
-  onIncrement: (variantId: string, currentQty: number, maxQty: number) => void;
-  onDecrement: (variantId: string, currentQty: number) => void;
   onRemove: (variantId: string) => void;
 };
+
+function isSizeToken(value: string) {
+  return /^(XXXS|XXS|XS|S|M|L|XL|XXL|XXXL)$/i.test(value.trim());
+}
+
+function normalizeColorToken(rawColor: string | null, productName: string) {
+  if (!rawColor) {
+    return null;
+  }
+
+  let value = rawColor.trim();
+  const escapedName = productName.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const productPrefixRegex = new RegExp(
+    `^${escapedName}\\s*[-–—:/|]?\\s*`,
+    "i",
+  );
+  value = value.replace(productPrefixRegex, "").trim();
+  value = value.replace(/^[-–—:/|]\s*/, "").trim();
+
+  return value.length > 0 ? value : null;
+}
+
+function getVariantMeta(variantName: string, productName: string) {
+  const normalized = variantName.trim();
+  const slashParts = normalized
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (slashParts.length >= 2) {
+    const sizeCandidate = slashParts.find((part) => isSizeToken(part)) ?? null;
+    const colorCandidate =
+      slashParts.find((part) => !isSizeToken(part)) ?? null;
+    return {
+      color: normalizeColorToken(colorCandidate, productName),
+      size: sizeCandidate,
+    };
+  }
+
+  const dashParts = normalized
+    .split(/\s*[-–—]\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (dashParts.length >= 2) {
+    const lastPart = dashParts[dashParts.length - 1];
+    const maybeColor =
+      isSizeToken(lastPart) && dashParts.length > 1
+        ? dashParts[dashParts.length - 2]
+        : lastPart;
+    return {
+      color: normalizeColorToken(maybeColor, productName),
+      size: isSizeToken(lastPart) ? lastPart : null,
+    };
+  }
+
+  const productPrefix = `${productName.trim()} -`;
+  if (normalized.toLowerCase().startsWith(productPrefix.toLowerCase())) {
+    const tail = normalized.slice(productPrefix.length).trim();
+    if (tail.length > 0) {
+      return {
+        color: normalizeColorToken(tail, productName),
+        size: null,
+      };
+    }
+  }
+
+  return {
+    color: null,
+    size: null,
+  };
+}
 
 export function HeaderCartPanel({
   isOpen,
@@ -49,127 +117,154 @@ export function HeaderCartPanel({
   statusText,
   busyVariantId,
   onClose,
-  onIncrement,
-  onDecrement,
   onRemove,
 }: HeaderCartPanelProps) {
+  const itemCount = cart?.itemCount ?? 0;
+
   return (
     <div
       ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-label="Cart drawer"
-      className={`fixed right-0 top-0 z-[60] h-[100dvh] w-full max-w-none border-l border-sepia-border/60 bg-parchment p-5 text-ink sm:max-w-[min(40vw,420px)] sm:p-6 ${
+      className={`fixed right-0 top-0 z-[60] h-[100dvh] w-full max-w-none border-l border-sepia-border/60 bg-parchment text-ink sm:max-w-[min(40vw,460px)] ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
     >
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-ink">Cart</h2>
+      <div className="flex items-center justify-between px-5 py-4 sm:px-6">
+        <h2 className="text-lg font-semibold text-ink">
+          Your selection ({itemCount})
+        </h2>
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-11 w-11 items-center justify-center border border-sepia-border text-ink transition hover:opacity-75"
+          className="inline-flex h-11 w-11 items-center justify-center text-ink transition hover:opacity-75"
           aria-label="Close cart drawer"
         >
           <IconClose />
         </button>
       </div>
 
-      {loading ? <p className="mt-6 text-sm text-charcoal">Loading cart...</p> : null}
+      <div className="h-[calc(100dvh-76px)]">
+        {loading ? (
+          <p className="px-5 py-6 text-sm text-charcoal sm:px-6">
+            Loading cart...
+          </p>
+        ) : null}
 
-      {!loading && (!cart || cart.items.length === 0) ? (
-        <div className="mt-6 rounded border border-sepia-border bg-paper-light p-4 text-sm text-charcoal">
-          Your cart is empty.
-        </div>
-      ) : null}
+        {!loading && (!cart || cart.items.length === 0) ? (
+          <div className="px-5 py-6 sm:px-6">
+            <div className="border border-sepia-border bg-paper-light p-4 text-sm text-charcoal">
+              Your cart is empty.
+            </div>
+          </div>
+        ) : null}
 
-      {!loading && cart && cart.items.length > 0 ? (
-        <>
-          <div className="mt-5 max-h-[56vh] space-y-3 overflow-auto pr-1">
-            {cart.items.map((item) => {
-              const image = item.variant.product.images[0];
-              const busy = busyVariantId === item.variant.id;
-              return (
-                <article key={item.id} className="grid grid-cols-[64px_1fr_auto] gap-3 border border-sepia-border bg-paper-light p-2.5">
-                  <div className="h-16 w-16 overflow-hidden bg-parchment">
-                    {image ? (
-                      <Image
-                        src={image.url}
-                        alt={image.alt ?? item.variant.product.name}
-                        width={64}
-                        height={64}
-                        sizes="64px"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </div>
-                  <div>
-                    <Link href={`/products/${item.variant.product.slug}`} onClick={onClose} className="text-sm font-semibold leading-tight">
-                      {item.variant.product.name}
-                    </Link>
-                    <p className="mt-1 text-xs text-charcoal">{item.variant.name}</p>
-                    <p className="mt-1 text-xs text-charcoal">
-                      {formatMoney(item.unitPrice, cart.currency)}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="inline-flex items-center border border-sepia-border">
-                      <button
-                        type="button"
-                        disabled={busy || item.quantity <= 1}
-                        onClick={() => onDecrement(item.variant.id, item.quantity)}
-                        className="h-7 w-7 text-sm disabled:opacity-40"
-                        aria-label="Decrease quantity"
-                      >
-                        -
-                      </button>
-                      <span className="min-w-6 text-center text-xs">{item.quantity}</span>
-                      <button
-                        type="button"
-                        disabled={busy || item.quantity >= Math.max(1, item.variant.inventory)}
-                        onClick={() => onIncrement(item.variant.id, item.quantity, item.variant.inventory)}
-                        className="h-7 w-7 text-sm disabled:opacity-40"
-                        aria-label="Increase quantity"
-                      >
-                        +
-                      </button>
-                    </div>
-                    <p className="text-xs font-semibold">{formatMoney(item.lineTotal, cart.currency)}</p>
-                    <button
-                      type="button"
-                      onClick={() => onRemove(item.variant.id)}
-                      disabled={busy}
-                      className="text-[11px] text-seal-wax underline disabled:opacity-40"
+        {!loading && cart && cart.items.length > 0 ? (
+          <div className="flex h-full flex-col">
+            <div className="flex-1 overflow-y-auto px-5 py-3 sm:px-6">
+              <div className="space-y-3">
+                {cart.items.map((item) => {
+                  const image = item.variant.product.images[0];
+                  const busy = busyVariantId === item.variant.id;
+                  const { color, size } = getVariantMeta(
+                    item.variant.name,
+                    item.variant.product.name,
+                  );
+
+                  return (
+                    <article
+                      key={item.id}
+                      className="grid grid-cols-[120px_1fr] gap-4 border-b border-sepia-border/40 pb-4 sm:grid-cols-[132px_1fr]"
                     >
-                      Remove
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+                      <div className="w-[120px] overflow-hidden bg-paper-light sm:w-[132px]">
+                        {image ? (
+                          <Image
+                            src={image.url}
+                            alt={image.alt ?? item.variant.product.name}
+                            width={132}
+                            height={198}
+                            sizes="(max-width: 640px) 120px, 132px"
+                            className="h-auto w-full object-cover object-top"
+                          />
+                        ) : null}
+                      </div>
+                      <div className="min-w-0">
+                        <Link
+                          href={`/products/${item.variant.product.slug}`}
+                          onClick={onClose}
+                          className="block truncate text-[1rem] font-semibold leading-snug"
+                          title={item.variant.product.name}
+                        >
+                          {item.variant.product.name}
+                        </Link>
+                        {color ? (
+                          <p className="mt-2 text-sm text-ink">
+                            Color: {color}
+                          </p>
+                        ) : null}
+                        {!color ? (
+                          <p className="mt-2 text-sm text-ink">
+                            Variant: {item.variant.name}
+                          </p>
+                        ) : null}
+                        {size ? (
+                          <p className="mt-1 text-sm text-ink">Size: {size}</p>
+                        ) : null}
+                        <p className="mt-1 text-sm text-ink">
+                          Qty: {item.quantity}
+                        </p>
+                        <p className="mt-2 text-[0.8rem] font-semibold leading-none text-ink">
+                          {formatMoney(item.lineTotal, cart.currency)}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => onRemove(item.variant.id)}
+                          disabled={busy}
+                          className="mt-8 text-sm underline underline-offset-4 disabled:opacity-40"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="border-t border-sepia-border/60 bg-paper-light px-5 py-4 sm:px-6">
+              <div className="mb-4 flex items-center justify-between text-base">
+                <p className="font-semibold">Subtotal</p>
+                <p className="font-semibold">
+                  {formatMoney(cart.subtotalAmount, cart.currency)}
+                </p>
+              </div>
+              <div className="grid gap-3">
+                <Link
+                  href="/cart"
+                  onClick={onClose}
+                  className="btn-secondary w-full text-sm uppercase"
+                >
+                  Go To Shopping Bag
+                </Link>
+                <Link
+                  href="/checkout"
+                  onClick={onClose}
+                  className="btn-primary w-full text-sm uppercase"
+                >
+                  Proceed To Checkout
+                </Link>
+              </div>
+              <p className="mt-3 text-center text-[11px] leading-relaxed text-charcoal/80">
+                By proceeding, you agree to our Terms and Privacy Policy.
+              </p>
+            </div>
           </div>
+        ) : null}
+      </div>
 
-          <div className="mt-5 border-t border-sepia-border pt-4">
-            <div className="mb-3 flex items-center justify-between text-sm">
-              <p>Subtotal</p>
-              <p className="font-semibold">{formatMoney(cart.subtotalAmount, cart.currency)}</p>
-            </div>
-            <div className="grid gap-2">
-              <Link href="/checkout" onClick={onClose} className="btn-primary w-full">
-                Checkout
-              </Link>
-              <Link href="/cart" onClick={onClose} className="btn-secondary w-full">
-                View Cart
-              </Link>
-              <button type="button" onClick={onClose} className="btn-secondary w-full">
-                Continue Shopping
-              </button>
-            </div>
-          </div>
-        </>
+      {statusText ? (
+        <p className="px-5 pt-3 text-xs text-seal-wax sm:px-6">{statusText}</p>
       ) : null}
-
-      {statusText ? <p className="mt-4 text-xs text-seal-wax">{statusText}</p> : null}
     </div>
   );
 }

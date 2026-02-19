@@ -93,29 +93,6 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
     }
   }
 
-  async function patchCartQuantity(variantId: string, quantity: number) {
-    setBusyVariantId(variantId);
-    try {
-      const response = await fetch("/api/cart", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ variantId, quantity }),
-      });
-      const data = await response.json();
-      if (response.ok && data.ok && data.cart) {
-        setCartData(data.cart as HeaderCartData);
-        setCartItemCount(data.cart.itemCount ?? 0);
-        setCartStatusText("");
-      } else {
-        setCartStatusText(data.error ?? "Failed to update cart.");
-      }
-    } catch {
-      setCartStatusText("Failed to update cart.");
-    } finally {
-      setBusyVariantId(null);
-    }
-  }
-
   async function removeCartItem(variantId: string) {
     setBusyVariantId(variantId);
     try {
@@ -483,14 +460,6 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         statusText={cartStatusText}
         busyVariantId={busyVariantId}
         onClose={() => setActivePanel("none")}
-        onIncrement={(variantId, currentQty, maxQty) => {
-          const nextQty = Math.min(currentQty + 1, Math.max(1, maxQty));
-          void patchCartQuantity(variantId, nextQty);
-        }}
-        onDecrement={(variantId, currentQty) => {
-          const nextQty = Math.max(1, currentQty - 1);
-          void patchCartQuantity(variantId, nextQty);
-        }}
         onRemove={(variantId) => {
           void removeCartItem(variantId);
         }}
