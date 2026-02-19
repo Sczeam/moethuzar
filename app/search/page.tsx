@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ProductCard from "@/features/storefront/home/components/product-card";
+import type { StorefrontProductCardData } from "@/features/storefront/home/components/product-card";
 import { searchActiveProducts } from "@/server/services/product.service";
 import { searchProductsQuerySchema } from "@/lib/validation/search";
 
@@ -18,6 +19,24 @@ type SearchPageProps = {
   }>;
 };
 
+type PaginationToken = number | "ellipsis";
+
+function buildPaginationTokens(currentPage: number, totalPages: number): PaginationToken[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, "ellipsis", totalPages];
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [1, "ellipsis", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+
+  return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages];
+}
+
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
   const query = searchProductsQuerySchema.parse({
@@ -34,9 +53,31 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   });
 
   const result = await searchActiveProducts(query);
+  const productsForCards: StorefrontProductCardData[] = result.products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    currency: product.currency,
+    basePrice: product.price.toString(),
+    images: product.images.map((image) => ({
+      id: image.id,
+      url: image.url,
+      alt: image.alt,
+      variantId: image.variantId,
+    })),
+    variants: product.variants.map((variant) => ({
+      id: variant.id,
+      color: variant.color,
+      size: variant.size,
+      price: variant.price ? variant.price.toString() : null,
+      inventory: variant.inventory,
+      isActive: variant.isActive,
+    })),
+  }));
 
   const previousPage = Math.max(1, result.page - 1);
   const nextPage = Math.min(result.totalPages, result.page + 1);
+  const paginationTokens = buildPaginationTokens(result.page, result.totalPages);
 
   function pageHref(targetPage: number, overrides?: Partial<typeof query>) {
     const search = new URLSearchParams();
@@ -113,42 +154,94 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
           {result.products.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-0 lg:grid-cols-3 md:border md:border-sepia-border">
-              {result.products.map((product) => (
+              {productsForCards.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           ) : (
             <div className="vintage-panel border-dashed p-8">
               <p className="text-charcoal">No products matched your search.</p>
-              <Link href="/" className="btn-secondary mt-4">
-                Back to Home
-              </Link>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link href="/search" className="btn-secondary">
+                  Clear Search
+                </Link>
+                <Link href="/#latest-products" className="btn-primary">
+                  Browse New In
+                </Link>
+              </div>
             </div>
           )}
 
           {result.totalPages > 1 ? (
-            <div className="mt-6 flex items-center justify-between gap-2">
-              <Link
-                href={pageHref(previousPage)}
-                className={`btn-secondary ${result.page === 1 ? "pointer-events-none opacity-50" : ""}`}
-              >
-                Prev
-              </Link>
-              <p className="text-sm text-charcoal">
-                Page {result.page} / {result.totalPages}
-              </p>
-              <Link
-                href={pageHref(nextPage)}
-                className={`btn-secondary ${result.page === result.totalPages ? "pointer-events-none opacity-50" : ""}`}
-              >
-                Next
-              </Link>
-            </div>
+            <>
+              <div className="mt-6 flex items-center justify-between gap-3 sm:hidden">
+                <Link
+                  href={pageHref(previousPage)}
+                  className={`btn-secondary min-w-24 ${
+                    result.page === 1 ? "pointer-events-none opacity-50" : ""
+                  }`}
+                >
+                  Prev
+                </Link>
+                <p className="text-sm font-semibold text-charcoal">
+                  Page {result.page} / {result.totalPages}
+                </p>
+                <Link
+                  href={pageHref(nextPage)}
+                  className={`btn-secondary min-w-24 ${
+                    result.page === result.totalPages ? "pointer-events-none opacity-50" : ""
+                  }`}
+                >
+                  Next
+                </Link>
+              </div>
+
+              <div className="mt-6 hidden flex-wrap items-center gap-2 sm:flex">
+                <Link
+                  href={pageHref(previousPage)}
+                  className={`btn-secondary ${result.page === 1 ? "pointer-events-none opacity-50" : ""}`}
+                >
+                  Prev
+                </Link>
+
+                {paginationTokens.map((token, index) =>
+                  token === "ellipsis" ? (
+                    <span key={`ellipsis-${index}`} className="px-1 text-sm text-charcoal/70">
+                      ...
+                    </span>
+                  ) : (
+                    <Link
+                      key={token}
+                      href={pageHref(token)}
+                      className={`min-h-10 min-w-10 border px-3 text-center text-sm font-semibold ${
+                        token === result.page
+                          ? "border-ink bg-ink text-paper-light"
+                          : "border-sepia-border bg-paper-light text-ink hover:border-ink"
+                      }`}
+                    >
+                      {token}
+                    </Link>
+                  ),
+                )}
+
+                <Link
+                  href={pageHref(nextPage)}
+                  className={`btn-secondary ${
+                    result.page === result.totalPages ? "pointer-events-none opacity-50" : ""
+                  }`}
+                >
+                  Next
+                </Link>
+              </div>
+            </>
           ) : null}
         </section>
       ) : (
         <section className="mt-8 vintage-panel border-dashed p-8">
           <p className="text-charcoal">Enter a keyword to search products.</p>
+          <Link href="/#latest-products" className="btn-primary mt-4">
+            Browse New In
+          </Link>
         </section>
       )}
     </main>
