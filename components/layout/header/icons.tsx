@@ -41,3 +41,30 @@ export function IconCart() {
     </svg>
   );
 }
+
+export function IconHeart() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden>
+      <path
+        d="M12 20s-6.8-4.5-8.8-8.1c-1.7-3 0.3-6.9 3.8-7.2 2-.2 3.2.8 5 2.7 1.8-1.9 3-2.9 5-2.7 3.5.3 5.5 4.2 3.8 7.2C18.8 15.5 12 20 12 20z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconUser() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden>
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M5.5 19c1.4-3 3.5-4.5 6.5-4.5s5.1 1.5 6.5 4.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}

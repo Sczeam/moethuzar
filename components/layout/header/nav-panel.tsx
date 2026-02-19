@@ -1,82 +1,173 @@
 import Link from "next/link";
-import type { MutableRefObject, RefObject } from "react";
-import type { SiteNavItem } from "@/lib/constants/site-navigation";
+import { useState } from "react";
+import type { RefObject } from "react";
+import { IconClose } from "@/components/layout/header/icons";
 
 type HeaderNavPanelProps = {
   menuId: string;
   isOpen: boolean;
   panelRef: RefObject<HTMLDivElement | null>;
-  overlayRef: RefObject<HTMLButtonElement | null>;
-  linkRefs: MutableRefObject<Array<HTMLAnchorElement | null>>;
-  items: SiteNavItem[];
+  currentPathname: string;
   onClose: () => void;
+  onOpenCart: () => void;
 };
+
+const collectionLinks = [
+  { href: "/#latest-products", label: "New In" },
+  { href: "/search", label: "Search" },
+];
+
+const supportLinks = [
+  { href: "/order/track", label: "Track Order" },
+  { href: "/contact", label: "Contact" },
+];
+
+const policyLinks = [
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "/returns", label: "Returns" },
+];
 
 export function HeaderNavPanel({
   menuId,
   isOpen,
   panelRef,
-  overlayRef,
-  linkRefs,
-  items,
+  currentPathname,
   onClose,
+  onOpenCart,
 }: HeaderNavPanelProps) {
+  const [collectionsOpen, setCollectionsOpen] = useState(true);
+
+  const isActive = (href: string) => {
+    if (href.startsWith("/#")) {
+      return currentPathname === "/";
+    }
+
+    if (href === "/") {
+      return currentPathname === "/";
+    }
+
+    return currentPathname === href || currentPathname.startsWith(`${href}/`);
+  };
+
   return (
-    <div className={`fixed inset-0 z-40 ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
-      <button
-        ref={overlayRef}
-        type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-ink/45"
-        aria-label="Close navigation menu"
-      />
+    <div
+      id={menuId}
+      ref={panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Site navigation"
+      className={`fixed left-0 top-0 z-[60] h-[100dvh] w-full max-w-none border-r border-sepia-border/60 bg-parchment p-5 text-ink sm:max-w-[min(40vw,420px)] sm:p-6 ${
+        isOpen ? "pointer-events-auto" : "pointer-events-none"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-xs uppercase tracking-[0.2em] text-charcoal/80">Moethuzar</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex h-11 w-11 items-center justify-center border border-sepia-border text-ink transition hover:opacity-75"
+          aria-label="Close navigation menu"
+        >
+          <IconClose />
+        </button>
+      </div>
 
-      <div
-        id={menuId}
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Site navigation"
-        className="absolute right-0 top-0 h-screen w-[min(92vw,380px)] border-l border-sepia-border/60 bg-teak-brown p-6 text-paper-light sm:right-16 sm:w-[min(calc(100vw-64px),420px)] sm:p-8 lg:right-[68px] lg:w-[min(calc(100vw-68px),440px)] lg:p-10"
-      >
-        <div className="flex items-center justify-between">
-          <p className="text-sm uppercase tracking-[0.22em] text-aged-gold">Moethuzar</p>
+      <div className="mt-10">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Browse</p>
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setCollectionsOpen((value) => !value)}
+            aria-expanded={collectionsOpen}
+            aria-controls="browse-collections"
+            className="inline-flex min-h-10 items-center justify-start text-2xl font-semibold leading-tight text-ink transition hover:opacity-75"
+          >
+            Collections
+          </button>
+          <nav
+            id="browse-collections"
+            className={`mt-2 overflow-hidden transition-[max-height,opacity] duration-200 ${
+              collectionsOpen ? "max-h-52 opacity-100" : "max-h-0 opacity-0"
+            }`}
+          >
+            <div className="grid gap-2 pl-3">
+              {collectionLinks.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={onClose}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={`inline-flex min-h-9 items-center text-sm uppercase tracking-[0.08em] transition hover:text-teak-brown ${
+                    isActive(item.href) ? "text-teak-brown" : "text-ink"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
         </div>
+      </div>
 
-        <nav className="mt-8 grid gap-3 sm:mt-10 sm:gap-4">
-          {items.map((item, index) => (
+      <div className="mt-12">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Support</p>
+        <div className="mt-4 grid gap-1.5">
+          <button
+            type="button"
+            onClick={onOpenCart}
+            className="inline-flex min-h-10 items-center justify-start text-sm uppercase tracking-[0.08em] text-ink transition hover:text-teak-brown"
+          >
+            Cart
+          </button>
+          {supportLinks.map((item) => (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
               onClick={onClose}
-              ref={(element) => {
-                linkRefs.current[index] = element;
-              }}
-              className="text-3xl font-semibold text-paper-light transition hover:text-aged-gold focus-visible:text-aged-gold focus-visible:underline sm:text-4xl lg:text-5xl"
+              className="inline-flex min-h-10 items-center justify-start text-sm uppercase tracking-[0.08em] text-ink transition hover:text-teak-brown"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-12">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Policies</p>
+        <nav className="mt-3 grid gap-1.5">
+          {policyLinks.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              onClick={onClose}
+              className="inline-flex min-h-9 items-center text-sm uppercase tracking-[0.08em] text-charcoal transition hover:text-ink"
             >
               {item.label}
             </Link>
           ))}
         </nav>
+      </div>
 
-        <div className="mt-10 border-t border-paper-light/30 pt-6">
-          <p className="text-xs uppercase tracking-[0.2em] text-aged-gold">Search</p>
-          <form action="/search" method="get" onSubmit={onClose} className="mt-3 flex gap-2">
-            <label htmlFor="menu-search-query" className="sr-only">
-              Search products
-            </label>
-            <input
-              id="menu-search-query"
-              name="q"
-              placeholder="Search products..."
-              className="min-h-10 w-full border border-paper-light/45 bg-transparent px-3 text-sm text-paper-light placeholder:text-paper-light/70 focus:outline-none"
-            />
-            <button type="submit" className="btn-secondary whitespace-nowrap !border-paper-light/45 !bg-transparent !text-paper-light">
-              Go
+      <div className="mt-12">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Coming Soon</p>
+        <div className="mt-3 grid gap-1.5">
+          {["Favourites", "Account"].map((item) => (
+            <button
+              key={item}
+              type="button"
+              disabled
+              aria-disabled="true"
+              title="Coming soon"
+              className="inline-flex min-h-9 items-center justify-start text-sm uppercase tracking-[0.08em] text-charcoal/55"
+            >
+              {item}
             </button>
-          </form>
+          ))}
         </div>
       </div>
+
+      <p className="mt-12 text-xs text-charcoal/80">Cash on delivery across Myanmar.</p>
     </div>
   );
 }
