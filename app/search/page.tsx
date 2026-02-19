@@ -1,6 +1,9 @@
 import Link from "next/link";
 import ProductCard from "@/features/storefront/home/components/product-card";
-import type { StorefrontProductCardData } from "@/features/storefront/home/components/product-card";
+import {
+  mapProductToCardData,
+  type StorefrontProductCardData,
+} from "@/features/storefront/home/lib/product-card-data";
 import { searchActiveProducts } from "@/server/services/product.service";
 import { searchProductsQuerySchema } from "@/lib/validation/search";
 
@@ -53,27 +56,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   });
 
   const result = await searchActiveProducts(query);
-  const productsForCards: StorefrontProductCardData[] = result.products.map((product) => ({
-    id: product.id,
-    name: product.name,
-    slug: product.slug,
-    currency: product.currency,
-    basePrice: product.price.toString(),
-    images: product.images.map((image) => ({
-      id: image.id,
-      url: image.url,
-      alt: image.alt,
-      variantId: image.variantId,
-    })),
-    variants: product.variants.map((variant) => ({
-      id: variant.id,
-      color: variant.color,
-      size: variant.size,
-      price: variant.price ? variant.price.toString() : null,
-      inventory: variant.inventory,
-      isActive: variant.isActive,
-    })),
-  }));
+  const productsForCards: StorefrontProductCardData[] = result.products.map(mapProductToCardData);
 
   const previousPage = Math.max(1, result.page - 1);
   const nextPage = Math.min(result.totalPages, result.page + 1);

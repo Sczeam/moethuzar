@@ -3,24 +3,11 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { formatMoney } from "@/lib/format";
-
-export type StorefrontProductCardData = {
-  id: string;
-  name: string;
-  slug: string;
-  currency: string;
-  basePrice: string;
-  images: { id: string; url: string; alt: string | null; variantId: string | null }[];
-  variants: {
-    id: string;
-    color: string | null;
-    size: string | null;
-    price: string | null;
-    inventory: number;
-    isActive: boolean;
-  }[];
-};
+import {
+  getProductCardPriceLabel,
+  getProductCardStockState,
+  type StorefrontProductCardData,
+} from "@/features/storefront/home/lib/product-card-data";
 
 type ProductCardProps = {
   product: StorefrontProductCardData;
@@ -31,11 +18,6 @@ type ColorOption = {
   inStock: boolean;
   previewImageUrl: string | null;
 };
-
-function toNumber(value: string) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 function getColorSwatchClass(color: string) {
   const normalized = color.toLowerCase();
@@ -83,45 +65,17 @@ function buildColorOptions(product: StorefrontProductCardData): ColorOption[] {
   });
 }
 
-function getPriceLabel(product: StorefrontProductCardData) {
-  const activeVariants = product.variants.filter((variant) => variant.isActive);
-  const rawValues =
-    activeVariants.length > 0
-      ? activeVariants.map((variant) => toNumber(variant.price ?? product.basePrice))
-      : [toNumber(product.basePrice)];
-
-  const min = Math.min(...rawValues);
-  const max = Math.max(...rawValues);
-
-  if (min === max) {
-    return formatMoney(min, product.currency);
-  }
-
-  return `${formatMoney(min, product.currency)} - ${formatMoney(max, product.currency)}`;
-}
-
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
-
-  const activeVariants = useMemo(
-    () => product.variants.filter((variant) => variant.isActive),
-    [product.variants],
-  );
 
   const colorOptions = useMemo(() => buildColorOptions(product), [product]);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [hoverColor, setHoverColor] = useState<string | null>(null);
 
-  const totalInventory = useMemo(
-    () => activeVariants.reduce((sum, variant) => sum + Math.max(variant.inventory, 0), 0),
-    [activeVariants],
-  );
-
-  const soldOut = activeVariants.length === 0 || totalInventory <= 0;
-  const stockLabel = soldOut ? "Sold Out" : totalInventory <= 5 ? "Low Stock" : "In Stock";
+  const { soldOut, stockLabel } = useMemo(() => getProductCardStockState(product), [product]);
   const stockClass = soldOut
     ? "bg-seal-wax text-paper-light"
-    : totalInventory <= 5
+    : stockLabel === "Low Stock"
       ? "bg-aged-gold/85 text-ink"
       : "bg-antique-brass/80 text-ink";
 
@@ -200,7 +154,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </h3>
           <span className="shrink-0 border border-ink bg-ink px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-paper-light">
-            {getPriceLabel(product)}
+            {getProductCardPriceLabel(product)}
           </span>
         </div>
 
