@@ -1,4 +1,4 @@
 export const siteContent = {
   heroImageUrl:
-    "https://pub-9aae25b21c704b879aabc1d49a731847.r2.dev/hero/523880114_1198829995604605_1654920268864663888_n.jpg",
+    "https://pub-9aae25b21c704b879aabc1d49a731847.r2.dev/hero/ChatGPT%20Image%20Feb%2019%2C%202026%2C%2002_18_12%20AM.png",
 };

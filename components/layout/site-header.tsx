@@ -438,7 +438,7 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         type="button"
         onClick={() => setActivePanel("none")}
         aria-label="Close drawer"
-        className="fixed inset-0 z-[55] bg-ink/45"
+        className="fixed inset-0 z-[55] bg-ink/45 opacity-0 pointer-events-none"
       />
 
       <HeaderNavPanel
@@ -469,13 +469,13 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         <div
           ref={searchGlowRef}
           aria-hidden
-          className="pointer-events-none absolute -inset-2 rounded-[26px] bg-paper-light/45 blur-xl"
+          className="pointer-events-none absolute -inset-2 rounded-[26px] bg-paper-light/45 blur-xl opacity-0"
         />
         <form
           action="/search"
           method="get"
           ref={searchShellRef}
-          className="pointer-events-auto relative flex h-14 w-[min(94vw,760px)] items-center border border-sepia-border/70 bg-paper-light/95 px-3 shadow-[0_14px_40px_rgba(37,30,24,0.24)] backdrop-blur-sm sm:h-16"
+          className="pointer-events-none relative flex h-14 w-[min(94vw,760px)] items-center border border-sepia-border/70 bg-paper-light/95 px-3 opacity-0 shadow-[0_14px_40px_rgba(37,30,24,0.24)] backdrop-blur-sm sm:h-16"
           onSubmit={(event) => {
             event.preventDefault();
             const normalized = searchQuery.trim();

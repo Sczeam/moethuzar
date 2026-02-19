@@ -57,7 +57,7 @@ export function HeaderNavPanel({
       role="dialog"
       aria-modal="true"
       aria-label="Site navigation"
-      className={`fixed left-0 top-0 z-[60] h-[100dvh] w-full max-w-none border-r border-sepia-border/60 bg-parchment p-5 text-ink sm:max-w-[min(40vw,420px)] sm:p-6 ${
+      className={`fixed left-0 top-0 z-[60] h-[100dvh] w-full max-w-none border-r border-sepia-border/60 bg-parchment p-5 text-ink opacity-0 sm:max-w-[min(40vw,420px)] sm:p-6 ${
         isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
     >
