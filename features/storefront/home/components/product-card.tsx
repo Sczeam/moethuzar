@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   getProductCardPriceLabel,
-  getProductCardSizeSummary,
   getProductCardStockState,
   type StorefrontProductCardData,
 } from "@/features/storefront/home/lib/product-card-data";
@@ -74,7 +73,6 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [hoverColor, setHoverColor] = useState<string | null>(null);
 
   const { soldOut, stockLabel } = useMemo(() => getProductCardStockState(product), [product]);
-  const sizeSummary = useMemo(() => getProductCardSizeSummary(product), [product]);
   const stockClass = soldOut
     ? "bg-seal-wax text-paper-light"
     : stockLabel === "Low Stock"
@@ -186,11 +184,6 @@ export default function ProductCard({ product }: ProductCardProps) {
             </span>
           ) : null}
         </div>
-        {sizeSummary ? (
-          <p className="mt-1 text-[10px] uppercase tracking-[0.08em] text-charcoal">
-            Sizes: {sizeSummary}
-          </p>
-        ) : null}
       </div>
     </article>
   );
