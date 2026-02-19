@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ProductCard from "@/features/storefront/home/components/product-card";
+import type { StorefrontProductCardData } from "@/features/storefront/home/components/product-card";
 import { searchActiveProducts } from "@/server/services/product.service";
 import { searchProductsQuerySchema } from "@/lib/validation/search";
 
@@ -34,6 +35,27 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   });
 
   const result = await searchActiveProducts(query);
+  const productsForCards: StorefrontProductCardData[] = result.products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    currency: product.currency,
+    basePrice: product.price.toString(),
+    images: product.images.map((image) => ({
+      id: image.id,
+      url: image.url,
+      alt: image.alt,
+      variantId: image.variantId,
+    })),
+    variants: product.variants.map((variant) => ({
+      id: variant.id,
+      color: variant.color,
+      size: variant.size,
+      price: variant.price ? variant.price.toString() : null,
+      inventory: variant.inventory,
+      isActive: variant.isActive,
+    })),
+  }));
 
   const previousPage = Math.max(1, result.page - 1);
   const nextPage = Math.min(result.totalPages, result.page + 1);
@@ -113,7 +135,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
           {result.products.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-0 lg:grid-cols-3 md:border md:border-sepia-border">
-              {result.products.map((product) => (
+              {productsForCards.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>

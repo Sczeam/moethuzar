@@ -2,6 +2,7 @@ import Link from "next/link";
 import ProductListEmptyState from "@/components/storefront/product-list-empty-state";
 import ProductListErrorState from "@/components/storefront/product-list-error-state";
 import ProductCard from "@/features/storefront/home/components/product-card";
+import type { StorefrontProductCardData } from "@/features/storefront/home/components/product-card";
 import type { StorefrontHomeData } from "@/features/storefront/home/types";
 
 type LatestProductsSectionProps = {
@@ -27,6 +28,28 @@ function buildPaginationTokens(currentPage: number, totalPages: number): Paginat
 }
 
 export default function LatestProductsSection({ data }: LatestProductsSectionProps) {
+  const productsForCards: StorefrontProductCardData[] = data.products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    currency: product.currency,
+    basePrice: product.price.toString(),
+    images: product.images.map((image) => ({
+      id: image.id,
+      url: image.url,
+      alt: image.alt,
+      variantId: image.variantId,
+    })),
+    variants: product.variants.map((variant) => ({
+      id: variant.id,
+      color: variant.color,
+      size: variant.size,
+      price: variant.price ? variant.price.toString() : null,
+      inventory: variant.inventory,
+      isActive: variant.isActive,
+    })),
+  }));
+
   function pageHref(page: number) {
     return `/?page=${page}#latest-products`;
   }
@@ -53,7 +76,7 @@ export default function LatestProductsSection({ data }: LatestProductsSectionPro
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-0 lg:grid-cols-3 md:border md:border-sepia-border">
-            {data.products.map((product) => (
+            {productsForCards.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
