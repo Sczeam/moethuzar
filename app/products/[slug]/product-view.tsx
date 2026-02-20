@@ -80,10 +80,22 @@ export default function ProductView({ product }: ProductViewProps) {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [status, setStatus] = useState<AddToCartStatus>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [openInfoPanel, setOpenInfoPanel] = useState<"details" | "shipping" | null>(null);
+  const [openInfoPanel, setOpenInfoPanel] = useState<
+    "details" | "shipping" | null
+  >(null);
+  const [isMobileSizePickerOpen, setIsMobileSizePickerOpen] = useState(false);
+  const [isMobilePurchaseExpanded, setIsMobilePurchaseExpanded] =
+    useState(false);
   const infoOverlayRef = useRef<HTMLButtonElement | null>(null);
   const infoMobilePanelRef = useRef<HTMLDivElement | null>(null);
   const infoDesktopPanelRef = useRef<HTMLDivElement | null>(null);
+  const sizeSelectRef = useRef<HTMLSelectElement | null>(null);
+  const mobilePurchasePanelRef = useRef<HTMLDivElement | null>(null);
+  const mobilePurchaseSummaryRef = useRef<HTMLDivElement | null>(null);
+  const mobilePurchaseCollapsedOffsetRef = useRef(0);
+  const mobilePurchaseCurrentYRef = useRef(0);
+  const mobilePurchaseDragStartYRef = useRef(0);
+  const mobilePurchaseDragStartOffsetRef = useRef(0);
 
   const selectedVariant = useMemo(() => {
     const exact = product.variants.find((variant) => {
@@ -128,6 +140,17 @@ export default function ProductView({ product }: ProductViewProps) {
   const unitPrice = selectedVariant?.price ?? product.basePrice;
   const isOutOfStock = !selectedVariant || selectedVariant.inventory <= 0;
   const requiresSizeSelection = sizes.length > 0 && !selectedSize;
+  const mobileCtaLabel = isOutOfStock
+    ? "Out of stock"
+    : isSubmitting
+      ? "Adding..."
+      : selectedSize
+        ? `${selectedSize} - Add to shopping bag`
+        : "Select Size";
+
+  const openSizePicker = () => {
+    setIsMobileSizePickerOpen(true);
+  };
 
   const galleryImages = useMemo(() => {
     return buildProductGalleryImages(
@@ -161,6 +184,13 @@ export default function ProductView({ product }: ProductViewProps) {
   async function handleAddToCart() {
     if (requiresSizeSelection) {
       setStatus({ tone: "error", text: "Please select a size." });
+      if (sizeSelectRef.current) {
+        sizeSelectRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        sizeSelectRef.current.focus();
+      }
       return;
     }
 
@@ -220,6 +250,56 @@ export default function ProductView({ product }: ProductViewProps) {
   }, [openInfoPanel]);
 
   useEffect(() => {
+    const panel = mobilePurchasePanelRef.current;
+    if (!panel) {
+      return;
+    }
+
+    const setCollapsedOffset = () => {
+      const collapsedHeight =
+        (mobilePurchaseSummaryRef.current?.offsetHeight ?? 0) + 8;
+      const panelHeight = panel.offsetHeight;
+      const collapsedOffset = Math.max(0, panelHeight - collapsedHeight);
+      mobilePurchaseCollapsedOffsetRef.current = collapsedOffset;
+      const targetY = isMobilePurchaseExpanded ? 0 : collapsedOffset;
+      mobilePurchaseCurrentYRef.current = targetY;
+      gsap.set(panel, { y: targetY });
+    };
+
+    setCollapsedOffset();
+    window.addEventListener("resize", setCollapsedOffset);
+    return () => window.removeEventListener("resize", setCollapsedOffset);
+  }, [isMobilePurchaseExpanded]);
+
+  useEffect(() => {
+    const panel = mobilePurchasePanelRef.current;
+    if (!panel) {
+      return;
+    }
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const targetY = isMobilePurchaseExpanded
+      ? 0
+      : mobilePurchaseCollapsedOffsetRef.current;
+
+    gsap.killTweensOf(panel);
+    gsap.to(panel, {
+      y: targetY,
+      duration: reduceMotion ? 0 : 0.42,
+      ease: "power3.out",
+      onUpdate: () => {
+        const y = Number(gsap.getProperty(panel, "y"));
+        mobilePurchaseCurrentYRef.current = Number.isFinite(y) ? y : targetY;
+      },
+      onComplete: () => {
+        mobilePurchaseCurrentYRef.current = targetY;
+      },
+    });
+  }, [isMobilePurchaseExpanded]);
+
+  useEffect(() => {
     if (
       !infoOverlayRef.current ||
       !infoMobilePanelRef.current ||
@@ -269,14 +349,17 @@ export default function ProductView({ product }: ProductViewProps) {
 
     const durationScale = reduceMotion ? 0 : 1;
     const overlayDuration = NAV_MENU_ANIMATION.overlay.duration * durationScale;
-    const openDuration = NAV_MENU_ANIMATION.drawer.durationOpen * 1.2 * durationScale;
+    const openDuration =
+      NAV_MENU_ANIMATION.drawer.durationOpen * 1.2 * durationScale;
     const closeDuration =
       NAV_MENU_ANIMATION.drawer.durationClose * 1.15 * durationScale;
 
     gsap.set(inactivePanel, {
       autoAlpha: 0,
       pointerEvents: "none",
-      ...(isMobile ? { x: NAV_MENU_ANIMATION.drawer.closedXRight, y: 0 } : { y: 32, x: 0 }),
+      ...(isMobile
+        ? { x: NAV_MENU_ANIMATION.drawer.closedXRight, y: 0 }
+        : { y: 32, x: 0 }),
     });
 
     if (openInfoPanel) {
@@ -350,8 +433,9 @@ export default function ProductView({ product }: ProductViewProps) {
     <div className="overflow-y-auto px-5 py-4 text-sm leading-relaxed text-charcoal sm:px-6">
       {openInfoPanel === "shipping" ? (
         <p>
-          Cash on delivery is available across Myanmar. Returns and exchanges are accepted
-          according to our returns policy. For assistance, visit Returns or contact support.
+          Cash on delivery is available across Myanmar. Returns and exchanges
+          are accepted according to our returns policy. For assistance, visit
+          Returns or contact support.
         </p>
       ) : (
         <p>{product.description ?? "No additional product details yet."}</p>
@@ -360,14 +444,7 @@ export default function ProductView({ product }: ProductViewProps) {
   );
 
   return (
-    <main className="mx-auto w-full max-w-[1900px] px-0 pb-8">
-      <Link
-        href="/"
-        className="mb-3 inline-block px-4 pt-4 text-xs uppercase tracking-[0.08em] text-charcoal underline sm:px-6 lg:px-8"
-      >
-        Back to products
-      </Link>
-
+    <main className="mx-auto w-full max-w-[1900px] px-0">
       <div className="grid grid-cols-1 border-y border-sepia-border/70 lg:grid-cols-[minmax(0,1fr)_minmax(420px,48vw)]">
         <section className="relative bg-paper-light lg:border-r lg:border-sepia-border/70">
           {galleryImages.length > 0 ? (
@@ -375,7 +452,7 @@ export default function ProductView({ product }: ProductViewProps) {
               {galleryImages.map((image, index) => (
                 <div
                   key={`${image.id}-${index}`}
-                  className="relative min-h-[52vh] border-b border-sepia-border/40 sm:min-h-[65vh] lg:min-h-[calc(100vh-9rem)]"
+                  className="relative h-[calc(100dvh-14rem)] min-h-[24rem] border-b border-sepia-border/40 sm:h-auto sm:min-h-[65vh] lg:h-[calc(100dvh-5.5rem)] lg:min-h-0 lg:w-full lg:border-b-0"
                 >
                   <Image
                     src={image.url}
@@ -383,7 +460,7 @@ export default function ProductView({ product }: ProductViewProps) {
                     fill
                     priority={index === 0}
                     sizes="(max-width: 1024px) 100vw, 58vw"
-                    className="object-cover object-top"
+                    className="object-cover object-center sm:object-cover sm:object-top"
                   />
                 </div>
               ))}
@@ -400,8 +477,8 @@ export default function ProductView({ product }: ProductViewProps) {
           )}
         </section>
 
-        <section className="flex flex-col justify-center bg-parchment px-5 py-12 sm:px-8 sm:py-16 lg:sticky lg:top-[5.5rem] lg:h-[calc(100vh-5.5rem)] lg:overflow-y-auto">
-          <div className="w-full">
+        <section className="hidden flex-col justify-center bg-parchment px-5 py-12 sm:flex sm:px-8 sm:py-16 lg:sticky lg:top-[5.5rem] lg:h-[calc(100vh-5.5rem)] lg:overflow-y-auto">
+          <div className="hidden w-full sm:block">
             <div className="mx-auto max-w-[560px] space-y-2">
               <h1 className="text-[18px] font-extrabold leading-tight text-ink">
                 {product.name}
@@ -449,10 +526,11 @@ export default function ProductView({ product }: ProductViewProps) {
               ) : null}
 
               {sizes.length > 0 ? (
-                <fieldset>
+                <fieldset className="hidden sm:block">
                   <legend className="sr-only">Size</legend>
                   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_128px]">
                     <select
+                      ref={sizeSelectRef}
                       value={selectedSize ?? ""}
                       onChange={(event) => {
                         const nextSize = event.target.value || null;
@@ -489,7 +567,7 @@ export default function ProductView({ product }: ProductViewProps) {
                 type="button"
                 onClick={handleAddToCart}
                 disabled={isSubmitting || isOutOfStock || requiresSizeSelection}
-                className="min-h-12 w-full border border-ink bg-ink px-4 text-sm font-semibold uppercase tracking-[0.08em] text-paper-light transition disabled:opacity-60"
+                className="hidden min-h-12 w-full border border-ink bg-ink px-4 text-sm font-semibold uppercase tracking-[0.08em] text-paper-light transition disabled:opacity-60 sm:block"
               >
                 {isOutOfStock
                   ? "Out of stock"
@@ -566,9 +644,7 @@ export default function ProductView({ product }: ProductViewProps) {
         className="fixed inset-x-0 bottom-0 z-[70] max-h-[82dvh] w-screen overflow-hidden border-t border-sepia-border/70 bg-parchment text-ink opacity-0 pointer-events-none sm:hidden"
       >
         <div className="flex items-center justify-between border-b border-sepia-border/70 px-5 py-4 sm:px-6">
-          <h2 className="text-lg font-semibold text-ink">
-            {panelTitle}
-          </h2>
+          <h2 className="text-lg font-semibold text-ink">{panelTitle}</h2>
           <button
             type="button"
             onClick={() => setOpenInfoPanel(null)}
@@ -599,6 +675,233 @@ export default function ProductView({ product }: ProductViewProps) {
           </button>
         </div>
         {panelBody}
+      </div>
+
+      <div
+        ref={mobilePurchasePanelRef}
+        className="fixed inset-x-0 bottom-0 z-41 h-[min(78dvh,600px)] overflow-hidden border-t border-sepia-border/70 bg-parchment shadow-[0_-8px_32px_rgba(0,0,0,0.12)] sm:hidden"
+      >
+        <div ref={mobilePurchaseSummaryRef} className="px-5 pb-2 pt-2">
+          <button
+            type="button"
+            aria-label={
+              isMobilePurchaseExpanded
+                ? "Collapse product summary"
+                : "Expand product details"
+            }
+            className="mb-1 flex w-full justify-center"
+            onClick={() => setIsMobilePurchaseExpanded((prev) => !prev)}
+            onTouchStart={(event) => {
+              mobilePurchaseDragStartYRef.current = event.touches[0].clientY;
+              mobilePurchaseDragStartOffsetRef.current =
+                mobilePurchaseCurrentYRef.current;
+            }}
+            onTouchMove={(event) => {
+              const panel = mobilePurchasePanelRef.current;
+              if (!panel) {
+                return;
+              }
+              const delta =
+                event.touches[0].clientY - mobilePurchaseDragStartYRef.current;
+              const rawY = mobilePurchaseDragStartOffsetRef.current + delta;
+              const clampedY = Math.min(
+                mobilePurchaseCollapsedOffsetRef.current,
+                Math.max(0, rawY),
+              );
+              mobilePurchaseCurrentYRef.current = clampedY;
+              gsap.set(panel, { y: clampedY });
+            }}
+            onTouchEnd={() => {
+              const threshold = mobilePurchaseCollapsedOffsetRef.current * 0.58;
+              setIsMobilePurchaseExpanded(
+                mobilePurchaseCurrentYRef.current < threshold,
+              );
+            }}
+          >
+            <span className="mb-3 h-1 w-12 rounded-full bg-ink/35" />
+          </button>
+          <div className="w-full">
+            <p className="text-[14px] font-extrabold leading-tight text-ink sm:text-[18px]">
+              {product.name}
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="text-sm text-ink">
+                {formatMoney(unitPrice, product.currency)}
+              </p>
+              {!isMobilePurchaseExpanded && colors.length > 0 ? (
+                <div className="flex items-center gap-1.5" aria-hidden="true">
+                  {colors.slice(0, 4).map((color) => (
+                    <span
+                      key={`mobile-summary-${color}`}
+                      className={`h-3.5 w-3.5 rounded-full border border-sepia-border/90 ${getColorSwatchClass(color)}`}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            {!isMobilePurchaseExpanded ? (
+              <span className="mt-2 inline-flex min-h-12 w-full items-center justify-center border border-ink bg-ink px-4 text-sm font-semibold uppercase tracking-[0.08em] text-paper-light">
+                {mobileCtaLabel}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div
+          className={`h-[calc(100%-160px)] overflow-y-auto border-t border-sepia-border/60 px-5 pb-6 pt-4 transition-opacity duration-200 ${
+            isMobilePurchaseExpanded
+              ? "visible opacity-100"
+              : "invisible pointer-events-none opacity-0"
+          }`}
+        >
+          {colors.length > 0 ? (
+            <fieldset>
+              <legend className="mb-2 text-sm font-semibold text-charcoal">
+                Color
+                {selectedColor ? `: ${selectedColor}` : ""}
+              </legend>
+              <div className="flex flex-wrap gap-2.5">
+                {colors.map((color) => (
+                  <button
+                    key={`mobile-${color}`}
+                    type="button"
+                    disabled={!isColorAvailable(color)}
+                    aria-pressed={selectedColor === color}
+                    onClick={() => {
+                      setSelectedColor(color);
+                      setStatus(null);
+                    }}
+                    className={`h-8 w-8 rounded-full border transition ${
+                      selectedColor === color
+                        ? "border-ink ring-2 ring-ink/25"
+                        : "border-sepia-border/90"
+                    } ${
+                      !isColorAvailable(color)
+                        ? "cursor-not-allowed opacity-35"
+                        : "hover:scale-[1.02]"
+                    } ${getColorSwatchClass(color)}`}
+                    aria-label={`Select color ${color}`}
+                  />
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+
+          {sizes.length > 0 ? (
+            <div className="mt-5 grid gap-2 grid-cols-[minmax(0,1fr)_112px]">
+              <button
+                type="button"
+                onClick={openSizePicker}
+                className="field-select min-h-11 text-left"
+              >
+                {selectedSize ?? "Select Size"}
+              </button>
+              <button
+                type="button"
+                disabled
+                className="btn-secondary min-h-11 text-xs uppercase tracking-[0.08em] opacity-45"
+              >
+                Size guide
+              </button>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => {
+              if (sizes.length > 0 && !selectedSize) {
+                openSizePicker();
+                return;
+              }
+              void handleAddToCart();
+            }}
+            disabled={isSubmitting || isOutOfStock || requiresSizeSelection}
+            className="mt-4 min-h-12 w-full border border-ink bg-ink px-4 text-sm font-semibold uppercase tracking-[0.08em] text-paper-light transition disabled:opacity-60"
+          >
+            {isOutOfStock
+              ? "Out of stock"
+              : isSubmitting
+                ? "Adding..."
+                : "Add to shopping bag"}
+          </button>
+
+          <div className="mt-5 space-y-1 text-sm text-charcoal">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-0 py-2 text-left"
+              onClick={() => setOpenInfoPanel("details")}
+            >
+              <span>Product details</span>
+              <span aria-hidden="true">+</span>
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-0 py-2 text-left"
+              onClick={() => setOpenInfoPanel("shipping")}
+            >
+              <span>Shipping and returns</span>
+              <span aria-hidden="true">+</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        aria-label="Close size picker"
+        onClick={() => setIsMobileSizePickerOpen(false)}
+        className={`fixed inset-0 z-[72] bg-ink/45 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] sm:hidden ${
+          isMobileSizePickerOpen
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
+        }`}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select size"
+        className={`fixed inset-x-0 bottom-0 z-[73] max-h-[70dvh] w-screen overflow-hidden border-t border-sepia-border/70 bg-parchment transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] sm:hidden ${
+          isMobileSizePickerOpen
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-full opacity-0"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-sepia-border/70 px-5 py-4">
+          <h2 className="text-base font-semibold text-ink">Select size</h2>
+          <button
+            type="button"
+            onClick={() => setIsMobileSizePickerOpen(false)}
+            className="inline-flex h-11 w-11 items-center justify-center text-ink transition hover:opacity-75"
+            aria-label="Close size picker"
+          >
+            <IconClose />
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-2 p-5">
+          {sizes.map((size) => {
+            const disabled = !isSizeAvailable(size);
+            const active = selectedSize === size;
+            return (
+              <button
+                key={size}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  setSelectedSize(size);
+                  setStatus(null);
+                  setIsMobileSizePickerOpen(false);
+                }}
+                className={`min-h-11 border px-2 text-sm font-semibold uppercase tracking-[0.06em] transition ${
+                  active
+                    ? "border-ink bg-ink text-paper-light"
+                    : "border-sepia-border/90 bg-parchment text-ink"
+                } ${disabled ? "cursor-not-allowed opacity-35" : "hover:opacity-85"}`}
+              >
+                {size}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </main>
   );
