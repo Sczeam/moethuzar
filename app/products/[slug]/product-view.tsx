@@ -28,6 +28,21 @@ type ProductViewProps = {
   };
 };
 
+type AddToCartStatus =
+  | { tone: "success"; text: string }
+  | { tone: "error"; text: string }
+  | null;
+
+function getInventoryState(inventory: number) {
+  if (inventory <= 0) {
+    return { label: "Out of stock", className: "text-seal-wax" };
+  }
+  if (inventory <= 3) {
+    return { label: `Low stock (${inventory} left)`, className: "text-teak-brown" };
+  }
+  return { label: "In stock", className: "text-charcoal" };
+}
+
 export default function ProductView({ product }: ProductViewProps) {
   const firstInStockVariant = useMemo(
     () =>
@@ -68,7 +83,7 @@ export default function ProductView({ product }: ProductViewProps) {
     firstInStockVariant?.size ?? null,
   );
   const [quantity, setQuantity] = useState(1);
-  const [statusText, setStatusText] = useState("");
+  const [status, setStatus] = useState<AddToCartStatus>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedVariant = useMemo(() => {
@@ -114,6 +129,7 @@ export default function ProductView({ product }: ProductViewProps) {
     ? Math.max(1, selectedVariant.inventory)
     : 1;
   const isOutOfStock = !selectedVariant || selectedVariant.inventory <= 0;
+  const inventoryState = getInventoryState(selectedVariant?.inventory ?? 0);
 
   const galleryImages = useMemo(() => {
     return buildProductGalleryImages(product.images, selectedVariant?.id ?? null);
@@ -143,17 +159,17 @@ export default function ProductView({ product }: ProductViewProps) {
 
   async function handleAddToCart() {
     if (!selectedVariant) {
-      setStatusText("Please select a variant.");
+      setStatus({ tone: "error", text: "Please select a color and size." });
       return;
     }
 
     if (selectedVariant.inventory <= 0) {
-      setStatusText("This variant is out of stock.");
+      setStatus({ tone: "error", text: "This variant is out of stock." });
       return;
     }
 
     setIsSubmitting(true);
-    setStatusText("");
+    setStatus(null);
 
     try {
       const response = await fetch("/api/cart", {
@@ -169,13 +185,24 @@ export default function ProductView({ product }: ProductViewProps) {
 
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Unable to add item to cart.");
+        setStatus({
+          tone: "error",
+          text: data.error ?? "Unable to add item to cart.",
+        });
         return;
       }
 
-      setStatusText("Added to cart.");
+      setStatus({ tone: "success", text: "Added to cart." });
+      window.dispatchEvent(
+        new CustomEvent("cart:updated", {
+          detail: { openDrawer: true },
+        }),
+      );
     } catch {
-      setStatusText("Unexpected error while adding to cart.");
+      setStatus({
+        tone: "error",
+        text: "Unexpected error while adding to cart.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -216,20 +243,32 @@ export default function ProductView({ product }: ProductViewProps) {
         </section>
 
         <section className="vintage-panel space-y-5 p-4 sm:p-5 lg:sticky lg:top-6">
-          <div className="border-b border-sepia-border/80 pb-4">
-            <h1 className="text-[1.9rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+          <div className="space-y-2 border-b border-sepia-border/80 pb-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-charcoal/80">
+              Ready to wear
+            </p>
+            <h1 className="text-[1.6rem] font-semibold leading-tight text-ink sm:text-[1.75rem]">
               {product.name}
             </h1>
-            <p className="text-[1.9rem] font-semibold text-ink sm:text-[2rem]">
+            <p className="text-[1.35rem] font-semibold text-ink sm:text-[1.5rem]">
               {formatMoney(unitPrice, product.currency)}
+            </p>
+            {product.description ? (
+              <p className="line-clamp-3 text-sm leading-relaxed text-charcoal">
+                {product.description}
+              </p>
+            ) : null}
+            <p className={`text-sm font-semibold ${inventoryState.className}`}>
+              {inventoryState.label}
             </p>
           </div>
 
           {colors.length > 0 ? (
-            <div>
-              <p className="mb-2 text-sm font-semibold text-charcoal">
-                Color: {selectedColor ?? "-"}
-              </p>
+            <fieldset>
+              <legend className="mb-2 text-sm font-semibold text-charcoal">
+                Color
+                {selectedColor ? `: ${selectedColor}` : ""}
+              </legend>
               <div className="flex flex-wrap gap-2.5">
                 {colors.map((color) => (
                   <button
@@ -240,7 +279,7 @@ export default function ProductView({ product }: ProductViewProps) {
                     onClick={() => {
                       setSelectedColor(color);
                       setQuantity(1);
-                      setStatusText("");
+                      setStatus(null);
                     }}
                     className={`h-11 w-11 rounded-full border transition ${
                       selectedColor === color
@@ -250,15 +289,19 @@ export default function ProductView({ product }: ProductViewProps) {
                       !isColorAvailable(color) ? "cursor-not-allowed opacity-35" : "hover:scale-[1.02]"
                     } ${getColorSwatchClass(color)}`}
                     aria-label={`Select color ${color}`}
+                    aria-disabled={!isColorAvailable(color)}
                   />
                 ))}
               </div>
-            </div>
+            </fieldset>
           ) : null}
 
           {sizes.length > 0 ? (
-            <div>
-              <p className="mb-2 text-sm font-semibold text-charcoal">Size</p>
+            <fieldset>
+              <legend className="mb-2 text-sm font-semibold text-charcoal">
+                Size
+                {selectedSize ? `: ${selectedSize}` : ""}
+              </legend>
               <div className="flex flex-wrap gap-2">
                 {sizes.map((size) => (
                   <button
@@ -269,7 +312,7 @@ export default function ProductView({ product }: ProductViewProps) {
                     onClick={() => {
                       setSelectedSize(size);
                       setQuantity(1);
-                      setStatusText("");
+                      setStatus(null);
                     }}
                     className={`min-w-12 border px-3 py-2 text-sm font-semibold uppercase transition ${
                       selectedSize === size
@@ -278,12 +321,13 @@ export default function ProductView({ product }: ProductViewProps) {
                     } ${
                       !isSizeAvailable(size) ? "cursor-not-allowed opacity-35 line-through" : ""
                     }`}
+                    aria-disabled={!isSizeAvailable(size)}
                   >
                     {size}
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
           ) : null}
 
           <div className="border-t border-sepia-border/80 pt-4">
@@ -335,9 +379,14 @@ export default function ProductView({ product }: ProductViewProps) {
             </div>
           </div>
 
-          {statusText ? (
-            <p className="text-sm text-charcoal" aria-live="polite">
-              {statusText}
+          {status ? (
+            <p
+              className={`text-sm ${
+                status.tone === "success" ? "text-charcoal" : "text-seal-wax"
+              }`}
+              aria-live="polite"
+            >
+              {status.text}
             </p>
           ) : null}
         </section>
