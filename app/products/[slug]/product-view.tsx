@@ -86,7 +86,6 @@ export default function ProductView({ product }: ProductViewProps) {
   const [isMobileSizePickerOpen, setIsMobileSizePickerOpen] = useState(false);
   const [isMobilePurchaseExpanded, setIsMobilePurchaseExpanded] =
     useState(false);
-  const [mobileViewportBottomInset, setMobileViewportBottomInset] = useState(0);
   const [mobileViewportHeight, setMobileViewportHeight] = useState<number | null>(
     null,
   );
@@ -160,16 +159,9 @@ export default function ProductView({ product }: ProductViewProps) {
     const updateViewportMetrics = () => {
       const vv = window.visualViewport;
       if (!vv) {
-        setMobileViewportBottomInset(0);
         setMobileViewportHeight(window.innerHeight);
         return;
       }
-
-      const bottomInset = Math.max(
-        0,
-        Math.round(window.innerHeight - (vv.height + vv.offsetTop)),
-      );
-      setMobileViewportBottomInset(bottomInset);
       setMobileViewportHeight(Math.round(vv.height));
     };
 
@@ -708,7 +700,7 @@ export default function ProductView({ product }: ProductViewProps) {
         aria-label={panelTitle}
         className="fixed inset-x-0 bottom-0 z-[70] max-h-[82dvh] w-screen overflow-hidden border-t border-sepia-border/70 bg-parchment text-ink opacity-0 pointer-events-none sm:hidden"
         style={{
-          bottom: `calc(env(safe-area-inset-bottom, 0px) + ${mobileViewportBottomInset}px)`,
+          bottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
         <div className="flex items-center justify-between border-b border-sepia-border/70 px-5 py-4 sm:px-6">
@@ -749,7 +741,7 @@ export default function ProductView({ product }: ProductViewProps) {
         ref={mobilePurchasePanelRef}
         className="fixed inset-x-0 bottom-0 z-41 h-[min(78dvh,600px)] overflow-hidden border-t border-sepia-border/70 bg-parchment shadow-[0_-8px_32px_rgba(0,0,0,0.12)] sm:hidden"
         style={{
-          bottom: `calc(env(safe-area-inset-bottom, 0px) + ${mobileViewportBottomInset}px)`,
+          bottom: "env(safe-area-inset-bottom, 0px)",
           height: mobileViewportHeight
             ? `${Math.min(600, Math.round(mobileViewportHeight * 0.78))}px`
             : undefined,
@@ -940,7 +932,7 @@ export default function ProductView({ product }: ProductViewProps) {
             : "pointer-events-none translate-y-full opacity-0"
         }`}
         style={{
-          bottom: `calc(env(safe-area-inset-bottom, 0px) + ${mobileViewportBottomInset}px)`,
+          bottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
         <div className="flex items-center justify-between border-b border-sepia-border/70 px-5 py-4">
