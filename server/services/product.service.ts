@@ -135,8 +135,15 @@ function buildSearchOrderBy(query: SearchProductsQueryInput) {
 
 export async function searchActiveProducts(query: SearchProductsQueryInput) {
   const normalizedQuery = query.q.trim();
+  const hasFilterCriteria =
+    Boolean(query.category) ||
+    Boolean(query.color) ||
+    Boolean(query.size) ||
+    query.inStock !== undefined ||
+    query.minPrice !== undefined ||
+    query.maxPrice !== undefined;
 
-  if (!normalizedQuery) {
+  if (!normalizedQuery && !hasFilterCriteria) {
     return {
       products: [] as Awaited<ReturnType<typeof listActiveProducts>>,
       total: 0,
