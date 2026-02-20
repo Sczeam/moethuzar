@@ -1,10 +1,13 @@
 "use client";
 
+import gsap from "gsap";
+import { IconClose } from "@/components/layout/header/icons";
 import { formatMoney } from "@/lib/format";
+import { NAV_MENU_ANIMATION } from "@/lib/animations/nav-menu";
 import { buildProductGalleryImages } from "@/lib/storefront/product-gallery";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Variant = {
   id: string;
@@ -23,7 +26,12 @@ type ProductViewProps = {
     description: string | null;
     currency: string;
     basePrice: string;
-    images: { id: string; url: string; alt: string | null; variantId: string | null }[];
+    images: {
+      id: string;
+      url: string;
+      alt: string | null;
+      variantId: string | null;
+    }[];
     variants: Variant[];
   };
 };
@@ -32,16 +40,6 @@ type AddToCartStatus =
   | { tone: "success"; text: string }
   | { tone: "error"; text: string }
   | null;
-
-function getInventoryState(inventory: number) {
-  if (inventory <= 0) {
-    return { label: "Out of stock", className: "text-seal-wax" };
-  }
-  if (inventory <= 3) {
-    return { label: `Low stock (${inventory} left)`, className: "text-teak-brown" };
-  }
-  return { label: "In stock", className: "text-charcoal" };
-}
 
 export default function ProductView({ product }: ProductViewProps) {
   const firstInStockVariant = useMemo(
@@ -79,12 +77,13 @@ export default function ProductView({ product }: ProductViewProps) {
   const [selectedColor, setSelectedColor] = useState<string | null>(
     firstInStockVariant?.color ?? null,
   );
-  const [selectedSize, setSelectedSize] = useState<string | null>(
-    firstInStockVariant?.size ?? null,
-  );
-  const [quantity, setQuantity] = useState(1);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [status, setStatus] = useState<AddToCartStatus>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [openInfoPanel, setOpenInfoPanel] = useState<"details" | "shipping" | null>(null);
+  const infoOverlayRef = useRef<HTMLButtonElement | null>(null);
+  const infoMobilePanelRef = useRef<HTMLDivElement | null>(null);
+  const infoDesktopPanelRef = useRef<HTMLDivElement | null>(null);
 
   const selectedVariant = useMemo(() => {
     const exact = product.variants.find((variant) => {
@@ -119,20 +118,22 @@ export default function ProductView({ product }: ProductViewProps) {
     return (size: string) =>
       product.variants.some((variant) => {
         const sizeMatch = variant.size === size;
-        const colorMatch = selectedColor ? variant.color === selectedColor : true;
+        const colorMatch = selectedColor
+          ? variant.color === selectedColor
+          : true;
         return sizeMatch && colorMatch && variant.inventory > 0;
       });
   }, [product.variants, selectedColor]);
 
   const unitPrice = selectedVariant?.price ?? product.basePrice;
-  const maxQuantity = selectedVariant?.inventory
-    ? Math.max(1, selectedVariant.inventory)
-    : 1;
   const isOutOfStock = !selectedVariant || selectedVariant.inventory <= 0;
-  const inventoryState = getInventoryState(selectedVariant?.inventory ?? 0);
+  const requiresSizeSelection = sizes.length > 0 && !selectedSize;
 
   const galleryImages = useMemo(() => {
-    return buildProductGalleryImages(product.images, selectedVariant?.id ?? null);
+    return buildProductGalleryImages(
+      product.images,
+      selectedVariant?.id ?? null,
+    );
   }, [product.images, selectedVariant]);
 
   const getColorSwatchClass = (color: string) => {
@@ -158,6 +159,11 @@ export default function ProductView({ product }: ProductViewProps) {
   };
 
   async function handleAddToCart() {
+    if (requiresSizeSelection) {
+      setStatus({ tone: "error", text: "Please select a size." });
+      return;
+    }
+
     if (!selectedVariant) {
       setStatus({ tone: "error", text: "Please select a color and size." });
       return;
@@ -179,7 +185,7 @@ export default function ProductView({ product }: ProductViewProps) {
         },
         body: JSON.stringify({
           variantId: selectedVariant.id,
-          quantity: Math.min(quantity, selectedVariant.inventory),
+          quantity: 1,
         }),
       });
 
@@ -208,188 +214,391 @@ export default function ProductView({ product }: ProductViewProps) {
     }
   }
 
+  useEffect(() => {
+    document.body.classList.toggle("overflow-hidden", openInfoPanel !== null);
+    return () => document.body.classList.remove("overflow-hidden");
+  }, [openInfoPanel]);
+
+  useEffect(() => {
+    if (
+      !infoOverlayRef.current ||
+      !infoMobilePanelRef.current ||
+      !infoDesktopPanelRef.current
+    ) {
+      return;
+    }
+
+    gsap.set(infoOverlayRef.current, { autoAlpha: 0, pointerEvents: "none" });
+    gsap.set(infoMobilePanelRef.current, {
+      y: 32,
+      autoAlpha: 0,
+      pointerEvents: "none",
+    });
+    gsap.set(infoDesktopPanelRef.current, {
+      x: NAV_MENU_ANIMATION.drawer.closedXRight,
+      autoAlpha: 0,
+      pointerEvents: "none",
+    });
+  }, []);
+
+  useEffect(() => {
+    if (
+      !infoOverlayRef.current ||
+      !infoMobilePanelRef.current ||
+      !infoDesktopPanelRef.current
+    ) {
+      return;
+    }
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const isMobile = window.matchMedia("(max-width: 639px)").matches;
+    const activePanel = isMobile
+      ? infoMobilePanelRef.current
+      : infoDesktopPanelRef.current;
+    const inactivePanel = isMobile
+      ? infoDesktopPanelRef.current
+      : infoMobilePanelRef.current;
+
+    gsap.killTweensOf([
+      infoOverlayRef.current,
+      infoMobilePanelRef.current,
+      infoDesktopPanelRef.current,
+    ]);
+
+    const durationScale = reduceMotion ? 0 : 1;
+    const overlayDuration = NAV_MENU_ANIMATION.overlay.duration * durationScale;
+    const openDuration = NAV_MENU_ANIMATION.drawer.durationOpen * 1.2 * durationScale;
+    const closeDuration =
+      NAV_MENU_ANIMATION.drawer.durationClose * 1.15 * durationScale;
+
+    gsap.set(inactivePanel, {
+      autoAlpha: 0,
+      pointerEvents: "none",
+      ...(isMobile ? { x: NAV_MENU_ANIMATION.drawer.closedXRight, y: 0 } : { y: 32, x: 0 }),
+    });
+
+    if (openInfoPanel) {
+      gsap.to(infoOverlayRef.current, {
+        autoAlpha: 1,
+        pointerEvents: "auto",
+        duration: overlayDuration,
+        ease: NAV_MENU_ANIMATION.overlay.easeOut,
+      });
+
+      gsap.to(activePanel, {
+        x: 0,
+        y: 0,
+        autoAlpha: 1,
+        pointerEvents: "auto",
+        duration: openDuration,
+        ease: NAV_MENU_ANIMATION.drawer.easeOut,
+      });
+      return;
+    }
+
+    gsap.to(activePanel, {
+      ...(isMobile ? { y: 32 } : { x: NAV_MENU_ANIMATION.drawer.closedXRight }),
+      autoAlpha: 0,
+      pointerEvents: "none",
+      duration: closeDuration,
+      ease: NAV_MENU_ANIMATION.drawer.easeIn,
+    });
+
+    gsap.to(infoOverlayRef.current, {
+      autoAlpha: 0,
+      pointerEvents: "none",
+      duration: overlayDuration,
+      ease: NAV_MENU_ANIMATION.overlay.easeIn,
+    });
+  }, [openInfoPanel]);
+
+  useEffect(() => {
+    const activePanel = window.matchMedia("(max-width: 639px)").matches
+      ? infoMobilePanelRef.current
+      : infoDesktopPanelRef.current;
+
+    if (!openInfoPanel || !activePanel) {
+      return;
+    }
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusable = activePanel.querySelectorAll<HTMLElement>(
+      "a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex='-1'])",
+    );
+    focusable[0]?.focus();
+
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpenInfoPanel(null);
+      }
+    };
+
+    document.addEventListener("keydown", onKeydown);
+    return () => {
+      document.removeEventListener("keydown", onKeydown);
+      previouslyFocused?.focus();
+    };
+  }, [openInfoPanel]);
+
+  const panelTitle =
+    openInfoPanel === "shipping" ? "Shipping and returns" : "Product details";
+
+  const panelBody = (
+    <div className="overflow-y-auto px-5 py-4 text-sm leading-relaxed text-charcoal sm:px-6">
+      {openInfoPanel === "shipping" ? (
+        <p>
+          Cash on delivery is available across Myanmar. Returns and exchanges are accepted
+          according to our returns policy. For assistance, visit Returns or contact support.
+        </p>
+      ) : (
+        <p>{product.description ?? "No additional product details yet."}</p>
+      )}
+    </div>
+  );
+
   return (
-    <main className="mx-auto w-full max-w-[1380px] px-4 py-5 sm:px-6 sm:pr-20 lg:px-8 lg:pr-[92px]">
+    <main className="mx-auto w-full max-w-[1900px] px-0 pb-8">
       <Link
         href="/"
-        className="mb-3 inline-block text-xs uppercase tracking-[0.08em] text-charcoal underline"
+        className="mb-3 inline-block px-4 pt-4 text-xs uppercase tracking-[0.08em] text-charcoal underline sm:px-6 lg:px-8"
       >
         Back to products
       </Link>
 
-      <div className="grid items-start gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,370px)]">
-        <section className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+      <div className="grid grid-cols-1 border-y border-sepia-border/70 lg:grid-cols-[minmax(0,1fr)_minmax(420px,48vw)]">
+        <section className="relative bg-paper-light lg:border-r lg:border-sepia-border/70">
           {galleryImages.length > 0 ? (
-            galleryImages.map((image, index) => (
-              <div
-                key={`${image.id}-${index}`}
-                className="aspect-[3/4] overflow-hidden border border-sepia-border/60 bg-paper-light"
-              >
-                <Image
-                  src={image.url}
-                  alt={image.alt ?? product.name}
-                  width={900}
-                  height={1200}
-                  sizes="(max-width: 640px) 100vw, 50vw"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ))
+            <div className={isOutOfStock ? "grayscale" : ""}>
+              {galleryImages.map((image, index) => (
+                <div
+                  key={`${image.id}-${index}`}
+                  className="relative min-h-[52vh] border-b border-sepia-border/40 sm:min-h-[65vh] lg:min-h-[calc(100vh-9rem)]"
+                >
+                  <Image
+                    src={image.url}
+                    alt={image.alt ?? product.name}
+                    fill
+                    priority={index === 0}
+                    sizes="(max-width: 1024px) 100vw, 58vw"
+                    className="object-cover object-top"
+                  />
+                </div>
+              ))}
+              {isOutOfStock ? (
+                <span className="absolute left-4 top-4 z-10 border border-seal-wax bg-seal-wax px-2 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-paper-light sm:left-6 sm:top-6">
+                  Sold out
+                </span>
+              ) : null}
+            </div>
           ) : (
-            <div className="flex aspect-[3/4] items-center justify-center border border-sepia-border bg-paper-light text-sm text-charcoal">
+            <div className="flex min-h-[52vh] items-center justify-center text-sm text-charcoal sm:min-h-[65vh] lg:min-h-[calc(100vh-9rem)]">
               No image
             </div>
           )}
         </section>
 
-        <section className="vintage-panel space-y-5 p-4 sm:p-5 lg:sticky lg:top-6">
-          <div className="space-y-2 border-b border-sepia-border/80 pb-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-charcoal/80">
-              Ready to wear
-            </p>
-            <h1 className="text-[1.6rem] font-semibold leading-tight text-ink sm:text-[1.75rem]">
-              {product.name}
-            </h1>
-            <p className="text-[1.35rem] font-semibold text-ink sm:text-[1.5rem]">
-              {formatMoney(unitPrice, product.currency)}
-            </p>
-            {product.description ? (
-              <p className="line-clamp-3 text-sm leading-relaxed text-charcoal">
-                {product.description}
+        <section className="flex flex-col justify-center bg-parchment px-5 py-12 sm:px-8 sm:py-16 lg:sticky lg:top-[5.5rem] lg:h-[calc(100vh-5.5rem)] lg:overflow-y-auto">
+          <div className="w-full">
+            <div className="mx-auto max-w-[560px] space-y-2">
+              <h1 className="text-[18px] font-extrabold leading-tight text-ink">
+                {product.name}
+              </h1>
+              <p className="text-sm text-ink">
+                {formatMoney(unitPrice, product.currency)}
               </p>
-            ) : null}
-            <p className={`text-sm font-semibold ${inventoryState.className}`}>
-              {inventoryState.label}
-            </p>
+            </div>
           </div>
 
-          {colors.length > 0 ? (
-            <fieldset>
-              <legend className="mb-2 text-sm font-semibold text-charcoal">
-                Color
-                {selectedColor ? `: ${selectedColor}` : ""}
-              </legend>
-              <div className="flex flex-wrap gap-2.5">
-                {colors.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    disabled={!isColorAvailable(color)}
-                    aria-pressed={selectedColor === color}
-                    onClick={() => {
-                      setSelectedColor(color);
-                      setQuantity(1);
-                      setStatus(null);
-                    }}
-                    className={`h-11 w-11 rounded-full border transition ${
-                      selectedColor === color
-                        ? "border-ink ring-2 ring-ink/25"
-                        : "border-sepia-border/90"
-                    } ${
-                      !isColorAvailable(color) ? "cursor-not-allowed opacity-35" : "hover:scale-[1.02]"
-                    } ${getColorSwatchClass(color)}`}
-                    aria-label={`Select color ${color}`}
-                    aria-disabled={!isColorAvailable(color)}
-                  />
-                ))}
-              </div>
-            </fieldset>
-          ) : null}
+          <div className="mt-8 w-full">
+            <div className="mx-auto max-w-[560px] space-y-6">
+              {colors.length > 0 ? (
+                <fieldset>
+                  <legend className="mb-2 text-sm font-semibold text-charcoal">
+                    Color
+                    {selectedColor ? `: ${selectedColor}` : ""}
+                  </legend>
+                  <div className="flex flex-wrap gap-2.5">
+                    {colors.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        disabled={!isColorAvailable(color)}
+                        aria-pressed={selectedColor === color}
+                        onClick={() => {
+                          setSelectedColor(color);
+                          setStatus(null);
+                        }}
+                        className={`h-8 w-8 rounded-full border transition ${
+                          selectedColor === color
+                            ? "border-ink ring-2 ring-ink/25"
+                            : "border-sepia-border/90"
+                        } ${
+                          !isColorAvailable(color)
+                            ? "cursor-not-allowed opacity-35"
+                            : "hover:scale-[1.02]"
+                        } ${getColorSwatchClass(color)}`}
+                        aria-label={`Select color ${color}`}
+                        aria-disabled={!isColorAvailable(color)}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
 
-          {sizes.length > 0 ? (
-            <fieldset>
-              <legend className="mb-2 text-sm font-semibold text-charcoal">
-                Size
-                {selectedSize ? `: ${selectedSize}` : ""}
-              </legend>
-              <div className="flex flex-wrap gap-2">
-                {sizes.map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    disabled={!isSizeAvailable(size)}
-                    aria-pressed={selectedSize === size}
-                    onClick={() => {
-                      setSelectedSize(size);
-                      setQuantity(1);
-                      setStatus(null);
-                    }}
-                    className={`min-w-12 border px-3 py-2 text-sm font-semibold uppercase transition ${
-                      selectedSize === size
-                        ? "border-ink bg-ink text-paper-light"
-                        : "border-sepia-border text-ink hover:border-ink"
-                    } ${
-                      !isSizeAvailable(size) ? "cursor-not-allowed opacity-35 line-through" : ""
-                    }`}
-                    aria-disabled={!isSizeAvailable(size)}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          ) : null}
-
-          <div className="border-t border-sepia-border/80 pt-4">
-            <div className="grid grid-cols-[96px_minmax(0,1fr)] items-stretch gap-2">
-              <div className="h-12 w-full border border-sepia-border bg-parchment px-3 py-1.5">
-                <label className="block text-[8px] font-semibold uppercase tracking-[0.06em] text-charcoal">
-                  Qty
-                </label>
-                <select
-                  className="mt-0.5 w-full border-0 bg-transparent p-0 text-base leading-none text-ink outline-none"
-                  value={quantity}
-                  onChange={(event) => {
-                    const nextValue = Number(event.target.value);
-                    if (!Number.isFinite(nextValue)) {
-                      return;
-                    }
-
-                    const nextQuantity = Math.min(
-                      Math.max(1, Math.trunc(nextValue)),
-                      maxQuantity,
-                    );
-                    setQuantity(nextQuantity);
-                  }}
-                  disabled={isOutOfStock}
-                >
-                  {Array.from(
-                    { length: maxQuantity },
-                    (_, index) => index + 1,
-                  ).map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {sizes.length > 0 ? (
+                <fieldset>
+                  <legend className="sr-only">Size</legend>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_128px]">
+                    <select
+                      value={selectedSize ?? ""}
+                      onChange={(event) => {
+                        const nextSize = event.target.value || null;
+                        setSelectedSize(nextSize);
+                        setStatus(null);
+                      }}
+                      className="field-select min-h-11"
+                    >
+                      <option value="" disabled>
+                        Select Size
+                      </option>
+                      {sizes.map((size) => (
+                        <option
+                          key={size}
+                          value={size}
+                          disabled={!isSizeAvailable(size)}
+                        >
+                          {size} {!isSizeAvailable(size) ? "(Sold out)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled
+                      className="btn-secondary min-h-11 text-xs uppercase tracking-[0.08em] opacity-45"
+                    >
+                      Size guide
+                    </button>
+                  </div>
+                </fieldset>
+              ) : null}
 
               <button
                 type="button"
                 onClick={handleAddToCart}
-                disabled={isSubmitting || isOutOfStock}
-                className="h-12 flex-1 border border-ink bg-ink px-4 text-sm font-semibold uppercase tracking-[0.1em] text-paper-light disabled:opacity-60"
+                disabled={isSubmitting || isOutOfStock || requiresSizeSelection}
+                className="min-h-12 w-full border border-ink bg-ink px-4 text-sm font-semibold uppercase tracking-[0.08em] text-paper-light transition disabled:opacity-60"
               >
                 {isOutOfStock
-                  ? "Out of Stock"
+                  ? "Out of stock"
                   : isSubmitting
                     ? "Adding..."
-                    : "Add to Cart"}
+                    : "Add to shopping bag"}
               </button>
+
+              {status ? (
+                <p
+                  className={`text-sm ${
+                    status.tone === "success"
+                      ? "text-charcoal"
+                      : "text-seal-wax"
+                  }`}
+                  aria-live="polite"
+                >
+                  {status.text}
+                </p>
+              ) : null}
+
+              <div className="space-y-2 text-sm text-charcoal">
+                <div>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-0 py-2 text-left"
+                    onClick={() => setOpenInfoPanel("details")}
+                  >
+                    <span>Product details</span>
+                    <span aria-hidden="true">+</span>
+                  </button>
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-0 py-2 text-left"
+                    onClick={() => setOpenInfoPanel("shipping")}
+                  >
+                    <span>Shipping and returns</span>
+                    <span aria-hidden="true">+</span>
+                  </button>
+                </div>
+              </div>
+
+              <p className="pt-2 text-xs text-charcoal/80">
+                By proceeding, you agree to our{" "}
+                <Link href="/terms" className="underline">
+                  Terms
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="underline">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
             </div>
           </div>
-
-          {status ? (
-            <p
-              className={`text-sm ${
-                status.tone === "success" ? "text-charcoal" : "text-seal-wax"
-              }`}
-              aria-live="polite"
-            >
-              {status.text}
-            </p>
-          ) : null}
         </section>
+      </div>
+
+      <button
+        ref={infoOverlayRef}
+        type="button"
+        onClick={() => setOpenInfoPanel(null)}
+        aria-label="Close info drawer"
+        className="fixed inset-0 z-[65] bg-ink/45 opacity-0 pointer-events-none"
+      />
+      <div
+        ref={infoMobilePanelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={panelTitle}
+        className="fixed inset-x-0 bottom-0 z-[70] max-h-[82dvh] w-screen overflow-hidden border-t border-sepia-border/70 bg-parchment text-ink opacity-0 pointer-events-none sm:hidden"
+      >
+        <div className="flex items-center justify-between border-b border-sepia-border/70 px-5 py-4 sm:px-6">
+          <h2 className="text-lg font-semibold text-ink">
+            {panelTitle}
+          </h2>
+          <button
+            type="button"
+            onClick={() => setOpenInfoPanel(null)}
+            className="inline-flex h-11 w-11 items-center justify-center text-ink transition hover:opacity-75"
+            aria-label="Close info drawer"
+          >
+            <IconClose />
+          </button>
+        </div>
+        {panelBody}
+      </div>
+      <div
+        ref={infoDesktopPanelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={panelTitle}
+        className="fixed inset-y-0 right-0 top-0 z-[70] hidden h-[100dvh] w-full max-w-[min(40vw,460px)] overflow-hidden border-l border-sepia-border/70 bg-parchment text-ink opacity-0 pointer-events-none sm:block"
+      >
+        <div className="flex items-center justify-between border-b border-sepia-border/70 px-5 py-4 sm:px-6">
+          <h2 className="text-lg font-semibold text-ink">{panelTitle}</h2>
+          <button
+            type="button"
+            onClick={() => setOpenInfoPanel(null)}
+            className="inline-flex h-11 w-11 items-center justify-center text-ink transition hover:opacity-75"
+            aria-label="Close info drawer"
+          >
+            <IconClose />
+          </button>
+        </div>
+        {panelBody}
       </div>
     </main>
   );
