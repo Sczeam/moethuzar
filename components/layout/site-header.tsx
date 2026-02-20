@@ -139,6 +139,24 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
   }, [activePanel]);
 
   useEffect(() => {
+    const onCartUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<{ openDrawer?: boolean }>;
+      void loadCartMeta();
+      void loadCartDetails();
+
+      if (customEvent.detail?.openDrawer) {
+        setSearchOpen(false);
+        setActivePanel("cart");
+      }
+    };
+
+    window.addEventListener("cart:updated", onCartUpdated as EventListener);
+    return () => {
+      window.removeEventListener("cart:updated", onCartUpdated as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     if (activePanel === "cart") {
       void loadCartDetails();
     }
