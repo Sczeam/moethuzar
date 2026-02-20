@@ -452,7 +452,7 @@ export default function ProductView({ product }: ProductViewProps) {
               {galleryImages.map((image, index) => (
                 <div
                   key={`${image.id}-${index}`}
-                  className="relative h-[calc(100dvh-14rem)] min-h-[24rem] border-b border-sepia-border/40 sm:h-auto sm:min-h-[65vh] lg:h-[calc(100dvh-5.5rem)] lg:min-h-0 lg:w-full lg:border-b-0"
+                  className="relative h-[calc(100dvh-5.5rem)] min-h-[24rem] border-b border-sepia-border/40 sm:h-auto sm:min-h-[65vh] lg:h-[calc(100dvh-5.5rem)] lg:min-h-0 lg:w-full lg:border-b-0"
                 >
                   <Image
                     src={image.url}
