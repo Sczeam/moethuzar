@@ -86,6 +86,10 @@ export default function ProductView({ product }: ProductViewProps) {
   const [isMobileSizePickerOpen, setIsMobileSizePickerOpen] = useState(false);
   const [isMobilePurchaseExpanded, setIsMobilePurchaseExpanded] =
     useState(false);
+  const [mobileViewportBottomInset, setMobileViewportBottomInset] = useState(0);
+  const [mobileViewportHeight, setMobileViewportHeight] = useState<number | null>(
+    null,
+  );
   const infoOverlayRef = useRef<HTMLButtonElement | null>(null);
   const infoMobilePanelRef = useRef<HTMLDivElement | null>(null);
   const infoDesktopPanelRef = useRef<HTMLDivElement | null>(null);
@@ -151,6 +155,38 @@ export default function ProductView({ product }: ProductViewProps) {
   const openSizePicker = () => {
     setIsMobileSizePickerOpen(true);
   };
+
+  useEffect(() => {
+    const updateViewportMetrics = () => {
+      const vv = window.visualViewport;
+      if (!vv) {
+        setMobileViewportBottomInset(0);
+        setMobileViewportHeight(window.innerHeight);
+        return;
+      }
+
+      const bottomInset = Math.max(
+        0,
+        Math.round(window.innerHeight - (vv.height + vv.offsetTop)),
+      );
+      setMobileViewportBottomInset(bottomInset);
+      setMobileViewportHeight(Math.round(vv.height));
+    };
+
+    updateViewportMetrics();
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", updateViewportMetrics);
+    vv?.addEventListener("scroll", updateViewportMetrics);
+    window.addEventListener("resize", updateViewportMetrics);
+    window.addEventListener("orientationchange", updateViewportMetrics);
+
+    return () => {
+      vv?.removeEventListener("resize", updateViewportMetrics);
+      vv?.removeEventListener("scroll", updateViewportMetrics);
+      window.removeEventListener("resize", updateViewportMetrics);
+      window.removeEventListener("orientationchange", updateViewportMetrics);
+    };
+  }, []);
 
   const galleryImages = useMemo(() => {
     return buildProductGalleryImages(
@@ -255,6 +291,17 @@ export default function ProductView({ product }: ProductViewProps) {
       return;
     }
 
+    const summaryResizeObserver = new ResizeObserver(() => {
+      const collapsedHeight =
+        (mobilePurchaseSummaryRef.current?.offsetHeight ?? 0) + 8;
+      const panelHeight = panel.offsetHeight;
+      const collapsedOffset = Math.max(0, panelHeight - collapsedHeight);
+      mobilePurchaseCollapsedOffsetRef.current = collapsedOffset;
+      const targetY = isMobilePurchaseExpanded ? 0 : collapsedOffset;
+      mobilePurchaseCurrentYRef.current = targetY;
+      gsap.set(panel, { y: targetY });
+    });
+
     const setCollapsedOffset = () => {
       const collapsedHeight =
         (mobilePurchaseSummaryRef.current?.offsetHeight ?? 0) + 8;
@@ -267,9 +314,20 @@ export default function ProductView({ product }: ProductViewProps) {
     };
 
     setCollapsedOffset();
+    if (mobilePurchaseSummaryRef.current) {
+      summaryResizeObserver.observe(mobilePurchaseSummaryRef.current);
+    }
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", setCollapsedOffset);
+    vv?.addEventListener("scroll", setCollapsedOffset);
     window.addEventListener("resize", setCollapsedOffset);
-    return () => window.removeEventListener("resize", setCollapsedOffset);
-  }, [isMobilePurchaseExpanded]);
+    return () => {
+      summaryResizeObserver.disconnect();
+      vv?.removeEventListener("resize", setCollapsedOffset);
+      vv?.removeEventListener("scroll", setCollapsedOffset);
+      window.removeEventListener("resize", setCollapsedOffset);
+    };
+  }, [isMobilePurchaseExpanded, mobileViewportHeight]);
 
   useEffect(() => {
     const panel = mobilePurchasePanelRef.current;
@@ -453,6 +511,13 @@ export default function ProductView({ product }: ProductViewProps) {
                 <div
                   key={`${image.id}-${index}`}
                   className="relative h-[calc(100dvh-5.5rem)] min-h-[24rem] border-b border-sepia-border/40 sm:h-auto sm:min-h-[65vh] lg:h-[calc(100dvh-5.5rem)] lg:min-h-0 lg:w-full lg:border-b-0"
+                  style={
+                    mobileViewportHeight
+                      ? ({
+                          height: `calc(${mobileViewportHeight}px - 5.5rem)`,
+                        } as React.CSSProperties)
+                      : undefined
+                  }
                 >
                   <Image
                     src={image.url}
@@ -642,6 +707,9 @@ export default function ProductView({ product }: ProductViewProps) {
         aria-modal="true"
         aria-label={panelTitle}
         className="fixed inset-x-0 bottom-0 z-[70] max-h-[82dvh] w-screen overflow-hidden border-t border-sepia-border/70 bg-parchment text-ink opacity-0 pointer-events-none sm:hidden"
+        style={{
+          bottom: `calc(env(safe-area-inset-bottom, 0px) + ${mobileViewportBottomInset}px)`,
+        }}
       >
         <div className="flex items-center justify-between border-b border-sepia-border/70 px-5 py-4 sm:px-6">
           <h2 className="text-lg font-semibold text-ink">{panelTitle}</h2>
@@ -680,6 +748,12 @@ export default function ProductView({ product }: ProductViewProps) {
       <div
         ref={mobilePurchasePanelRef}
         className="fixed inset-x-0 bottom-0 z-41 h-[min(78dvh,600px)] overflow-hidden border-t border-sepia-border/70 bg-parchment shadow-[0_-8px_32px_rgba(0,0,0,0.12)] sm:hidden"
+        style={{
+          bottom: `calc(env(safe-area-inset-bottom, 0px) + ${mobileViewportBottomInset}px)`,
+          height: mobileViewportHeight
+            ? `${Math.min(600, Math.round(mobileViewportHeight * 0.78))}px`
+            : undefined,
+        }}
       >
         <div ref={mobilePurchaseSummaryRef} className="px-5 pb-2 pt-2">
           <button
@@ -865,6 +939,9 @@ export default function ProductView({ product }: ProductViewProps) {
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none translate-y-full opacity-0"
         }`}
+        style={{
+          bottom: `calc(env(safe-area-inset-bottom, 0px) + ${mobileViewportBottomInset}px)`,
+        }}
       >
         <div className="flex items-center justify-between border-b border-sepia-border/70 px-5 py-4">
           <h2 className="text-base font-semibold text-ink">Select size</h2>
