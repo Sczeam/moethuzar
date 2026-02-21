@@ -376,6 +376,30 @@ export default function CheckoutPage() {
     setPaymentUploadStatus("Uploading payment proof...");
 
     try {
+      const uploadViaFallback = async () => {
+        const fallbackForm = new FormData();
+        fallbackForm.append("file", file);
+        const fallbackResponse = await fetch("/api/checkout/payment-proof/upload", {
+          method: "POST",
+          body: fallbackForm,
+        });
+        const fallbackData = (await fallbackResponse.json()) as {
+          ok?: boolean;
+          url?: string;
+          error?: string;
+        };
+
+        if (!fallbackResponse.ok || !fallbackData.ok || !fallbackData.url) {
+          setPaymentUploadError(fallbackData.error ?? "Failed to upload payment proof image.");
+          setPaymentUploadStatus("");
+          return false;
+        }
+
+        onChange("paymentProofUrl", fallbackData.url);
+        setPaymentUploadStatus("Payment proof uploaded.");
+        return true;
+      };
+
       const signResponse = await fetch("/api/checkout/payment-proof/sign", {
         method: "POST",
         headers: {
@@ -400,35 +424,32 @@ export default function CheckoutPage() {
         return;
       }
 
-      const uploadResponse = await fetch(signData.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type,
-        },
-        body: file,
-      });
-
-      if (!uploadResponse.ok) {
-        const fallbackForm = new FormData();
-        fallbackForm.append("file", file);
-        const fallbackResponse = await fetch("/api/checkout/payment-proof/upload", {
-          method: "POST",
-          body: fallbackForm,
+      let uploadResponse: Response | null = null;
+      try {
+        uploadResponse = await fetch(signData.uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": file.type,
+          },
+          body: file,
         });
-        const fallbackData = (await fallbackResponse.json()) as {
-          ok?: boolean;
-          url?: string;
-          error?: string;
-        };
-
-        if (!fallbackResponse.ok || !fallbackData.ok || !fallbackData.url) {
-          setPaymentUploadError(fallbackData.error ?? "Failed to upload payment proof image.");
+      } catch {
+        const fallbackOk = await uploadViaFallback();
+        if (!fallbackOk) {
+          setPaymentUploadError(
+            "Direct upload failed and fallback upload was unavailable. Please try again."
+          );
           setPaymentUploadStatus("");
-          return;
         }
+        return;
+      }
 
-        onChange("paymentProofUrl", fallbackData.url);
-        setPaymentUploadStatus("Payment proof uploaded.");
+      if (!uploadResponse || !uploadResponse.ok) {
+        const fallbackOk = await uploadViaFallback();
+        if (!fallbackOk) {
+          setPaymentUploadError("Failed to upload payment proof image.");
+          setPaymentUploadStatus("");
+        }
         return;
       }
 
