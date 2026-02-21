@@ -770,8 +770,8 @@ export default function CheckoutPage() {
               <div className="space-y-3 text-xs text-charcoal">
                 <p className="font-medium text-ink">Prepaid Transfer Required</p>
                 <p>
-                  For this delivery zone, complete a transfer via KBZPay, AyaPay, or WavePay, then
-                  upload your payment screenshot.
+                  Cash on delivery is unavailable for this delivery zone. Complete full transfer via
+                  Bank / KBZPay / AyaPay / WavePay, then upload a clear payment screenshot.
                 </p>
                 <div className="rounded border border-sepia-border/70 bg-parchment px-3 py-2">
                   <p className="text-[11px] uppercase tracking-[0.12em] text-charcoal/75">Exact Amount to Transfer</p>
@@ -877,6 +877,9 @@ export default function CheckoutPage() {
                   <label className="text-xs font-medium text-ink" htmlFor="payment-proof-file">
                     Payment Screenshot
                   </label>
+                  <p className="text-[11px] text-charcoal/85">
+                    Include receiver account/phone, transferred amount, and transaction time in one screenshot.
+                  </p>
                   <input
                     id="payment-proof-file"
                     type="file"
@@ -922,6 +925,10 @@ export default function CheckoutPage() {
                     onChange={(event) => onChange("paymentReference", event.target.value)}
                     className="field-input py-2 text-sm"
                   />
+                  <p className="text-[11px] text-charcoal/85">
+                    After placing order, payment status becomes <span className="font-medium">PENDING_REVIEW</span>.
+                    Admin will verify proof and confirm your order.
+                  </p>
                 </div>
               </div>
             ) : null}
@@ -1012,7 +1019,7 @@ export default function CheckoutPage() {
               <p>Estimated delivery: {shippingQuote.etaLabel}</p>
               {paymentPolicy ? (
                 <p>
-                  Payment: {paymentPolicy.requiresProof ? "Prepaid transfer + proof upload" : "Cash on delivery"}
+                  Payment: {paymentPolicy.requiresProof ? "Prepaid transfer (admin review required)" : "Cash on delivery"}
                 </p>
               ) : null}
             </div>

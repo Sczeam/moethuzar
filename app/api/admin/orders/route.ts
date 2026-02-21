@@ -23,6 +23,10 @@ export async function GET(request: Request) {
         searchParams.get("status") === "ALL"
           ? undefined
           : searchParams.get("status") ?? undefined,
+      paymentStatus:
+        searchParams.get("paymentStatus") === "ALL"
+          ? undefined
+          : searchParams.get("paymentStatus") ?? undefined,
       q: searchParams.get("q") ?? undefined,
       from: searchParams.get("from") ?? undefined,
       to: searchParams.get("to") ?? undefined,
@@ -34,6 +38,7 @@ export async function GET(request: Request) {
     if (query.format === "csv") {
       const exportOrders = await listOrdersForCsv({
         status: query.status,
+        paymentStatus: query.paymentStatus,
         q: query.q,
         from: query.from,
         to: query.to,
@@ -44,6 +49,8 @@ export async function GET(request: Request) {
       const headers = [
         "Order Code",
         "Status",
+        "Payment Status",
+        "Payment Method",
         "Customer Name",
         "Phone",
         "Total Amount",
@@ -57,6 +64,8 @@ export async function GET(request: Request) {
         [
           order.orderCode,
           order.status,
+          order.paymentStatus,
+          order.paymentMethod,
           order.customerName,
           order.customerPhone,
           order.totalAmount.toString(),

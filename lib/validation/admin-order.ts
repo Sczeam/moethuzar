@@ -1,4 +1,4 @@
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 import { z } from "zod";
 
 const uuid = z.string().uuid();
@@ -16,12 +16,18 @@ export const adminOrderStatusUpdateSchema = z.object({
   }
 });
 
+export const adminOrderPaymentReviewSchema = z.object({
+  decision: z.enum(["VERIFIED", "REJECTED"]),
+  note: z.string().trim().max(1000).optional(),
+});
+
 export const orderIdParamSchema = z.object({
   orderId: uuid,
 });
 
 export const adminOrdersListQuerySchema = z.object({
   status: z.enum(OrderStatus).optional(),
+  paymentStatus: z.enum(PaymentStatus).optional(),
   q: z.string().trim().max(120).optional(),
   from: z.string().trim().optional(),
   to: z.string().trim().optional(),
@@ -32,6 +38,10 @@ export const adminOrdersListQuerySchema = z.object({
 
 export type AdminOrderStatusUpdateInput = z.infer<
   typeof adminOrderStatusUpdateSchema
+>;
+
+export type AdminOrderPaymentReviewInput = z.infer<
+  typeof adminOrderPaymentReviewSchema
 >;
 
 export type AdminOrdersListQueryInput = z.infer<typeof adminOrdersListQuerySchema>;

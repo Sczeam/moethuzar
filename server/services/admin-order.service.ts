@@ -6,7 +6,12 @@ import {
   requiresInventoryRestore,
 } from "@/server/domain/order-status";
 import { AppError } from "@/server/errors";
-import { InventoryChangeType, OrderStatus } from "@prisma/client";
+import {
+  InventoryChangeType,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
 function normalizeOptionalText(value?: string) {
@@ -47,6 +52,10 @@ export async function listOrders(query: AdminOrdersListQueryInput) {
 
   if (query.status) {
     where.status = query.status;
+  }
+
+  if (query.paymentStatus) {
+    where.paymentStatus = query.paymentStatus;
   }
 
   const search = query.q?.trim();
@@ -106,6 +115,10 @@ export async function listOrdersForCsv(query: Omit<AdminOrdersListQueryInput, "p
 
   if (query.status) {
     where.status = query.status;
+  }
+
+  if (query.paymentStatus) {
+    where.paymentStatus = query.paymentStatus;
   }
 
   const search = query.q?.trim();
@@ -234,6 +247,78 @@ export async function updateOrderStatus(input: {
         });
       }
     }
+
+    return updated;
+  });
+}
+
+function assertPaymentReviewTransition(currentStatus: PaymentStatus, nextStatus: PaymentStatus) {
+  if (currentStatus !== PaymentStatus.PENDING_REVIEW) {
+    throw new AppError("Payment is not pending review.", 409, "PAYMENT_REVIEW_NOT_PENDING");
+  }
+
+  if (nextStatus !== PaymentStatus.VERIFIED && nextStatus !== PaymentStatus.REJECTED) {
+    throw new AppError("Invalid payment review transition.", 400, "INVALID_PAYMENT_REVIEW");
+  }
+}
+
+export async function reviewOrderPayment(input: {
+  orderId: string;
+  adminUserId: string;
+  decision: Extract<PaymentStatus, "VERIFIED" | "REJECTED">;
+  note?: string;
+}) {
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: input.orderId },
+    });
+
+    if (!order) {
+      throw new AppError("Order not found.", 404, "ORDER_NOT_FOUND");
+    }
+
+    if (order.paymentMethod !== PaymentMethod.PREPAID_TRANSFER) {
+      throw new AppError(
+        "Order is not a prepaid transfer order.",
+        409,
+        "PAYMENT_REVIEW_NOT_APPLICABLE"
+      );
+    }
+
+    if (!order.paymentProofUrl) {
+      throw new AppError("Payment proof is missing.", 409, "PAYMENT_PROOF_MISSING");
+    }
+
+    assertPaymentReviewTransition(order.paymentStatus, input.decision);
+
+    const updated = await tx.order.update({
+      where: { id: input.orderId },
+      data: {
+        paymentStatus: input.decision,
+        paymentVerifiedAt: input.decision === PaymentStatus.VERIFIED ? now : null,
+      },
+      include: {
+        address: true,
+        items: true,
+      },
+    });
+
+    const decisionLabel = input.decision === PaymentStatus.VERIFIED ? "verified" : "rejected";
+    const baseNote = `Prepaid payment ${decisionLabel} by admin.`;
+    const extraNote = normalizeOptionalText(input.note);
+    const historyNote = extraNote ? `${baseNote} ${extraNote}` : baseNote;
+
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId: input.orderId,
+        fromStatus: order.status,
+        toStatus: order.status,
+        note: historyNote,
+        changedByAdminId: input.adminUserId,
+      },
+    });
 
     return updated;
   });

@@ -6,11 +6,19 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type OrderStatus = UiOrderStatus;
+type PaymentMethod = "COD" | "PREPAID_TRANSFER";
+type PaymentStatus = "NOT_REQUIRED" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
 
 type OrderDetail = {
   id: string;
   orderCode: string;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentProofUrl: string | null;
+  paymentReference: string | null;
+  paymentSubmittedAt: string | null;
+  paymentVerifiedAt: string | null;
   customerName: string;
   customerPhone: string;
   customerEmail: string | null;
@@ -51,6 +59,19 @@ const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
   CANCELLED: [],
 };
 
+function paymentStatusBadgeClass(status: PaymentStatus) {
+  switch (status) {
+    case "VERIFIED":
+      return "bg-emerald-100 text-emerald-800";
+    case "PENDING_REVIEW":
+      return "bg-amber-100 text-amber-800";
+    case "REJECTED":
+      return "bg-seal-wax/10 text-seal-wax";
+    default:
+      return "bg-paper-light text-charcoal";
+  }
+}
+
 function transitionLabel(status: OrderStatus) {
   switch (status) {
     case "CONFIRMED":
@@ -74,8 +95,10 @@ export default function AdminOrderDetailPage() {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [reviewingPayment, setReviewingPayment] = useState(false);
   const [selectedTransition, setSelectedTransition] = useState<OrderStatus | null>(null);
   const [transitionNote, setTransitionNote] = useState("");
+  const [paymentReviewNote, setPaymentReviewNote] = useState("");
   const router = useRouter();
 
   const loadOrder = useCallback(async () => {
@@ -171,6 +194,43 @@ export default function AdminOrderDetailPage() {
       setStatusText("Unexpected server error while updating status.");
     } finally {
       setUpdatingStatus(false);
+    }
+  }
+
+  async function reviewPayment(decision: "VERIFIED" | "REJECTED") {
+    if (!order) {
+      return;
+    }
+
+    setReviewingPayment(true);
+    setStatusText("");
+
+    try {
+      const response = await fetch(`/api/admin/orders/${orderId}/payment`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decision,
+          note: paymentReviewNote.trim() || undefined,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        setStatusText(data.error ?? "Failed to review payment.");
+        return;
+      }
+
+      setPaymentReviewNote("");
+      setStatusText(
+        decision === "VERIFIED"
+          ? "Payment marked as verified."
+          : "Payment marked as rejected."
+      );
+      await loadOrder();
+    } catch {
+      setStatusText("Unexpected server error while reviewing payment.");
+    } finally {
+      setReviewingPayment(false);
     }
   }
 
@@ -305,6 +365,95 @@ export default function AdminOrderDetailPage() {
               <p>Shipping zone: {order.shippingZoneLabel ?? order.shippingZoneKey ?? "N/A"}</p>
               <p>Delivery ETA: {order.shippingEtaLabel ?? "N/A"}</p>
             </div>
+          </section>
+
+          <section className="vintage-panel p-5">
+            <h2 className="text-lg font-semibold">Payment</h2>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <p>
+                Method:{" "}
+                <span className="font-semibold">
+                  {order.paymentMethod === "PREPAID_TRANSFER"
+                    ? "Prepaid Transfer"
+                    : "Cash on Delivery"}
+                </span>
+              </p>
+              <span
+                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${paymentStatusBadgeClass(
+                  order.paymentStatus
+                )}`}
+              >
+                {order.paymentStatus}
+              </span>
+            </div>
+
+            {order.paymentMethod === "PREPAID_TRANSFER" ? (
+              <div className="mt-3 space-y-2 text-sm text-charcoal">
+                {order.paymentReference ? (
+                  <p>
+                    Transfer reference: <span className="font-medium">{order.paymentReference}</span>
+                  </p>
+                ) : null}
+                {order.paymentSubmittedAt ? (
+                  <p>Submitted: {new Date(order.paymentSubmittedAt).toLocaleString()}</p>
+                ) : null}
+                {order.paymentVerifiedAt ? (
+                  <p>Reviewed at: {new Date(order.paymentVerifiedAt).toLocaleString()}</p>
+                ) : null}
+                {order.paymentProofUrl ? (
+                  <a
+                    href={order.paymentProofUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-secondary inline-flex text-xs"
+                  >
+                    Open Payment Proof
+                  </a>
+                ) : (
+                  <p className="text-seal-wax">Payment proof missing.</p>
+                )}
+
+                {order.paymentStatus === "PENDING_REVIEW" ? (
+                  <div className="mt-3 rounded-lg border border-sepia-border bg-parchment p-3">
+                    <label className="block text-xs font-medium text-charcoal">
+                      Review note (optional)
+                    </label>
+                    <textarea
+                      value={paymentReviewNote}
+                      onChange={(event) => setPaymentReviewNote(event.target.value)}
+                      className="mt-1 min-h-20 w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+                      placeholder="Add context for verify/reject decision"
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={reviewingPayment}
+                        onClick={() => void reviewPayment("VERIFIED")}
+                        className="btn-primary disabled:opacity-60"
+                      >
+                        {reviewingPayment ? "Saving..." : "Approve Payment"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={reviewingPayment}
+                        onClick={() => void reviewPayment("REJECTED")}
+                        className="btn-secondary disabled:opacity-60"
+                      >
+                        Reject Payment
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-charcoal/80">
+                    Payment review already resolved. No further review actions available.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-charcoal">
+                No payment review required for COD orders.
+              </p>
+            )}
           </section>
 
           <section className="vintage-panel p-5">
