@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { resolvePaymentPolicyByZone } from "@/lib/payment-policy";
 import type { CheckoutInput } from "@/lib/validation/checkout";
 import { AppError } from "@/server/errors";
-import { resolvePaymentPolicyByZone } from "@/server/services/payment-policy.service";
+import { assertActivePaymentTransferMethodByCode } from "@/server/services/payment-transfer-method.service";
 import { resolveShippingQuote } from "@/server/services/shipping-rule.service";
 import {
   CartStatus,
@@ -24,6 +25,16 @@ function toPriceString(value: unknown): string {
 function normalizeOptionalText(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function extractTransferMethodCode(paymentReference: string | null): string | null {
+  if (!paymentReference) {
+    return null;
+  }
+
+  const [methodCode] = paymentReference.split(":", 1);
+  const normalized = methodCode?.trim();
+  return normalized ? normalized : null;
 }
 
 function createOrderCode(now: Date) {
@@ -228,6 +239,19 @@ export async function createOrderFromCart(
             400,
             "PAYMENT_PROOF_REQUIRED"
           );
+        }
+
+        if (paymentPolicy.requiresProof) {
+          const transferMethodCode = extractTransferMethodCode(effectivePaymentReference);
+          if (!transferMethodCode) {
+            throw new AppError(
+              "Transfer method is required for prepaid transfer orders.",
+              400,
+              "TRANSFER_METHOD_REQUIRED"
+            );
+          }
+
+          await assertActivePaymentTransferMethodByCode(transferMethodCode);
         }
 
         const now = new Date();
