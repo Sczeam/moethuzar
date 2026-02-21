@@ -7,6 +7,8 @@ import {
   CartStatus,
   InventoryChangeType,
   OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
   Prisma,
   ProductStatus,
 } from "@prisma/client";
@@ -39,6 +41,12 @@ type CreateOrderResult = {
   id: string;
   orderCode: string;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentProofUrl: string | null;
+  paymentReference: string | null;
+  paymentSubmittedAt: Date | null;
+  paymentVerifiedAt: Date | null;
   currency: string;
   subtotalAmount: string;
   deliveryFeeAmount: string;
@@ -89,6 +97,12 @@ export async function createOrderFromCart(
         id: existingOrder.id,
         orderCode: existingOrder.orderCode,
         status: existingOrder.status,
+        paymentMethod: existingOrder.paymentMethod,
+        paymentStatus: existingOrder.paymentStatus,
+        paymentProofUrl: existingOrder.paymentProofUrl,
+        paymentReference: existingOrder.paymentReference,
+        paymentSubmittedAt: existingOrder.paymentSubmittedAt,
+        paymentVerifiedAt: existingOrder.paymentVerifiedAt,
         currency: existingOrder.currency,
         subtotalAmount: toPriceString(existingOrder.subtotalAmount),
         deliveryFeeAmount: toPriceString(existingOrder.deliveryFeeAmount),
@@ -186,12 +200,33 @@ export async function createOrderFromCart(
         const deliveryFeeAmount = shippingQuote.feeAmount;
         const totalAmount = subtotalAmount + deliveryFeeAmount;
         const paymentPolicy = resolvePaymentPolicyByZone(shippingQuote.zoneKey);
+        const paymentReference = normalizeOptionalText(input.paymentReference);
+        const paymentProofUrl = normalizeOptionalText(input.paymentProofUrl);
 
-        if (paymentPolicy.requiresProof) {
+        const paymentMethod =
+          paymentPolicy.method === "PREPAID_TRANSFER"
+            ? PaymentMethod.PREPAID_TRANSFER
+            : PaymentMethod.COD;
+        const paymentStatus =
+          paymentPolicy.paymentStatus === "PENDING_REVIEW"
+            ? PaymentStatus.PENDING_REVIEW
+            : PaymentStatus.NOT_REQUIRED;
+        const effectivePaymentProofUrl = paymentPolicy.requiresProof ? paymentProofUrl : null;
+        const effectivePaymentReference = paymentPolicy.requiresProof ? paymentReference : null;
+
+        if (input.paymentMethod && input.paymentMethod !== paymentPolicy.method) {
           throw new AppError(
-            "Prepaid transfer is required for this delivery zone. Payment proof flow will be enabled in the next update.",
-            409,
-            "PREPAID_REQUIRED"
+            "Selected payment method is not available for this delivery zone.",
+            400,
+            "INVALID_PAYMENT_METHOD_FOR_ZONE"
+          );
+        }
+
+        if (paymentPolicy.requiresProof && !effectivePaymentProofUrl) {
+          throw new AppError(
+            "Payment proof is required for prepaid transfer orders.",
+            400,
+            "PAYMENT_PROOF_REQUIRED"
           );
         }
 
@@ -203,6 +238,12 @@ export async function createOrderFromCart(
             orderCode,
             idempotencyKey: options?.idempotencyKey,
             status: OrderStatus.PENDING,
+            paymentMethod,
+            paymentStatus,
+            paymentProofUrl: effectivePaymentProofUrl,
+            paymentReference: effectivePaymentReference,
+            paymentSubmittedAt: effectivePaymentProofUrl ? now : null,
+            paymentVerifiedAt: null,
             currency: cart.currency,
             subtotalAmount: subtotalAmount.toFixed(2),
             deliveryFeeAmount: deliveryFeeAmount.toFixed(2),
@@ -305,6 +346,12 @@ export async function createOrderFromCart(
         id: order.id,
         orderCode: order.orderCode,
         status: order.status,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        paymentProofUrl: order.paymentProofUrl,
+        paymentReference: order.paymentReference,
+        paymentSubmittedAt: order.paymentSubmittedAt,
+        paymentVerifiedAt: order.paymentVerifiedAt,
         currency: order.currency,
         subtotalAmount: toPriceString(order.subtotalAmount),
         deliveryFeeAmount: toPriceString(order.deliveryFeeAmount),
@@ -357,6 +404,12 @@ export async function createOrderFromCart(
             id: existingOrder.id,
             orderCode: existingOrder.orderCode,
             status: existingOrder.status,
+            paymentMethod: existingOrder.paymentMethod,
+            paymentStatus: existingOrder.paymentStatus,
+            paymentProofUrl: existingOrder.paymentProofUrl,
+            paymentReference: existingOrder.paymentReference,
+            paymentSubmittedAt: existingOrder.paymentSubmittedAt,
+            paymentVerifiedAt: existingOrder.paymentVerifiedAt,
             currency: existingOrder.currency,
             subtotalAmount: toPriceString(existingOrder.subtotalAmount),
             deliveryFeeAmount: toPriceString(existingOrder.deliveryFeeAmount),

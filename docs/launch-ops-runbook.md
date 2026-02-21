@@ -96,3 +96,19 @@ pg_restore --clean --if-exists --no-owner --dbname "$DIRECT_URL" backup-YYYYMMDD
   - `/checkout`
   - `/order/track`
   - `/admin/login`
+
+## 9) Payment Proof Storage Model
+
+- Upload endpoints:
+  - `POST /api/checkout/payment-proof/sign` (signed PUT URL)
+  - `POST /api/checkout/payment-proof/upload` (server-side fallback upload)
+- Input validation:
+  - MIME: `image/jpeg`, `image/png`, `image/webp`, `image/avif`
+  - Max file size: `8 MB`
+  - Invalid payload returns explicit error codes (`FILE_REQUIRED`, `INVALID_FILE_TYPE`, `FILE_TOO_LARGE`).
+- Storage path format:
+  - `payment-proofs/YYYY-MM-DD/{guestToken}/{uuid}.{ext}`
+- Access model:
+  - Objects are stored with no-cache private headers (`private, max-age=0, no-store`).
+  - URLs use opaque random keys and are only submitted from checkout payloads.
+  - Admin verification must rely on order-linked proof URLs; do not expose proof URLs in public storefront APIs.

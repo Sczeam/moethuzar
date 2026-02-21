@@ -28,6 +28,8 @@ export async function POST(request: Request) {
       orderId: order.id,
       orderCode: order.orderCode,
       status: order.status,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
       itemCount: order.items.length,
       currency: order.currency,
     });

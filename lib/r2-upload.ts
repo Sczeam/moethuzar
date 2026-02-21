@@ -35,3 +35,9 @@ export function generateProductImageKey(fileType: string): string {
   const ext = extensionFromImageMimeType(fileType);
   return `products/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
 }
+
+export function generatePaymentProofImageKey(fileType: string, guestToken: string): string {
+  const ext = extensionFromImageMimeType(fileType);
+  const safeToken = guestToken.replace(/[^a-zA-Z0-9_-]/g, "");
+  return `payment-proofs/${new Date().toISOString().slice(0, 10)}/${safeToken}/${crypto.randomUUID()}.${ext}`;
+}
