@@ -8,6 +8,7 @@ import {
   YANGON_TOWNSHIPS,
 } from "@/lib/constants/mm-locations";
 import { LEGAL_TERMS_VERSION } from "@/lib/constants/legal";
+import type { PaymentPolicy } from "@/lib/payment-policy";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -31,6 +32,13 @@ type ShippingQuote = {
   feeAmount: number;
 };
 
+type ShippingQuoteResponse = {
+  ok?: boolean;
+  error?: string;
+  quote?: ShippingQuote;
+  paymentPolicy?: PaymentPolicy;
+};
+
 type CheckoutForm = {
   country: string;
   customerName: string;
@@ -44,6 +52,9 @@ type CheckoutForm = {
   postalCode: string;
   termsAccepted: boolean;
   termsVersion: string;
+  paymentMethod: "" | "COD" | "PREPAID_TRANSFER";
+  paymentProofUrl: string;
+  paymentReference: string;
 };
 
 const initialForm: CheckoutForm = {
@@ -59,17 +70,31 @@ const initialForm: CheckoutForm = {
   postalCode: "",
   termsAccepted: false,
   termsVersion: LEGAL_TERMS_VERSION,
+  paymentMethod: "",
+  paymentProofUrl: "",
+  paymentReference: "",
 };
 
 type FieldErrors = Partial<Record<keyof CheckoutForm, string>>;
+const MAX_PAYMENT_PROOF_SIZE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_PAYMENT_PROOF_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+]);
 
 export default function CheckoutPage() {
   const [cart, setCart] = useState<CartData | null>(null);
   const [form, setForm] = useState<CheckoutForm>(initialForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
+  const [paymentPolicy, setPaymentPolicy] = useState<PaymentPolicy | null>(null);
   const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
   const [shippingQuoteError, setShippingQuoteError] = useState("");
+  const [paymentUploadError, setPaymentUploadError] = useState("");
+  const [paymentUploadStatus, setPaymentUploadStatus] = useState("");
+  const [paymentUploading, setPaymentUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [statusText, setStatusText] = useState("");
@@ -111,6 +136,7 @@ export default function CheckoutPage() {
 
   const deliveryFeeAmount = shippingQuote?.feeAmount ?? 0;
   const grandTotalAmount = subtotalAmountInt + deliveryFeeAmount;
+  const requiresPrepaidProof = paymentPolicy?.requiresProof ?? false;
 
   function onChange<K extends keyof CheckoutForm>(key: K, value: CheckoutForm[K]) {
     setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
@@ -120,6 +146,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!canRequestShippingQuote) {
       setShippingQuote(null);
+      setPaymentPolicy(null);
       setShippingQuoteError("");
       return;
     }
@@ -146,7 +173,7 @@ export default function CheckoutPage() {
           signal: controller.signal,
         });
 
-        const data = await response.json();
+        const data = (await response.json()) as ShippingQuoteResponse;
 
         if (cancelled) {
           return;
@@ -154,6 +181,7 @@ export default function CheckoutPage() {
 
         if (!response.ok || !data.ok) {
           setShippingQuote(null);
+          setPaymentPolicy(null);
           setShippingQuoteError(
             typeof data?.error === "string"
               ? data.error
@@ -162,13 +190,22 @@ export default function CheckoutPage() {
           return;
         }
 
-        setShippingQuote(data.quote as ShippingQuote);
+        if (!data.quote || !data.paymentPolicy) {
+          setShippingQuote(null);
+          setPaymentPolicy(null);
+          setShippingQuoteError("Shipping quote is unavailable for this location.");
+          return;
+        }
+
+        setShippingQuote(data.quote);
+        setPaymentPolicy(data.paymentPolicy);
       } catch (error) {
         if (cancelled || (error instanceof DOMException && error.name === "AbortError")) {
           return;
         }
 
         setShippingQuote(null);
+        setPaymentPolicy(null);
         setShippingQuoteError("Unable to fetch shipping quote. Please try again.");
       } finally {
         if (!cancelled) {
@@ -190,6 +227,115 @@ export default function CheckoutPage() {
     form.townshipCity,
     subtotalAmountInt,
   ]);
+
+  useEffect(() => {
+    if (!paymentPolicy) {
+      setForm((prev) => ({
+        ...prev,
+        paymentMethod: "",
+      }));
+      return;
+    }
+
+    if (paymentPolicy.requiresProof) {
+      setForm((prev) => ({
+        ...prev,
+        paymentMethod: "PREPAID_TRANSFER",
+      }));
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      paymentMethod: "COD",
+      paymentProofUrl: "",
+      paymentReference: "",
+    }));
+    setPaymentUploadError("");
+    setPaymentUploadStatus("");
+  }, [paymentPolicy]);
+
+  async function uploadPaymentProof(file: File) {
+    if (!ALLOWED_PAYMENT_PROOF_MIME_TYPES.has(file.type)) {
+      setPaymentUploadError("Unsupported image format. Use JPG, PNG, WEBP, or AVIF.");
+      return;
+    }
+
+    if (file.size > MAX_PAYMENT_PROOF_SIZE_BYTES) {
+      setPaymentUploadError("Payment proof image must be 8 MB or smaller.");
+      return;
+    }
+
+    setPaymentUploading(true);
+    setPaymentUploadError("");
+    setPaymentUploadStatus("Uploading payment proof...");
+
+    try {
+      const signResponse = await fetch("/api/checkout/payment-proof/sign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+        }),
+      });
+      const signData = (await signResponse.json()) as {
+        ok?: boolean;
+        uploadUrl?: string;
+        publicUrl?: string;
+        error?: string;
+      };
+
+      if (!signResponse.ok || !signData.ok || !signData.uploadUrl || !signData.publicUrl) {
+        setPaymentUploadError(signData.error ?? "Failed to prepare payment proof upload.");
+        setPaymentUploadStatus("");
+        return;
+      }
+
+      const uploadResponse = await fetch(signData.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        const fallbackForm = new FormData();
+        fallbackForm.append("file", file);
+        const fallbackResponse = await fetch("/api/checkout/payment-proof/upload", {
+          method: "POST",
+          body: fallbackForm,
+        });
+        const fallbackData = (await fallbackResponse.json()) as {
+          ok?: boolean;
+          url?: string;
+          error?: string;
+        };
+
+        if (!fallbackResponse.ok || !fallbackData.ok || !fallbackData.url) {
+          setPaymentUploadError(fallbackData.error ?? "Failed to upload payment proof image.");
+          setPaymentUploadStatus("");
+          return;
+        }
+
+        onChange("paymentProofUrl", fallbackData.url);
+        setPaymentUploadStatus("Payment proof uploaded.");
+        return;
+      }
+
+      onChange("paymentProofUrl", signData.publicUrl);
+      setPaymentUploadStatus("Payment proof uploaded.");
+    } catch {
+      setPaymentUploadError("Unexpected error while uploading payment proof.");
+      setPaymentUploadStatus("");
+    } finally {
+      setPaymentUploading(false);
+    }
+  }
 
   function validateForm(): FieldErrors {
     const errors: FieldErrors = {};
@@ -224,6 +370,18 @@ export default function CheckoutPage() {
     if (!form.termsAccepted) {
       errors.termsAccepted = "Please agree to Terms and Privacy Policy.";
     }
+    if (!paymentPolicy) {
+      errors.paymentMethod = "Shipping quote is required before payment method can be set.";
+    } else if (paymentPolicy.requiresProof) {
+      if (form.paymentMethod !== "PREPAID_TRANSFER") {
+        errors.paymentMethod = "Prepaid transfer is required for this delivery zone.";
+      }
+      if (!form.paymentProofUrl.trim()) {
+        errors.paymentProofUrl = "Please upload a payment screenshot for prepaid transfer.";
+      }
+    } else if (form.paymentMethod !== "COD") {
+      errors.paymentMethod = "Cash on delivery is the only payment method for Yangon.";
+    }
 
     return errors;
   }
@@ -256,13 +414,20 @@ export default function CheckoutPage() {
     }
 
     try {
+      const checkoutPayload = {
+        ...form,
+        paymentMethod: form.paymentMethod || undefined,
+        paymentProofUrl: form.paymentProofUrl.trim(),
+        paymentReference: form.paymentReference.trim(),
+      };
+
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-idempotency-key": idempotencyKeyRef.current,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(checkoutPayload),
       });
 
       let data: unknown = null;
@@ -289,6 +454,10 @@ export default function CheckoutPage() {
         }
         if (parsedData?.code === "INSUFFICIENT_STOCK") {
           setStatusText("Some items are out of stock. Please review your cart.");
+        } else if (parsedData?.code === "PAYMENT_PROOF_REQUIRED") {
+          setStatusText("Upload a payment screenshot before placing this order.");
+        } else if (parsedData?.code === "INVALID_PAYMENT_METHOD_FOR_ZONE") {
+          setStatusText("This payment method is not allowed for your delivery location.");
         } else {
           setStatusText(
             typeof parsedData?.error === "string" ? parsedData.error : "Failed to place order."
@@ -441,6 +610,87 @@ export default function CheckoutPage() {
             onChange={(event) => onChange("customerNote", event.target.value)}
             className="field-input min-h-24"
           />
+          <div className="space-y-3 rounded border border-sepia-border/70 bg-paper-light p-3">
+            <h3 className="text-sm font-semibold text-ink">Payment</h3>
+            {!shippingQuote ? (
+              <p className="text-xs text-charcoal">
+                Select your delivery state and township to load payment options.
+              </p>
+            ) : null}
+            {shippingQuote ? (
+              <p className="text-xs text-charcoal">
+                Delivery zone: <span className="font-medium text-ink">{shippingQuote.zoneLabel}</span>
+              </p>
+            ) : null}
+            {paymentPolicy && !requiresPrepaidProof ? (
+              <div className="space-y-1 text-xs text-charcoal">
+                <p className="font-medium text-ink">Cash on Delivery (Yangon only)</p>
+                <p>You can pay cash when your order arrives.</p>
+              </div>
+            ) : null}
+            {paymentPolicy && requiresPrepaidProof ? (
+              <div className="space-y-3 text-xs text-charcoal">
+                <p className="font-medium text-ink">Prepaid Transfer Required</p>
+                <p>
+                  For this delivery zone, complete a transfer via KBZPay, AyaPay, or WavePay, then
+                  upload your payment screenshot.
+                </p>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-ink" htmlFor="payment-proof-file">
+                    Payment Screenshot
+                  </label>
+                  <input
+                    id="payment-proof-file"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
+                    className="field-input py-2 text-xs"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) {
+                        return;
+                      }
+                      void uploadPaymentProof(file);
+                    }}
+                  />
+                  {paymentUploading ? <p className="text-xs text-charcoal">Uploading...</p> : null}
+                  {paymentUploadStatus ? (
+                    <p className="text-xs text-teak-brown">{paymentUploadStatus}</p>
+                  ) : null}
+                  {form.paymentProofUrl ? (
+                    <Link
+                      href={form.paymentProofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs underline hover:text-ink"
+                    >
+                      View uploaded proof
+                    </Link>
+                  ) : null}
+                  {paymentUploadError ? (
+                    <p className="text-xs text-seal-wax">{paymentUploadError}</p>
+                  ) : null}
+                  {fieldErrors.paymentProofUrl ? (
+                    <p className="text-xs text-seal-wax">{fieldErrors.paymentProofUrl}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-ink" htmlFor="payment-reference">
+                    Transfer Reference (optional)
+                  </label>
+                  <input
+                    id="payment-reference"
+                    placeholder="Last 6 digits / transaction id"
+                    value={form.paymentReference}
+                    onChange={(event) => onChange("paymentReference", event.target.value)}
+                    className="field-input py-2 text-sm"
+                  />
+                </div>
+              </div>
+            ) : null}
+            {fieldErrors.paymentMethod ? (
+              <p className="text-xs text-seal-wax">{fieldErrors.paymentMethod}</p>
+            ) : null}
+          </div>
           <div className="space-y-1">
             <label className="flex items-start gap-2 text-sm text-charcoal">
               <input
@@ -466,8 +716,20 @@ export default function CheckoutPage() {
             ) : null}
           </div>
 
-          <button type="submit" disabled={submitting} className="btn-primary w-full disabled:opacity-60 sm:w-auto">
-            {submitting ? "Placing order..." : "Place Order (Cash on Delivery)"}
+          <button
+            type="submit"
+            disabled={
+              submitting ||
+              !shippingQuote ||
+              (requiresPrepaidProof && (!form.paymentProofUrl || paymentUploading))
+            }
+            className="btn-primary w-full disabled:opacity-60 sm:w-auto"
+          >
+            {submitting
+              ? "Placing order..."
+              : requiresPrepaidProof
+                ? "Place Order (Prepaid Transfer)"
+                : "Place Order (Cash on Delivery)"}
           </button>
           {shippingQuoteLoading ? (
             <p className="text-xs text-charcoal">Calculating shipping fee...</p>
@@ -505,6 +767,11 @@ export default function CheckoutPage() {
             <div className="mt-3 rounded border border-sepia-border/70 bg-parchment p-2 text-xs text-charcoal">
               <p>Zone: {shippingQuote.zoneLabel}</p>
               <p>Estimated delivery: {shippingQuote.etaLabel}</p>
+              {paymentPolicy ? (
+                <p>
+                  Payment: {paymentPolicy.requiresProof ? "Prepaid transfer + proof upload" : "Cash on delivery"}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </aside>

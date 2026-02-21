@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { resolvePaymentPolicyByZone } from "@/lib/payment-policy";
 import type { CheckoutInput } from "@/lib/validation/checkout";
 import { AppError } from "@/server/errors";
-import { resolvePaymentPolicyByZone } from "@/server/services/payment-policy.service";
 import { resolveShippingQuote } from "@/server/services/shipping-rule.service";
 import {
   CartStatus,
