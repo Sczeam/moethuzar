@@ -22,7 +22,9 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
 ## Current MVP Capabilities
 
 - Variant-based catalog (color/size variants, SKU-level inventory)
-- Cart + checkout (cash on delivery)
+- Cart + checkout:
+  - COD (zone-based)
+  - prepaid transfer with payment-proof upload and admin verification
 - Shipping fee rules by Myanmar zones
 - Order tracking and admin order workflow
 - Admin catalog editor with:
@@ -32,6 +34,7 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
   - drag/drop multi-image upload queue
   - real upload progress (signed R2 upload)
   - inline category creation flow from dropdown modal
+- Admin transfer-method management (bank / KBZPay / AyaPay / WavePay)
 
 ## Environment Variables
 
@@ -89,6 +92,7 @@ Storefront:
 
 - `/`
 - `/search`
+- `/lookbook`
 - `/products/[slug]`
 - `/cart`
 - `/checkout`
@@ -105,6 +109,7 @@ Admin:
 - `/admin/catalog`
 - `/admin/orders`
 - `/admin/shipping-rules`
+- `/admin/payment-transfer-methods`
 
 ## API Surface
 
@@ -121,6 +126,9 @@ Storefront/customer:
 - `DELETE /api/cart` body: `{ "variantId": "uuid" }`
 - `POST /api/checkout`
 - `POST /api/checkout/shipping-quote`
+- `GET /api/checkout/prepaid-transfer-methods`
+- `POST /api/checkout/payment-proof/sign`
+- `POST /api/checkout/payment-proof/upload`
 - `GET /api/orders/[orderCode]`
 
 Admin:
@@ -146,6 +154,10 @@ Admin:
 - `POST /api/admin/shipping-rules`
 - `PATCH /api/admin/shipping-rules/[ruleId]`
 - `DELETE /api/admin/shipping-rules/[ruleId]`
+- `GET /api/admin/payment-transfer-methods`
+- `POST /api/admin/payment-transfer-methods`
+- `PATCH /api/admin/payment-transfer-methods/[methodId]`
+- `DELETE /api/admin/payment-transfer-methods/[methodId]`
 
 ## Admin Access Bootstrap
 
@@ -173,5 +185,6 @@ where email = 'admin@yourdomain.com';
 
 - Inventory source of truth: `ProductVariant.inventory`.
 - Cart is variant-based; cart token rotates after successful checkout.
+- Prepaid checkout supports proof upload with signed-R2 path and server-upload fallback.
 - API errors return consistent structured payloads with `requestId`.
 - `master` is protected; merge through PR.
