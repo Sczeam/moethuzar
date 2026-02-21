@@ -193,6 +193,9 @@ export default function AdminOrderDetailPage() {
           <Link href="/admin/shipping-rules" className="btn-secondary">
             Shipping Rules
           </Link>
+          <Link href="/admin/payment-transfer-methods" className="btn-secondary">
+            Payment Methods
+          </Link>
         </div>
         <button
           type="button"

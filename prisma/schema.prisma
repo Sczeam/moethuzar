@@ -42,6 +42,11 @@ enum PaymentStatus {
   REJECTED
 }
 
+enum TransferChannelType {
+  BANK
+  WALLET
+}
+
 enum InventoryChangeType {
   MANUAL_ADJUSTMENT
   ORDER_CONFIRMED
@@ -216,6 +221,23 @@ model ShippingRule {
   @@index([country, isActive, sortOrder])
   @@index([townshipCity, isActive])
   @@index([stateRegion, isActive])
+}
+
+model PaymentTransferMethod {
+  id            String              @id @default(uuid()) @db.Uuid
+  methodCode    String              @unique
+  label         String
+  channelType   TransferChannelType
+  accountName   String
+  accountNumber String?
+  phoneNumber   String?
+  instructions  String?
+  isActive      Boolean             @default(true)
+  sortOrder     Int                 @default(0)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([isActive, sortOrder])
 }
 
 model OrderAddress {

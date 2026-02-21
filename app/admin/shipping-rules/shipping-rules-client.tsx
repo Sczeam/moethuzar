@@ -261,6 +261,9 @@ export default function ShippingRulesClient() {
           <Link href="/admin/orders" className="btn-secondary">
             Orders
           </Link>
+          <Link href="/admin/payment-transfer-methods" className="btn-secondary">
+            Payment Methods
+          </Link>
           <Link href="/admin/catalog" className="btn-secondary">
             Catalog
           </Link>

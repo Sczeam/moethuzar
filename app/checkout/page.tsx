@@ -8,7 +8,6 @@ import {
   YANGON_TOWNSHIPS,
 } from "@/lib/constants/mm-locations";
 import { LEGAL_TERMS_VERSION } from "@/lib/constants/legal";
-import { PREPAID_TRANSFER_METHODS } from "@/lib/constants/prepaid-transfer-methods";
 import type { PaymentPolicy } from "@/lib/payment-policy";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -38,6 +37,19 @@ type ShippingQuoteResponse = {
   error?: string;
   quote?: ShippingQuote;
   paymentPolicy?: PaymentPolicy;
+};
+
+type PaymentTransferMethodOption = {
+  id: string;
+  methodCode: string;
+  label: string;
+  channelType: "BANK" | "WALLET";
+  accountName: string;
+  accountNumber: string | null;
+  phoneNumber: string | null;
+  instructions: string | null;
+  isActive: boolean;
+  sortOrder: number;
 };
 
 type CheckoutForm = {
@@ -92,6 +104,9 @@ export default function CheckoutPage() {
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
   const [paymentPolicy, setPaymentPolicy] = useState<PaymentPolicy | null>(null);
   const [selectedTransferMethodId, setSelectedTransferMethodId] = useState<string>("");
+  const [transferMethods, setTransferMethods] = useState<PaymentTransferMethodOption[]>([]);
+  const [transferMethodsLoading, setTransferMethodsLoading] = useState(false);
+  const [transferMethodsError, setTransferMethodsError] = useState("");
   const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
   const [shippingQuoteError, setShippingQuoteError] = useState("");
   const [paymentUploadError, setPaymentUploadError] = useState("");
@@ -141,8 +156,9 @@ export default function CheckoutPage() {
   const grandTotalAmount = subtotalAmountInt + deliveryFeeAmount;
   const requiresPrepaidProof = paymentPolicy?.requiresProof ?? false;
   const selectedTransferMethod = useMemo(
-    () => PREPAID_TRANSFER_METHODS.find((method) => method.id === selectedTransferMethodId) ?? null,
-    [selectedTransferMethodId]
+    () =>
+      transferMethods.find((method) => method.methodCode === selectedTransferMethodId) ?? null,
+    [selectedTransferMethodId, transferMethods]
   );
 
   function onChange<K extends keyof CheckoutForm>(key: K, value: CheckoutForm[K]) {
@@ -242,6 +258,8 @@ export default function CheckoutPage() {
         paymentMethod: "",
       }));
       setSelectedTransferMethodId("");
+      setTransferMethods([]);
+      setTransferMethodsError("");
       return;
     }
 
@@ -250,9 +268,6 @@ export default function CheckoutPage() {
         ...prev,
         paymentMethod: "PREPAID_TRANSFER",
       }));
-      if (PREPAID_TRANSFER_METHODS.length > 0) {
-        setSelectedTransferMethodId((prev) => prev || PREPAID_TRANSFER_METHODS[0].id);
-      }
       return;
     }
 
@@ -266,7 +281,67 @@ export default function CheckoutPage() {
     setPaymentUploadStatus("");
     setSelectedTransferMethodId("");
     setCopyStatusText("");
+    setTransferMethods([]);
+    setTransferMethodsError("");
   }, [paymentPolicy]);
+
+  useEffect(() => {
+    if (!requiresPrepaidProof) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadTransferMethods = async () => {
+      setTransferMethodsLoading(true);
+      setTransferMethodsError("");
+      try {
+        const response = await fetch("/api/checkout/prepaid-transfer-methods", {
+          cache: "no-store",
+        });
+        const data = (await response.json()) as {
+          ok?: boolean;
+          methods?: PaymentTransferMethodOption[];
+          error?: string;
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!response.ok || !data.ok || !Array.isArray(data.methods)) {
+          setTransferMethods([]);
+          setTransferMethodsError(data.error ?? "Failed to load transfer methods.");
+          return;
+        }
+
+        const methods = data.methods;
+        setTransferMethods(methods);
+        setSelectedTransferMethodId((prev) => {
+          if (prev && methods.some((method) => method.methodCode === prev)) {
+            return prev;
+          }
+
+          return methods[0]?.methodCode ?? "";
+        });
+      } catch {
+        if (!cancelled) {
+          setTransferMethods([]);
+          setTransferMethodsError("Failed to load transfer methods.");
+        }
+      } finally {
+        if (!cancelled) {
+          setTransferMethodsLoading(false);
+        }
+      }
+    };
+
+    void loadTransferMethods();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requiresPrepaidProof]);
 
   async function copyText(value: string, successLabel: string) {
     try {
@@ -409,6 +484,9 @@ export default function CheckoutPage() {
       if (!selectedTransferMethodId) {
         errors.paymentMethod = "Please select a transfer method.";
       }
+      if (transferMethodsError) {
+        errors.paymentMethod = "Transfer methods are unavailable. Please try again.";
+      }
       if (!form.paymentProofUrl.trim()) {
         errors.paymentProofUrl = "Please upload a payment screenshot for prepaid transfer.";
       }
@@ -491,7 +569,11 @@ export default function CheckoutPage() {
           setStatusText("Some items are out of stock. Please review your cart.");
         } else if (parsedData?.code === "PAYMENT_PROOF_REQUIRED") {
           setStatusText("Upload a payment screenshot before placing this order.");
-        } else if (parsedData?.code === "INVALID_PAYMENT_METHOD_FOR_ZONE") {
+        } else if (
+          parsedData?.code === "INVALID_PAYMENT_METHOD_FOR_ZONE" ||
+          parsedData?.code === "TRANSFER_METHOD_REQUIRED" ||
+          parsedData?.code === "INVALID_TRANSFER_METHOD"
+        ) {
           setStatusText("This payment method is not allowed for your delivery location.");
         } else {
           setStatusText(
@@ -678,14 +760,20 @@ export default function CheckoutPage() {
                 </div>
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-ink">Transfer Method</p>
+                  {transferMethodsLoading ? (
+                    <p className="text-xs text-charcoal">Loading payment channels...</p>
+                  ) : null}
+                  {transferMethodsError ? (
+                    <p className="text-xs text-seal-wax">{transferMethodsError}</p>
+                  ) : null}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {PREPAID_TRANSFER_METHODS.map((method) => (
+                    {transferMethods.map((method) => (
                       <button
-                        key={method.id}
+                        key={method.methodCode}
                         type="button"
-                        onClick={() => setSelectedTransferMethodId(method.id)}
+                        onClick={() => setSelectedTransferMethodId(method.methodCode)}
                         className={`border px-2 py-2 text-[11px] uppercase tracking-[0.08em] transition ${
-                          selectedTransferMethodId === method.id
+                          selectedTransferMethodId === method.methodCode
                             ? "border-antique-brass bg-antique-brass/10 text-ink"
                             : "border-sepia-border text-charcoal hover:bg-parchment"
                         }`}
@@ -851,7 +939,11 @@ export default function CheckoutPage() {
               submitting ||
               !shippingQuote ||
               (requiresPrepaidProof &&
-                (!selectedTransferMethodId || !form.paymentProofUrl || paymentUploading))
+                (!selectedTransferMethodId ||
+                  !form.paymentProofUrl ||
+                  paymentUploading ||
+                  transferMethodsLoading ||
+                  Boolean(transferMethodsError)))
             }
             className="btn-primary w-full disabled:opacity-60 sm:w-auto"
           >

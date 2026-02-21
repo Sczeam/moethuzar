@@ -2,6 +2,7 @@ import { PrismaClient, ProductStatus, UserRole } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { defaultShippingRulesSeed } from "../lib/validation/shipping-rule";
+import { DEFAULT_PREPAID_TRANSFER_METHODS } from "../lib/constants/prepaid-transfer-methods";
 
 async function main() {
   const adminAuthUserId =
@@ -86,6 +87,33 @@ async function main() {
         isFallback: rule.isFallback,
         isActive: rule.isActive,
         sortOrder: rule.sortOrder,
+      },
+    });
+  }
+
+  for (const method of DEFAULT_PREPAID_TRANSFER_METHODS) {
+    await prisma.paymentTransferMethod.upsert({
+      where: { methodCode: method.methodCode },
+      update: {
+        label: method.label,
+        channelType: method.channelType,
+        accountName: method.accountName,
+        accountNumber: method.accountNumber ?? null,
+        phoneNumber: method.phoneNumber ?? null,
+        instructions: method.instructions ?? null,
+        isActive: method.isActive ?? true,
+        sortOrder: method.sortOrder ?? 0,
+      },
+      create: {
+        methodCode: method.methodCode,
+        label: method.label,
+        channelType: method.channelType,
+        accountName: method.accountName,
+        accountNumber: method.accountNumber ?? null,
+        phoneNumber: method.phoneNumber ?? null,
+        instructions: method.instructions ?? null,
+        isActive: method.isActive ?? true,
+        sortOrder: method.sortOrder ?? 0,
       },
     });
   }
