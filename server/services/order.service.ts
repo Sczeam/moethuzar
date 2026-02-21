@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { CheckoutInput } from "@/lib/validation/checkout";
 import { AppError } from "@/server/errors";
+import { resolvePaymentPolicyByZone } from "@/server/services/payment-policy.service";
 import { resolveShippingQuote } from "@/server/services/shipping-rule.service";
 import {
   CartStatus,
@@ -184,6 +185,15 @@ export async function createOrderFromCart(
 
         const deliveryFeeAmount = shippingQuote.feeAmount;
         const totalAmount = subtotalAmount + deliveryFeeAmount;
+        const paymentPolicy = resolvePaymentPolicyByZone(shippingQuote.zoneKey);
+
+        if (paymentPolicy.requiresProof) {
+          throw new AppError(
+            "Prepaid transfer is required for this delivery zone. Payment proof flow will be enabled in the next update.",
+            409,
+            "PREPAID_REQUIRED"
+          );
+        }
 
         const now = new Date();
         const orderCode = createOrderCode(now);
