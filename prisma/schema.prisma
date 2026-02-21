@@ -32,6 +32,14 @@ enum OrderStatus {
 
 enum PaymentMethod {
   COD
+  PREPAID_TRANSFER
+}
+
+enum PaymentStatus {
+  NOT_REQUIRED
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
 }
 
 enum InventoryChangeType {
@@ -156,6 +164,11 @@ model Order {
   idempotencyKey     String?             @unique
   status             OrderStatus         @default(PENDING)
   paymentMethod      PaymentMethod       @default(COD)
+  paymentStatus      PaymentStatus       @default(NOT_REQUIRED)
+  paymentProofUrl    String?
+  paymentReference   String?
+  paymentSubmittedAt DateTime?
+  paymentVerifiedAt  DateTime?
   currency           String              @default("MMK")
   subtotalAmount     Decimal             @db.Decimal(12, 2)
   deliveryFeeAmount  Decimal             @default(0) @db.Decimal(12, 2)
@@ -180,6 +193,7 @@ model Order {
   logs               InventoryLog[]
 
   @@index([status, createdAt])
+  @@index([paymentStatus, createdAt])
   @@index([customerPhone])
 }
 
