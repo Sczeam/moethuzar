@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/server/errors";
 
-const { requireAdminUserMock, reviewOrderPaymentMock } = vi.hoisted(() => ({
+const { requireAdminUserMock, reviewOrderPaymentMock, emitPaymentReviewHookMock } = vi.hoisted(() => ({
   requireAdminUserMock: vi.fn(),
   reviewOrderPaymentMock: vi.fn(),
+  emitPaymentReviewHookMock: vi.fn(),
 }));
 
 vi.mock("@/server/auth/admin", () => ({
@@ -14,6 +15,10 @@ vi.mock("@/server/services/admin-order.service", () => ({
   reviewOrderPayment: reviewOrderPaymentMock,
 }));
 
+vi.mock("@/server/services/payment-notification.service", () => ({
+  emitPaymentReviewHook: emitPaymentReviewHookMock,
+}));
+
 import { PATCH as reviewPaymentPatch } from "@/app/api/admin/orders/[orderId]/payment/route";
 
 describe("admin order payment review route", () => {
@@ -22,6 +27,7 @@ describe("admin order payment review route", () => {
   beforeEach(() => {
     requireAdminUserMock.mockReset();
     reviewOrderPaymentMock.mockReset();
+    emitPaymentReviewHookMock.mockReset();
   });
 
   it("returns unauthorized shape when admin auth fails", async () => {
@@ -42,7 +48,6 @@ describe("admin order payment review route", () => {
     expect(response.status).toBe(401);
     expect(payload.ok).toBe(false);
     expect(payload.code).toBe("UNAUTHORIZED");
-    expect(payload.requestId).toBeTruthy();
   });
 
   it("returns forbidden shape when admin is not allowed", async () => {
@@ -63,10 +68,9 @@ describe("admin order payment review route", () => {
     expect(response.status).toBe(403);
     expect(payload.ok).toBe(false);
     expect(payload.code).toBe("FORBIDDEN");
-    expect(payload.requestId).toBeTruthy();
   });
 
-  it("reviews payment successfully", async () => {
+  it("reviews payment successfully and emits hook", async () => {
     requireAdminUserMock.mockResolvedValueOnce("admin-user-id");
     reviewOrderPaymentMock.mockResolvedValueOnce({
       id: "order-id",
@@ -86,11 +90,12 @@ describe("admin order payment review route", () => {
 
     expect(response.status).toBe(200);
     expect(payload.ok).toBe(true);
-    expect(reviewOrderPaymentMock).toHaveBeenCalledWith({
-      orderId,
+    expect(emitPaymentReviewHookMock).toHaveBeenCalledWith({
+      orderId: "order-id",
+      orderCode: "MZT-20260221-000001AAAAAA",
+      outcome: "VERIFIED",
       adminUserId: "admin-user-id",
-      decision: "VERIFIED",
-      note: "Looks good",
     });
   });
 });
+

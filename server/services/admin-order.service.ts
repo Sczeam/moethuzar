@@ -54,6 +54,10 @@ export async function listOrders(query: AdminOrdersListQueryInput) {
     where.status = query.status;
   }
 
+  if (query.paymentStatus) {
+    where.paymentStatus = query.paymentStatus;
+  }
+
   const search = query.q?.trim();
   if (search) {
     where.OR = [
@@ -111,6 +115,10 @@ export async function listOrdersForCsv(query: Omit<AdminOrdersListQueryInput, "p
 
   if (query.status) {
     where.status = query.status;
+  }
+
+  if (query.paymentStatus) {
+    where.paymentStatus = query.paymentStatus;
   }
 
   const search = query.q?.trim();
@@ -272,14 +280,18 @@ export async function reviewOrderPayment(input: {
     }
 
     if (order.paymentMethod !== PaymentMethod.PREPAID_TRANSFER) {
-      throw new AppError("Order is not a prepaid transfer order.", 409, "PAYMENT_REVIEW_NOT_APPLICABLE");
+      throw new AppError(
+        "Order is not a prepaid transfer order.",
+        409,
+        "PAYMENT_REVIEW_NOT_APPLICABLE"
+      );
     }
-
-    assertPaymentReviewTransition(order.paymentStatus, input.decision);
 
     if (!order.paymentProofUrl) {
       throw new AppError("Payment proof is missing.", 409, "PAYMENT_PROOF_MISSING");
     }
+
+    assertPaymentReviewTransition(order.paymentStatus, input.decision);
 
     const updated = await tx.order.update({
       where: { id: input.orderId },

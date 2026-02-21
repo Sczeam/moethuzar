@@ -51,6 +51,14 @@ type OrderDetail = {
   }>;
 };
 
+const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
+  PENDING: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["DELIVERING", "CANCELLED"],
+  DELIVERING: ["DELIVERED", "CANCELLED"],
+  DELIVERED: [],
+  CANCELLED: [],
+};
+
 function paymentStatusBadgeClass(status: PaymentStatus) {
   switch (status) {
     case "VERIFIED":
@@ -63,14 +71,6 @@ function paymentStatusBadgeClass(status: PaymentStatus) {
       return "bg-paper-light text-charcoal";
   }
 }
-
-const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
-  PENDING: ["CONFIRMED", "CANCELLED"],
-  CONFIRMED: ["DELIVERING", "CANCELLED"],
-  DELIVERING: ["DELIVERED", "CANCELLED"],
-  DELIVERED: [],
-  CANCELLED: [],
-};
 
 function transitionLabel(status: OrderStatus) {
   switch (status) {
@@ -197,15 +197,6 @@ export default function AdminOrderDetailPage() {
     }
   }
 
-  async function copyText(value: string, successMessage: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-      setStatusText(successMessage);
-    } catch {
-      setStatusText("Unable to copy.");
-    }
-  }
-
   async function reviewPayment(decision: "VERIFIED" | "REJECTED") {
     if (!order) {
       return;
@@ -240,6 +231,15 @@ export default function AdminOrderDetailPage() {
       setStatusText("Unexpected server error while reviewing payment.");
     } finally {
       setReviewingPayment(false);
+    }
+  }
+
+  async function copyText(value: string, successMessage: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setStatusText(successMessage);
+    } catch {
+      setStatusText("Unable to copy.");
     }
   }
 
@@ -398,7 +398,7 @@ export default function AdminOrderDetailPage() {
                   <p>Submitted: {new Date(order.paymentSubmittedAt).toLocaleString()}</p>
                 ) : null}
                 {order.paymentVerifiedAt ? (
-                  <p>Verified: {new Date(order.paymentVerifiedAt).toLocaleString()}</p>
+                  <p>Reviewed at: {new Date(order.paymentVerifiedAt).toLocaleString()}</p>
                 ) : null}
                 {order.paymentProofUrl ? (
                   <a

@@ -6,6 +6,7 @@ import {
 } from "@/lib/validation/admin-order";
 import { requireAdminUserId } from "@/server/auth/admin";
 import { reviewOrderPayment } from "@/server/services/admin-order.service";
+import { emitPaymentReviewHook } from "@/server/services/payment-notification.service";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
@@ -22,6 +23,13 @@ export async function PATCH(
       adminUserId,
       decision: payload.decision,
       note: payload.note,
+    });
+
+    await emitPaymentReviewHook({
+      orderId: order.id,
+      orderCode: order.orderCode,
+      outcome: payload.decision,
+      adminUserId,
     });
 
     logInfo({

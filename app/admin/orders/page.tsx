@@ -7,6 +7,7 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<{
     status?: string;
+    paymentStatus?: string;
     q?: string;
     from?: string;
     to?: string;
@@ -17,6 +18,7 @@ export default async function AdminOrdersPage({
   const params = await searchParams;
   const query = adminOrdersListQuerySchema.parse({
     status: params.status === "ALL" ? undefined : params.status,
+    paymentStatus: params.paymentStatus === "ALL" ? undefined : params.paymentStatus,
     q: params.q,
     from: params.from,
     to: params.to,
@@ -32,6 +34,7 @@ export default async function AdminOrdersPage({
   return (
     <OrdersClient
       statusFilter={query.status ?? "ALL"}
+      paymentStatusFilter={query.paymentStatus ?? "ALL"}
       q={query.q ?? ""}
       from={query.from ?? ""}
       to={query.to ?? ""}
@@ -41,6 +44,8 @@ export default async function AdminOrdersPage({
         id: order.id,
         orderCode: order.orderCode,
         status: order.status,
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
         customerName: order.customerName,
         customerPhone: order.customerPhone,
         totalAmount: order.totalAmount.toString(),

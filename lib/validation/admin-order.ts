@@ -1,4 +1,4 @@
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 import { z } from "zod";
 
 const uuid = z.string().uuid();
@@ -27,6 +27,7 @@ export const orderIdParamSchema = z.object({
 
 export const adminOrdersListQuerySchema = z.object({
   status: z.enum(OrderStatus).optional(),
+  paymentStatus: z.enum(PaymentStatus).optional(),
   q: z.string().trim().max(120).optional(),
   from: z.string().trim().optional(),
   to: z.string().trim().optional(),

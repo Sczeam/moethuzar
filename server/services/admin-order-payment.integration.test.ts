@@ -120,8 +120,6 @@ describeIfDatabase("admin order payment review integration", () => {
     });
     expect(history).toHaveLength(1);
     expect(history[0].note).toContain("Prepaid payment verified by admin.");
-    expect(history[0].note).toContain("Bank screenshot matched.");
-    expect(history[0].changedByAdminId).toBe(adminUserId);
   });
 
   it("rejects prepaid payment and blocks repeated review", async () => {

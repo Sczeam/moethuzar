@@ -5,10 +5,15 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { orderStatusBadgeClass, type UiOrderStatus } from "@/lib/constants/order-status-ui";
 
+type PaymentStatus = "NOT_REQUIRED" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
+type PaymentMethod = "COD" | "PREPAID_TRANSFER";
+
 type OrderItem = {
   id: string;
   orderCode: string;
   status: UiOrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
   customerName: string;
   customerPhone: string;
   totalAmount: string;
@@ -24,9 +29,28 @@ type PaginationMeta = {
 };
 
 const statuses = ["ALL", "PENDING", "CONFIRMED", "DELIVERING", "DELIVERED", "CANCELLED"] as const;
+const paymentStatuses = ["ALL", "PENDING_REVIEW", "VERIFIED", "REJECTED", "NOT_REQUIRED"] as const;
+
+function paymentStatusBadgeClass(status: PaymentStatus) {
+  switch (status) {
+    case "PENDING_REVIEW":
+      return "bg-amber-100 text-amber-800";
+    case "VERIFIED":
+      return "bg-emerald-100 text-emerald-800";
+    case "REJECTED":
+      return "bg-seal-wax/10 text-seal-wax";
+    default:
+      return "bg-paper-light text-charcoal";
+  }
+}
+
+function paymentMethodLabel(method: PaymentMethod) {
+  return method === "PREPAID_TRANSFER" ? "Prepaid" : "COD";
+}
 
 function buildOrdersQuery(params: {
   status: string;
+  paymentStatus: string;
   q: string;
   from: string;
   to: string;
@@ -36,6 +60,9 @@ function buildOrdersQuery(params: {
   const searchParams = new URLSearchParams();
   if (params.status !== "ALL") {
     searchParams.set("status", params.status);
+  }
+  if (params.paymentStatus !== "ALL") {
+    searchParams.set("paymentStatus", params.paymentStatus);
   }
   if (params.q.trim()) {
     searchParams.set("q", params.q.trim());
@@ -53,6 +80,7 @@ function buildOrdersQuery(params: {
 
 export default function OrdersClient({
   statusFilter,
+  paymentStatusFilter,
   q,
   from,
   to,
@@ -62,6 +90,7 @@ export default function OrdersClient({
   pagination,
 }: {
   statusFilter: string;
+  paymentStatusFilter: string;
   q: string;
   from: string;
   to: string;
@@ -78,12 +107,18 @@ export default function OrdersClient({
   const normalizedStatus = useMemo(() => {
     return statuses.includes(statusFilter as (typeof statuses)[number]) ? statusFilter : "ALL";
   }, [statusFilter]);
+  const normalizedPaymentStatus = useMemo(() => {
+    return paymentStatuses.includes(paymentStatusFilter as (typeof paymentStatuses)[number])
+      ? paymentStatusFilter
+      : "ALL";
+  }, [paymentStatusFilter]);
 
   const pageNumber = Number.parseInt(page, 10) || pagination.page;
   const pageSizeNumber = Number.parseInt(pageSize, 10) || pagination.pageSize;
 
   function pushState(next: {
     status?: string;
+    paymentStatus?: string;
     q?: string;
     from?: string;
     to?: string;
@@ -92,6 +127,7 @@ export default function OrdersClient({
   }) {
     const query = buildOrdersQuery({
       status: next.status ?? normalizedStatus,
+      paymentStatus: next.paymentStatus ?? normalizedPaymentStatus,
       q: next.q ?? searchText,
       from: next.from ?? fromDate,
       to: next.to ?? toDate,
@@ -111,6 +147,9 @@ export default function OrdersClient({
     const params = new URLSearchParams();
     if (normalizedStatus !== "ALL") {
       params.set("status", normalizedStatus);
+    }
+    if (normalizedPaymentStatus !== "ALL") {
+      params.set("paymentStatus", normalizedPaymentStatus);
     }
     if (searchText.trim()) {
       params.set("q", searchText.trim());
@@ -208,13 +247,32 @@ export default function OrdersClient({
         })}
       </div>
 
+      <div className="mb-5 flex flex-wrap gap-2">
+        {paymentStatuses.map((paymentStatus) => {
+          const active = paymentStatus === normalizedPaymentStatus;
+          return (
+            <button
+              key={paymentStatus}
+              type="button"
+              onClick={() => pushState({ paymentStatus, page: 1 })}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${
+                active ? "bg-antique-brass text-ink" : "bg-paper-light text-charcoal"
+              }`}
+            >
+              {paymentStatus}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="overflow-x-auto vintage-panel">
         <table className="min-w-full text-sm">
           <thead className="bg-parchment text-left text-charcoal">
             <tr>
               <th className="px-4 py-3">Order</th>
               <th className="px-4 py-3">Customer</th>
-              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Order Status</th>
+              <th className="px-4 py-3">Payment</th>
               <th className="px-4 py-3">Total</th>
               <th className="px-4 py-3">Created</th>
             </tr>
@@ -241,6 +299,20 @@ export default function OrdersClient({
                   </span>
                 </td>
                 <td className="px-4 py-3">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-charcoal">
+                      {paymentMethodLabel(order.paymentMethod)}
+                    </p>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${paymentStatusBadgeClass(
+                        order.paymentStatus
+                      )}`}
+                    >
+                      {order.paymentStatus}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
                   {Number(order.totalAmount).toLocaleString()} {order.currency}
                 </td>
                 <td className="px-4 py-3">{new Date(order.createdAt).toLocaleString()}</td>
@@ -248,7 +320,7 @@ export default function OrdersClient({
             ))}
             {orders.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-charcoal">
+                <td colSpan={6} className="px-4 py-8 text-center text-charcoal">
                   No orders found.
                 </td>
               </tr>
