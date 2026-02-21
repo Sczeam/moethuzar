@@ -16,6 +16,11 @@ export const adminOrderStatusUpdateSchema = z.object({
   }
 });
 
+export const adminOrderPaymentReviewSchema = z.object({
+  decision: z.enum(["VERIFIED", "REJECTED"]),
+  note: z.string().trim().max(1000).optional(),
+});
+
 export const orderIdParamSchema = z.object({
   orderId: uuid,
 });
@@ -32,6 +37,10 @@ export const adminOrdersListQuerySchema = z.object({
 
 export type AdminOrderStatusUpdateInput = z.infer<
   typeof adminOrderStatusUpdateSchema
+>;
+
+export type AdminOrderPaymentReviewInput = z.infer<
+  typeof adminOrderPaymentReviewSchema
 >;
 
 export type AdminOrdersListQueryInput = z.infer<typeof adminOrdersListQuerySchema>;
