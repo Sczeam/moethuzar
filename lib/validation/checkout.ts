@@ -21,6 +21,9 @@ export const checkoutSchema = z.object({
     message: "You must agree to the Terms and Privacy Policy before placing an order.",
   }),
   termsVersion: z.string().refine((value) => value === LEGAL_TERMS_VERSION),
+  paymentMethod: z.enum(["COD", "PREPAID_TRANSFER"]).optional(),
+  paymentProofUrl: z.url().max(1024).optional().or(z.literal("")),
+  paymentReference: z.string().trim().max(120).optional(),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
