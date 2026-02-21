@@ -8,6 +8,7 @@ import {
   YANGON_TOWNSHIPS,
 } from "@/lib/constants/mm-locations";
 import { LEGAL_TERMS_VERSION } from "@/lib/constants/legal";
+import { PREPAID_TRANSFER_METHODS } from "@/lib/constants/prepaid-transfer-methods";
 import type { PaymentPolicy } from "@/lib/payment-policy";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -90,11 +91,13 @@ export default function CheckoutPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
   const [paymentPolicy, setPaymentPolicy] = useState<PaymentPolicy | null>(null);
+  const [selectedTransferMethodId, setSelectedTransferMethodId] = useState<string>("");
   const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
   const [shippingQuoteError, setShippingQuoteError] = useState("");
   const [paymentUploadError, setPaymentUploadError] = useState("");
   const [paymentUploadStatus, setPaymentUploadStatus] = useState("");
   const [paymentUploading, setPaymentUploading] = useState(false);
+  const [copyStatusText, setCopyStatusText] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [statusText, setStatusText] = useState("");
@@ -137,6 +140,10 @@ export default function CheckoutPage() {
   const deliveryFeeAmount = shippingQuote?.feeAmount ?? 0;
   const grandTotalAmount = subtotalAmountInt + deliveryFeeAmount;
   const requiresPrepaidProof = paymentPolicy?.requiresProof ?? false;
+  const selectedTransferMethod = useMemo(
+    () => PREPAID_TRANSFER_METHODS.find((method) => method.id === selectedTransferMethodId) ?? null,
+    [selectedTransferMethodId]
+  );
 
   function onChange<K extends keyof CheckoutForm>(key: K, value: CheckoutForm[K]) {
     setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
@@ -234,6 +241,7 @@ export default function CheckoutPage() {
         ...prev,
         paymentMethod: "",
       }));
+      setSelectedTransferMethodId("");
       return;
     }
 
@@ -242,6 +250,9 @@ export default function CheckoutPage() {
         ...prev,
         paymentMethod: "PREPAID_TRANSFER",
       }));
+      if (PREPAID_TRANSFER_METHODS.length > 0) {
+        setSelectedTransferMethodId((prev) => prev || PREPAID_TRANSFER_METHODS[0].id);
+      }
       return;
     }
 
@@ -253,7 +264,26 @@ export default function CheckoutPage() {
     }));
     setPaymentUploadError("");
     setPaymentUploadStatus("");
+    setSelectedTransferMethodId("");
+    setCopyStatusText("");
   }, [paymentPolicy]);
+
+  async function copyText(value: string, successLabel: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyStatusText(`${successLabel} copied.`);
+    } catch {
+      const textArea = document.createElement("textarea");
+      textArea.value = value;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setCopyStatusText(`${successLabel} copied.`);
+    }
+  }
 
   async function uploadPaymentProof(file: File) {
     if (!ALLOWED_PAYMENT_PROOF_MIME_TYPES.has(file.type)) {
@@ -376,6 +406,9 @@ export default function CheckoutPage() {
       if (form.paymentMethod !== "PREPAID_TRANSFER") {
         errors.paymentMethod = "Prepaid transfer is required for this delivery zone.";
       }
+      if (!selectedTransferMethodId) {
+        errors.paymentMethod = "Please select a transfer method.";
+      }
       if (!form.paymentProofUrl.trim()) {
         errors.paymentProofUrl = "Please upload a payment screenshot for prepaid transfer.";
       }
@@ -418,7 +451,9 @@ export default function CheckoutPage() {
         ...form,
         paymentMethod: form.paymentMethod || undefined,
         paymentProofUrl: form.paymentProofUrl.trim(),
-        paymentReference: form.paymentReference.trim(),
+        paymentReference: requiresPrepaidProof
+          ? `${selectedTransferMethodId}${form.paymentReference.trim() ? `:${form.paymentReference.trim()}` : ""}`
+          : form.paymentReference.trim(),
       };
 
       const response = await fetch("/api/checkout", {
@@ -635,6 +670,100 @@ export default function CheckoutPage() {
                   For this delivery zone, complete a transfer via KBZPay, AyaPay, or WavePay, then
                   upload your payment screenshot.
                 </p>
+                <div className="rounded border border-sepia-border/70 bg-parchment px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-charcoal/75">Exact Amount to Transfer</p>
+                  <p className="mt-1 text-base font-semibold text-ink">
+                    {formatMoney(String(grandTotalAmount), cart.currency)}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-ink">Transfer Method</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {PREPAID_TRANSFER_METHODS.map((method) => (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setSelectedTransferMethodId(method.id)}
+                        className={`border px-2 py-2 text-[11px] uppercase tracking-[0.08em] transition ${
+                          selectedTransferMethodId === method.id
+                            ? "border-antique-brass bg-antique-brass/10 text-ink"
+                            : "border-sepia-border text-charcoal hover:bg-parchment"
+                        }`}
+                      >
+                        {method.label}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedTransferMethod ? (
+                    <div className="space-y-2 rounded border border-sepia-border/70 bg-paper-light p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-ink">{selectedTransferMethod.label}</p>
+                        <button
+                          type="button"
+                          className="text-[11px] underline hover:text-ink"
+                          onClick={() => {
+                            const chunks = [
+                              selectedTransferMethod.label,
+                              `Name: ${selectedTransferMethod.accountName}`,
+                              selectedTransferMethod.accountNumber
+                                ? `Account Number: ${selectedTransferMethod.accountNumber}`
+                                : null,
+                              selectedTransferMethod.phoneNumber
+                                ? `Phone Number: ${selectedTransferMethod.phoneNumber}`
+                                : null,
+                            ].filter(Boolean);
+                            void copyText(chunks.join("\n"), `${selectedTransferMethod.label} details`);
+                          }}
+                        >
+                          Copy all
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p>Name: {selectedTransferMethod.accountName}</p>
+                          <button
+                            type="button"
+                            className="text-[11px] underline hover:text-ink"
+                            onClick={() =>
+                              void copyText(selectedTransferMethod.accountName, "Account name")
+                            }
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        {selectedTransferMethod.accountNumber ? (
+                          <div className="flex items-center justify-between gap-2">
+                            <p>Account Number: {selectedTransferMethod.accountNumber}</p>
+                            <button
+                              type="button"
+                              className="text-[11px] underline hover:text-ink"
+                              onClick={() =>
+                                void copyText(selectedTransferMethod.accountNumber ?? "", "Account number")
+                              }
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        ) : null}
+                        {selectedTransferMethod.phoneNumber ? (
+                          <div className="flex items-center justify-between gap-2">
+                            <p>Phone Number: {selectedTransferMethod.phoneNumber}</p>
+                            <button
+                              type="button"
+                              className="text-[11px] underline hover:text-ink"
+                              onClick={() =>
+                                void copyText(selectedTransferMethod.phoneNumber ?? "", "Phone number")
+                              }
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                  {copyStatusText ? <p className="text-[11px] text-teak-brown">{copyStatusText}</p> : null}
+                </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-ink" htmlFor="payment-proof-file">
                     Payment Screenshot
@@ -721,7 +850,8 @@ export default function CheckoutPage() {
             disabled={
               submitting ||
               !shippingQuote ||
-              (requiresPrepaidProof && (!form.paymentProofUrl || paymentUploading))
+              (requiresPrepaidProof &&
+                (!selectedTransferMethodId || !form.paymentProofUrl || paymentUploading))
             }
             className="btn-primary w-full disabled:opacity-60 sm:w-auto"
           >
