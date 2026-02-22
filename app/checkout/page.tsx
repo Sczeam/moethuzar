@@ -89,6 +89,11 @@ const initialForm: CheckoutForm = {
 };
 
 type FieldErrors = Partial<Record<keyof CheckoutForm, string>>;
+type CheckoutFieldElement =
+  | HTMLInputElement
+  | HTMLSelectElement
+  | HTMLTextAreaElement
+  | HTMLButtonElement;
 const MAX_PAYMENT_PROOF_SIZE_BYTES = 8 * 1024 * 1024;
 const ALLOWED_PAYMENT_PROOF_MIME_TYPES = new Set([
   "image/jpeg",
@@ -116,8 +121,14 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [statusText, setStatusText] = useState("");
+  const [formErrorSummary, setFormErrorSummary] = useState<string[]>([]);
   const idempotencyKeyRef = useRef<string | null>(null);
+  const fieldRefs = useRef<Partial<Record<keyof CheckoutForm, CheckoutFieldElement | null>>>({});
   const router = useRouter();
+
+  function setFieldRef(key: keyof CheckoutForm, element: CheckoutFieldElement | null) {
+    fieldRefs.current[key] = element;
+  }
 
   useEffect(() => {
     async function loadCart() {
@@ -163,6 +174,7 @@ export default function CheckoutPage() {
 
   function onChange<K extends keyof CheckoutForm>(key: K, value: CheckoutForm[K]) {
     setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+    setFormErrorSummary([]);
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -528,10 +540,32 @@ export default function CheckoutPage() {
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setStatusText("Please fix the highlighted fields.");
+      const order: Array<keyof CheckoutForm> = [
+        "customerName",
+        "customerPhone",
+        "customerEmail",
+        "country",
+        "stateRegion",
+        "townshipCity",
+        "addressLine1",
+        "paymentMethod",
+        "paymentProofUrl",
+        "termsAccepted",
+      ];
+      const messages = order
+        .filter((key) => Boolean(errors[key]))
+        .map((key) => errors[key])
+        .filter((msg): msg is string => Boolean(msg));
+      setFormErrorSummary(messages);
+      const firstInvalid = order.find((key) => Boolean(errors[key]));
+      if (firstInvalid) {
+        fieldRefs.current[firstInvalid]?.focus();
+      }
       return;
     }
 
     setFieldErrors({});
+    setFormErrorSummary([]);
     if (!shippingQuote) {
       setStatusText(
         shippingQuoteError || "Shipping quote is not ready. Please check your address and try again.",
@@ -585,6 +619,14 @@ export default function CheckoutPage() {
             }
           }
           setFieldErrors(nextFieldErrors);
+          const issueMessages = Object.values(nextFieldErrors).filter(
+            (msg): msg is string => Boolean(msg)
+          );
+          setFormErrorSummary(issueMessages);
+          const firstIssueField = Object.keys(nextFieldErrors)[0] as keyof CheckoutForm | undefined;
+          if (firstIssueField) {
+            fieldRefs.current[firstIssueField]?.focus();
+          }
         }
         if (parsedData?.code === "INSUFFICIENT_STOCK") {
           setStatusText("Some items are out of stock. Please review your cart.");
@@ -649,106 +691,190 @@ export default function CheckoutPage() {
         <form onSubmit={onSubmit} className="space-y-4 vintage-panel p-5">
           <h2 className="text-lg font-semibold">Billing Information</h2>
 
-          <input
-            required
-            placeholder="Full Name"
-            value={form.customerName}
-            onChange={(event) => onChange("customerName", event.target.value)}
-            className="field-input"
-          />
-          {fieldErrors.customerName ? <p className="text-xs text-seal-wax">{fieldErrors.customerName}</p> : null}
-          <input
-            required
-            placeholder="Phone Number"
-            value={form.customerPhone}
-            onChange={(event) => onChange("customerPhone", event.target.value)}
-            className="field-input"
-          />
-          {fieldErrors.customerPhone ? <p className="text-xs text-seal-wax">{fieldErrors.customerPhone}</p> : null}
-          <input
-            placeholder="Email (optional)"
-            value={form.customerEmail}
-            onChange={(event) => onChange("customerEmail", event.target.value)}
-            className="field-input"
-          />
-          {fieldErrors.customerEmail ? <p className="text-xs text-seal-wax">{fieldErrors.customerEmail}</p> : null}
-          <select
-            required
-            value={form.country}
-            onChange={(event) => onChange("country", event.target.value)}
-            className="field-select"
-          >
-            {MM_COUNTRIES.map((country) => (
-              <option key={country} value={country}>
-                {country}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.country ? <p className="text-xs text-seal-wax">{fieldErrors.country}</p> : null}
-          <select
-            required
-            value={form.stateRegion}
-            onChange={(event) => onChange("stateRegion", event.target.value)}
-            className="field-select"
-          >
-            <option value="">Select State / Division</option>
-            {MM_STATES_AND_DIVISIONS.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.stateRegion ? <p className="text-xs text-seal-wax">{fieldErrors.stateRegion}</p> : null}
-          <select
-            required
-            value={form.townshipCity}
-            onChange={(event) => onChange("townshipCity", event.target.value)}
-            className="field-select"
-          >
-            <option value="">Select Township / City</option>
-            <optgroup label="Yangon Townships">
-              {YANGON_TOWNSHIPS.map((township) => (
-                <option key={township} value={township}>
-                  {township}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Priority Cities">
-              {PRIORITY_CITIES.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-          {fieldErrors.townshipCity ? <p className="text-xs text-seal-wax">{fieldErrors.townshipCity}</p> : null}
-          <input
-            required
-            placeholder="Address Line 1"
-            value={form.addressLine1}
-            onChange={(event) => onChange("addressLine1", event.target.value)}
-            className="field-input"
-          />
-          {fieldErrors.addressLine1 ? <p className="text-xs text-seal-wax">{fieldErrors.addressLine1}</p> : null}
-          <input
-            placeholder="Address Line 2"
-            value={form.addressLine2}
-            onChange={(event) => onChange("addressLine2", event.target.value)}
-            className="field-input"
-          />
-          <input
-            placeholder="Postal Code"
-            value={form.postalCode}
-            onChange={(event) => onChange("postalCode", event.target.value)}
-            className="field-input"
-          />
-          <textarea
-            placeholder="Order note (optional)"
-            value={form.customerNote}
-            onChange={(event) => onChange("customerNote", event.target.value)}
-            className="field-input min-h-24"
-          />
-          <div className="space-y-3 rounded border border-sepia-border/70 bg-paper-light p-3">
+          {formErrorSummary.length > 0 ? (
+            <div className="rounded-none border border-seal-wax/60 bg-seal-wax/5 p-3 text-sm text-seal-wax" role="alert">
+              <p className="font-semibold">Please fix the following before placing your order:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {formErrorSummary.map((message, index) => (
+                  <li key={`${message}-${index}`}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <section className="form-section">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-charcoal">Contact</h3>
+            <div>
+              <label htmlFor="customerName" className="field-label">
+                Full Name<span className="field-required">*</span>
+              </label>
+              <input
+                id="customerName"
+                ref={(element) => setFieldRef("customerName", element)}
+                required
+                value={form.customerName}
+                onChange={(event) => onChange("customerName", event.target.value)}
+                className={`field-input ${fieldErrors.customerName ? "field-input-invalid" : ""}`}
+                autoComplete="name"
+              />
+              {fieldErrors.customerName ? <p className="field-error">{fieldErrors.customerName}</p> : null}
+            </div>
+            <div>
+              <label htmlFor="customerPhone" className="field-label">
+                Phone Number<span className="field-required">*</span>
+              </label>
+              <input
+                id="customerPhone"
+                ref={(element) => setFieldRef("customerPhone", element)}
+                required
+                value={form.customerPhone}
+                onChange={(event) => onChange("customerPhone", event.target.value)}
+                className={`field-input ${fieldErrors.customerPhone ? "field-input-invalid" : ""}`}
+                autoComplete="tel"
+              />
+              {fieldErrors.customerPhone ? <p className="field-error">{fieldErrors.customerPhone}</p> : null}
+            </div>
+            <div>
+              <label htmlFor="customerEmail" className="field-label">
+                Email (optional)
+              </label>
+              <input
+                id="customerEmail"
+                ref={(element) => setFieldRef("customerEmail", element)}
+                value={form.customerEmail}
+                onChange={(event) => onChange("customerEmail", event.target.value)}
+                className={`field-input ${fieldErrors.customerEmail ? "field-input-invalid" : ""}`}
+                autoComplete="email"
+              />
+              {fieldErrors.customerEmail ? <p className="field-error">{fieldErrors.customerEmail}</p> : null}
+            </div>
+          </section>
+
+          <section className="form-section">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-charcoal">Delivery Address</h3>
+            <div>
+              <label htmlFor="country" className="field-label">
+                Country<span className="field-required">*</span>
+              </label>
+              <select
+                id="country"
+                ref={(element) => setFieldRef("country", element)}
+                required
+                value={form.country}
+                onChange={(event) => onChange("country", event.target.value)}
+                className={`field-select ${fieldErrors.country ? "field-input-invalid" : ""}`}
+              >
+                {MM_COUNTRIES.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.country ? <p className="field-error">{fieldErrors.country}</p> : null}
+            </div>
+            <div>
+              <label htmlFor="stateRegion" className="field-label">
+                State / Division<span className="field-required">*</span>
+              </label>
+              <select
+                id="stateRegion"
+                ref={(element) => setFieldRef("stateRegion", element)}
+                required
+                value={form.stateRegion}
+                onChange={(event) => onChange("stateRegion", event.target.value)}
+                className={`field-select ${fieldErrors.stateRegion ? "field-input-invalid" : ""}`}
+              >
+                <option value="">Select State / Division</option>
+                {MM_STATES_AND_DIVISIONS.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.stateRegion ? <p className="field-error">{fieldErrors.stateRegion}</p> : null}
+            </div>
+            <div>
+              <label htmlFor="townshipCity" className="field-label">
+                Township / City<span className="field-required">*</span>
+              </label>
+              <select
+                id="townshipCity"
+                ref={(element) => setFieldRef("townshipCity", element)}
+                required
+                value={form.townshipCity}
+                onChange={(event) => onChange("townshipCity", event.target.value)}
+                className={`field-select ${fieldErrors.townshipCity ? "field-input-invalid" : ""}`}
+              >
+                <option value="">Select Township / City</option>
+                <optgroup label="Yangon Townships">
+                  {YANGON_TOWNSHIPS.map((township) => (
+                    <option key={township} value={township}>
+                      {township}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Priority Cities">
+                  {PRIORITY_CITIES.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+              {fieldErrors.townshipCity ? <p className="field-error">{fieldErrors.townshipCity}</p> : null}
+            </div>
+            <div>
+              <label htmlFor="addressLine1" className="field-label">
+                Address Line 1<span className="field-required">*</span>
+              </label>
+              <input
+                id="addressLine1"
+                ref={(element) => setFieldRef("addressLine1", element)}
+                required
+                value={form.addressLine1}
+                onChange={(event) => onChange("addressLine1", event.target.value)}
+                className={`field-input ${fieldErrors.addressLine1 ? "field-input-invalid" : ""}`}
+                autoComplete="address-line1"
+              />
+              {fieldErrors.addressLine1 ? <p className="field-error">{fieldErrors.addressLine1}</p> : null}
+            </div>
+            <div>
+              <label htmlFor="addressLine2" className="field-label">
+                Address Line 2 (optional)
+              </label>
+              <input
+                id="addressLine2"
+                value={form.addressLine2}
+                onChange={(event) => onChange("addressLine2", event.target.value)}
+                className="field-input"
+                autoComplete="address-line2"
+              />
+            </div>
+            <div>
+              <label htmlFor="postalCode" className="field-label">
+                Postal Code (optional)
+              </label>
+              <input
+                id="postalCode"
+                value={form.postalCode}
+                onChange={(event) => onChange("postalCode", event.target.value)}
+                className="field-input"
+                autoComplete="postal-code"
+              />
+            </div>
+            <div>
+              <label htmlFor="customerNote" className="field-label">
+                Order Note (optional)
+              </label>
+              <textarea
+                id="customerNote"
+                value={form.customerNote}
+                onChange={(event) => onChange("customerNote", event.target.value)}
+                className="field-input min-h-24"
+              />
+            </div>
+          </section>
+          <section className="form-section">
             <h3 className="text-sm font-semibold text-ink">Payment</h3>
             {!shippingQuote ? (
               <p className="text-xs text-charcoal">
@@ -791,6 +917,11 @@ export default function CheckoutPage() {
                     {transferMethods.map((method) => (
                       <button
                         key={method.methodCode}
+                        ref={(element) => {
+                          if (!fieldRefs.current.paymentMethod || selectedTransferMethodId === method.methodCode) {
+                            setFieldRef("paymentMethod", element);
+                          }
+                        }}
                         type="button"
                         onClick={() => setSelectedTransferMethodId(method.methodCode)}
                         className={`border px-2 py-2 text-[11px] uppercase tracking-[0.08em] transition ${
@@ -882,6 +1013,7 @@ export default function CheckoutPage() {
                   </p>
                   <input
                     id="payment-proof-file"
+                    ref={(element) => setFieldRef("paymentProofUrl", element)}
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/avif"
                     className="field-input py-2 text-xs"
@@ -933,12 +1065,13 @@ export default function CheckoutPage() {
               </div>
             ) : null}
             {fieldErrors.paymentMethod ? (
-              <p className="text-xs text-seal-wax">{fieldErrors.paymentMethod}</p>
+              <p className="field-error">{fieldErrors.paymentMethod}</p>
             ) : null}
-          </div>
+          </section>
           <div className="space-y-1">
             <label className="flex items-start gap-2 text-sm text-charcoal">
               <input
+                ref={(element) => setFieldRef("termsAccepted", element)}
                 type="checkbox"
                 checked={form.termsAccepted}
                 onChange={(event) => onChange("termsAccepted", event.target.checked)}
@@ -957,7 +1090,7 @@ export default function CheckoutPage() {
               </span>
             </label>
             {fieldErrors.termsAccepted ? (
-              <p className="text-xs text-seal-wax">{fieldErrors.termsAccepted}</p>
+              <p className="field-error">{fieldErrors.termsAccepted}</p>
             ) : null}
           </div>
 
@@ -1001,15 +1134,15 @@ export default function CheckoutPage() {
               </div>
             ))}
           </div>
-          <div className="mt-6 flex items-center justify-between border-t border-sepia-border pt-4">
+          <div className="summary-row mt-6 border-t border-sepia-border pt-4">
             <p className="font-semibold">Subtotal</p>
             <p className="font-semibold">{formatMoney(cart.subtotalAmount, cart.currency)}</p>
           </div>
-          <div className="mt-2 flex items-center justify-between text-sm">
+          <div className="summary-row mt-2">
             <p>Shipping</p>
             <p>{formatMoney(String(deliveryFeeAmount), cart.currency)}</p>
           </div>
-          <div className="mt-2 flex items-center justify-between border-t border-sepia-border pt-2 text-base font-semibold">
+          <div className="mt-2 flex items-center justify-between border-t border-sepia-border pt-2 text-base font-semibold text-ink">
             <p>Total</p>
             <p>{formatMoney(String(grandTotalAmount), cart.currency)}</p>
           </div>
@@ -1028,7 +1161,7 @@ export default function CheckoutPage() {
       </div>
 
       {statusText ? (
-        <p className="mt-4 text-sm text-seal-wax" aria-live="polite">
+        <p className="mt-4 rounded-none border border-seal-wax/50 bg-seal-wax/5 p-3 text-sm text-seal-wax" aria-live="polite" role="status">
           {statusText}
         </p>
       ) : null}

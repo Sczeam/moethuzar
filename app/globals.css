@@ -107,6 +107,26 @@ h6 {
     @apply mb-2 block text-sm font-semibold uppercase tracking-[0.06em] text-charcoal;
   }
 
+  .field-required {
+    @apply ml-1 text-seal-wax;
+  }
+
+  .field-error {
+    @apply mt-1 text-xs text-seal-wax;
+  }
+
+  .field-input-invalid {
+    @apply border-seal-wax/80 focus:border-seal-wax focus:ring-seal-wax/25;
+  }
+
+  .form-section {
+    @apply space-y-4 rounded-none border border-sepia-border/70 bg-paper-light p-4;
+  }
+
+  .summary-row {
+    @apply flex items-center justify-between text-sm text-charcoal;
+  }
+
   .status-pill {
     @apply inline-flex rounded-full px-2.5 py-1 text-xs font-semibold;
   }
