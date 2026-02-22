@@ -224,7 +224,11 @@ export default function CartPage() {
               </div>
 
               <div className="flex flex-col gap-2 sm:items-end">
+                <label htmlFor={`qty-${item.variant.id}`} className="text-xs uppercase tracking-[0.08em] text-charcoal">
+                  Qty
+                </label>
                 <input
+                  id={`qty-${item.variant.id}`}
                   type="number"
                   min={1}
                   max={20}
@@ -250,16 +254,31 @@ export default function CartPage() {
             </article>
           ))}
 
-          <div className="flex items-center justify-between vintage-panel p-4">
-            <p className="font-medium">Subtotal</p>
-            <p className="text-lg font-bold">{formatMoney(cart.subtotalAmount, cart.currency)}</p>
-          </div>
-
-          <div className="flex justify-end">
-            <Link href="/checkout" className="btn-primary">
-              Proceed to Checkout
-            </Link>
-          </div>
+          <section className="vintage-panel p-4 sm:p-5">
+            <h2 className="text-base font-semibold text-ink">Cart Summary</h2>
+            <div className="mt-4 space-y-2">
+              <div className="summary-row">
+                <p>Items ({cart.itemCount})</p>
+                <p>{formatMoney(cart.subtotalAmount, cart.currency)}</p>
+              </div>
+              <div className="summary-row">
+                <p>Shipping</p>
+                <p>Calculated at checkout</p>
+              </div>
+              <div className="summary-row border-t border-sepia-border pt-2 text-ink">
+                <p className="font-semibold">Payable Total</p>
+                <p className="text-lg font-bold">{formatMoney(cart.subtotalAmount, cart.currency)}+</p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-charcoal">
+              Yangon orders can pay cash on delivery. Orders outside Yangon require prepaid transfer proof.
+            </p>
+            <div className="mt-4 flex justify-end">
+              <Link href="/checkout" className="btn-primary">
+                Proceed to Checkout
+              </Link>
+            </div>
+          </section>
         </div>
       ) : null}
 
