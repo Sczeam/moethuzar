@@ -492,6 +492,8 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         <form
           action="/search"
           method="get"
+          role="search"
+          aria-label="Site search"
           ref={searchShellRef}
           className="pointer-events-none relative flex h-14 w-[min(94vw,760px)] items-center border border-sepia-border/70 bg-paper-light/95 px-3 opacity-0 shadow-[0_14px_40px_rgba(37,30,24,0.24)] backdrop-blur-sm sm:h-16"
           onSubmit={(event) => {

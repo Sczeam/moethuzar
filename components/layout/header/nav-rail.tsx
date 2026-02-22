@@ -46,7 +46,7 @@ export function HeaderNavRail({
           <Link
             href="/"
             aria-label="Go to home"
-            className="pointer-events-auto text-base font-semibold uppercase tracking-[0.08em] text-ink sm:text-xl sm:tracking-[0.12em]"
+            className="pointer-events-auto text-base font-semibold uppercase tracking-[0.08em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-antique-brass sm:text-xl sm:tracking-[0.12em]"
           >
             Moethuzar
           </Link>

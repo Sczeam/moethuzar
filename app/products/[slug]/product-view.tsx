@@ -42,6 +42,8 @@ type AddToCartStatus =
   | null;
 
 export default function ProductView({ product }: ProductViewProps) {
+  const infoMobilePanelId = "product-info-panel-mobile";
+  const infoDesktopPanelId = "product-info-panel-desktop";
   const firstInStockVariant = useMemo(
     () =>
       product.variants.find((variant) => variant.inventory > 0) ??
@@ -334,10 +336,19 @@ export default function ProductView({ product }: ProductViewProps) {
     if (!panel) {
       return;
     }
-
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+
+    if (reduceMotion) {
+      const targetY = isMobilePurchaseExpanded
+        ? 0
+        : mobilePurchaseCollapsedOffsetRef.current;
+      mobilePurchaseCurrentYRef.current = targetY;
+      gsap.set(panel, { y: targetY });
+      return;
+    }
+
     const targetY = isMobilePurchaseExpanded
       ? 0
       : mobilePurchaseCollapsedOffsetRef.current;
@@ -503,6 +514,7 @@ export default function ProductView({ product }: ProductViewProps) {
 
   return (
     <main className="mx-auto w-full max-w-[1900px] px-0">
+      <h1 className="sr-only">{product.name}</h1>
       <div className="grid grid-cols-1 border-y border-sepia-border/70 lg:grid-cols-[minmax(0,1fr)_minmax(420px,48vw)]">
         <section className="relative bg-paper-light lg:border-r lg:border-sepia-border/70">
           {galleryImages.length > 0 ? (
@@ -658,6 +670,8 @@ export default function ProductView({ product }: ProductViewProps) {
                 <div>
                   <button
                     type="button"
+                    aria-expanded={openInfoPanel === "details"}
+                    aria-controls={`${infoMobilePanelId} ${infoDesktopPanelId}`}
                     className="flex w-full items-center justify-between px-0 py-2 text-left"
                     onClick={() => setOpenInfoPanel("details")}
                   >
@@ -669,6 +683,8 @@ export default function ProductView({ product }: ProductViewProps) {
                 <div>
                   <button
                     type="button"
+                    aria-expanded={openInfoPanel === "shipping"}
+                    aria-controls={`${infoMobilePanelId} ${infoDesktopPanelId}`}
                     className="flex w-full items-center justify-between px-0 py-2 text-left"
                     onClick={() => setOpenInfoPanel("shipping")}
                   >
@@ -712,6 +728,7 @@ export default function ProductView({ product }: ProductViewProps) {
       <div
         ref={infoMobilePanelRef}
         role="dialog"
+        id={infoMobilePanelId}
         aria-modal="true"
         aria-label={panelTitle}
         className="fixed inset-x-0 bottom-0 z-[70] max-h-[82dvh] w-screen overflow-hidden border-t border-sepia-border/70 bg-parchment text-ink opacity-0 pointer-events-none sm:hidden"
@@ -735,6 +752,7 @@ export default function ProductView({ product }: ProductViewProps) {
       <div
         ref={infoDesktopPanelRef}
         role="dialog"
+        id={infoDesktopPanelId}
         aria-modal="true"
         aria-label={panelTitle}
         className="fixed inset-y-0 right-0 top-0 z-[70] hidden h-[100dvh] w-full max-w-[min(40vw,460px)] overflow-hidden border-l border-sepia-border/70 bg-parchment text-ink opacity-0 pointer-events-none sm:block"
@@ -910,6 +928,8 @@ export default function ProductView({ product }: ProductViewProps) {
           <div className="mt-5 space-y-1 text-sm text-charcoal">
             <button
               type="button"
+              aria-expanded={openInfoPanel === "details"}
+              aria-controls={`${infoMobilePanelId} ${infoDesktopPanelId}`}
               className="flex w-full items-center justify-between px-0 py-2 text-left"
               onClick={() => setOpenInfoPanel("details")}
             >
@@ -918,6 +938,8 @@ export default function ProductView({ product }: ProductViewProps) {
             </button>
             <button
               type="button"
+              aria-expanded={openInfoPanel === "shipping"}
+              aria-controls={`${infoMobilePanelId} ${infoDesktopPanelId}`}
               className="flex w-full items-center justify-between px-0 py-2 text-left"
               onClick={() => setOpenInfoPanel("shipping")}
             >
