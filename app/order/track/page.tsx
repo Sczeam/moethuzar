@@ -51,6 +51,17 @@ export default function OrderTrackPage() {
             </Link>
           </div>
         </form>
+        <p className="mt-4 text-xs text-charcoal">
+          Need help with your order?{" "}
+          <Link href="/contact" className="underline hover:text-ink">
+            Contact support
+          </Link>{" "}
+          or review our{" "}
+          <Link href="/returns" className="underline hover:text-ink">
+            returns policy
+          </Link>
+          .
+        </p>
 
         {statusText ? <p className="mt-3 text-sm text-seal-wax">{statusText}</p> : null}
       </section>

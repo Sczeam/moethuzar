@@ -4,13 +4,13 @@ import Container from "@/components/ui/container";
 export default function SiteFooter() {
   return (
     <footer className="mt-20 border-t border-sepia-border/80 bg-paper-light/70">
-      <Container className="grid gap-8 py-10 md:grid-cols-3">
+      <Container className="grid gap-8 py-10 md:grid-cols-4">
         <div>
           <h2 className="text-2xl font-semibold uppercase tracking-[0.12em] text-ink">
             Moethuzar
           </h2>
           <p className="mt-2 text-sm text-charcoal">
-            Vintage-inspired everyday wear. Cash on delivery is available across Myanmar.
+            Vintage-inspired everyday wear. Yangon supports cash on delivery. Other regions use prepaid transfer with payment proof review.
           </p>
         </div>
 
@@ -30,10 +30,28 @@ export default function SiteFooter() {
         </div>
 
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-teak-brown">Operations</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-teak-brown">Policies</h3>
+          <div className="mt-3 grid gap-2 text-sm text-charcoal">
+            <Link href="/terms" className="hover:text-ink">
+              Terms & Conditions
+            </Link>
+            <Link href="/privacy" className="hover:text-ink">
+              Privacy Policy
+            </Link>
+            <Link href="/returns" className="hover:text-ink">
+              Returns & Exchange
+            </Link>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-teak-brown">Support</h3>
           <div className="mt-3 grid gap-2 text-sm text-charcoal">
             <p>Support Hours: 9:00 AM - 7:00 PM</p>
             <p>Contact: +95 9 000 000 000</p>
+            <Link href="/contact" className="hover:text-ink">
+              Contact Us
+            </Link>
             <Link href="/admin/login" className="hover:text-ink">
               Admin Login
             </Link>
