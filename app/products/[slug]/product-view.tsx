@@ -687,6 +687,14 @@ export default function ProductView({ product }: ProductViewProps) {
                 <Link href="/privacy" className="underline">
                   Privacy Policy
                 </Link>
+                {" "}plus{" "}
+                <Link href="/returns" className="underline">
+                  Returns & Exchange
+                </Link>
+                . Need help?{" "}
+                <Link href="/contact" className="underline">
+                  Contact support
+                </Link>
                 .
               </p>
             </div>
@@ -917,6 +925,18 @@ export default function ProductView({ product }: ProductViewProps) {
               <span aria-hidden="true">+</span>
             </button>
           </div>
+
+          <p className="mt-4 text-xs text-charcoal/80">
+            Need help before purchase?{" "}
+            <Link href="/contact" className="underline">
+              Contact support
+            </Link>{" "}
+            or review{" "}
+            <Link href="/returns" className="underline">
+              Returns & Exchange
+            </Link>
+            .
+          </p>
         </div>
       </div>
 

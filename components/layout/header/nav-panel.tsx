@@ -25,7 +25,7 @@ const supportLinks = [
 const policyLinks = [
   { href: "/terms", label: "Terms" },
   { href: "/privacy", label: "Privacy" },
-  { href: "/returns", label: "Returns" },
+  { href: "/returns", label: "Returns & Exchange" },
 ];
 
 export function HeaderNavPanel({

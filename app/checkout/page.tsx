@@ -1094,6 +1094,31 @@ export default function CheckoutPage() {
             ) : null}
           </div>
 
+          <div className="rounded-none border border-sepia-border/70 bg-parchment p-3 text-xs text-charcoal">
+            <p className="font-semibold uppercase tracking-[0.08em] text-ink">Need Help?</p>
+            <p className="mt-1">
+              Contact support for delivery/payment questions. You can also review{" "}
+              <Link href="/terms" className="underline hover:text-ink">
+                Terms
+              </Link>
+              ,{" "}
+              <Link href="/privacy" className="underline hover:text-ink">
+                Privacy
+              </Link>
+              , and{" "}
+              <Link href="/returns" className="underline hover:text-ink">
+                Returns & Exchange
+              </Link>
+              .
+            </p>
+            <p className="mt-1">
+              <Link href="/contact" className="underline hover:text-ink">
+                Contact us
+              </Link>{" "}
+              (9:00 AM - 7:00 PM, Myanmar Time).
+            </p>
+          </div>
+
           <button
             type="submit"
             disabled={
@@ -1157,6 +1182,17 @@ export default function CheckoutPage() {
               ) : null}
             </div>
           ) : null}
+          <p className="mt-3 text-xs text-charcoal">
+            By placing order, you agree to our{" "}
+            <Link href="/terms" className="underline hover:text-ink">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline hover:text-ink">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </aside>
       </div>
 

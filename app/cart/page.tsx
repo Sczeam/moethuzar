@@ -278,6 +278,19 @@ export default function CartPage() {
                 Proceed to Checkout
               </Link>
             </div>
+            <div className="mt-4 border-t border-sepia-border/70 pt-3 text-xs text-charcoal">
+              <p>
+                Need help before checkout?{" "}
+                <Link href="/contact" className="underline hover:text-ink">
+                  Contact support
+                </Link>{" "}
+                or review our{" "}
+                <Link href="/returns" className="underline hover:text-ink">
+                  returns policy
+                </Link>
+                .
+              </p>
+            </div>
           </section>
         </div>
       ) : null}
