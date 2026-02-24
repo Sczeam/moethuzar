@@ -1,24 +1,21 @@
 "use client";
 
 import Link from "next/link";
-
-export type AdminNavGroup = {
-  id: string;
-  label: string;
-  href?: string;
-  disabled?: boolean;
-  children?: Array<{ id: string; label: string; href: string }>;
-};
+import type { AdminSidebarGroup } from "@/components/admin/navigation/nav-types";
 
 type AdminSidebarProps = {
-  groups: AdminNavGroup[];
+  groups: AdminSidebarGroup[];
   pathname: string;
   isOpen: boolean;
   onClose: () => void;
 };
 
-function isGroupActive(pathname: string, group: AdminNavGroup): boolean {
-  if (group.children?.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))) {
+function isGroupActive(pathname: string, group: AdminSidebarGroup): boolean {
+  if (
+    group.children?.some(
+      (item) => Boolean(item.href) && (pathname === item.href || pathname.startsWith(`${item.href}/`)),
+    )
+  ) {
     return true;
   }
 
@@ -75,21 +72,27 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose }: AdminSidebar
                     {group.children?.length ? (
                       <ul className="space-y-1 pl-3">
                         {group.children.map((item) => {
-                          const childActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                          const childActive =
+                            Boolean(item.href) &&
+                            (pathname === item.href || pathname.startsWith(`${item.href}/`));
                           return (
                             <li key={item.id}>
-                              <Link
-                                href={item.href}
-                                onClick={onClose}
-                                className={`block rounded-none px-3 py-2 text-sm ${
-                                  childActive
-                                    ? "border border-sepia-border bg-parchment text-ink"
-                                    : "text-charcoal hover:bg-parchment/80"
-                                }`}
-                                aria-current={childActive ? "page" : undefined}
-                              >
-                                {item.label}
-                              </Link>
+                              {item.href && !item.disabled ? (
+                                <Link
+                                  href={item.href}
+                                  onClick={onClose}
+                                  className={`block rounded-none px-3 py-2 text-sm ${
+                                    childActive
+                                      ? "border border-sepia-border bg-parchment text-ink"
+                                      : "text-charcoal hover:bg-parchment/80"
+                                  }`}
+                                  aria-current={childActive ? "page" : undefined}
+                                >
+                                  {item.label}
+                                </Link>
+                              ) : (
+                                <p className="px-3 py-2 text-sm text-charcoal/55">{item.label}</p>
+                              )}
                             </li>
                           );
                         })}
