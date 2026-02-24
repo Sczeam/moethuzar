@@ -67,6 +67,15 @@ function buildRepositoryMock(): AdminOpsDashboardRepository {
         pendingPaymentReviews: 3,
       };
     },
+    async getSalesOverviewSeries() {
+      return [];
+    },
+    async listTopProducts() {
+      return [];
+    },
+    async listRecentOrders() {
+      return [];
+    },
   };
 }
 
