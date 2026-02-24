@@ -27,21 +27,35 @@ export default async function AdminDashboardPage() {
 
   return (
     <main className="space-y-4 md:space-y-8">
-      <AdminUrgentSummaryCard items={opsDashboard.urgentOrders} />
+      <section className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-12">
+        <div className="space-y-4 md:space-y-6 xl:col-span-8">
+          <AdminUrgentSummaryCard items={opsDashboard.urgentOrders} />
 
-      <section className="grid grid-cols-2 gap-4 md:gap-6" aria-label="Dashboard KPIs">
-        <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
-          <p className="text-sm text-charcoal">New Orders</p>
-          <p className="mt-1 text-4xl font-semibold text-ink">{newOrdersQueue?.count ?? 0}</p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-charcoal/85">Priority 1 - immediate</p>
-        </article>
-        <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
-          <p className="text-sm text-charcoal">Today&apos;s Revenue</p>
-          <p className="mt-1 text-3xl font-semibold text-ink md:text-4xl">
-            {formatMoney(opsDashboard.dailyMetrics.revenueToday, opsDashboard.dailyMetrics.currency)}
-          </p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-charcoal/85">Updated today</p>
-        </article>
+          <section className="grid grid-cols-2 gap-4 md:gap-6" aria-label="Dashboard KPIs">
+            <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
+              <p className="text-sm text-charcoal">New Orders</p>
+              <p className="mt-1 text-3xl font-semibold text-ink md:text-4xl">
+                {newOrdersQueue?.count ?? 0}
+              </p>
+              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-charcoal/85 md:text-xs">
+                Priority 1 - immediate
+              </p>
+            </article>
+            <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
+              <p className="text-sm text-charcoal">Today&apos;s Revenue</p>
+              <p className="mt-1 text-2xl font-semibold leading-tight text-ink md:text-4xl">
+                {formatMoney(opsDashboard.dailyMetrics.revenueToday, opsDashboard.dailyMetrics.currency)}
+              </p>
+              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-charcoal/85 md:text-xs">
+                Updated today
+              </p>
+            </article>
+          </section>
+        </div>
+
+        <aside className="xl:col-span-4">
+          <AdminDashboardActionControls />
+        </aside>
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-12">
@@ -49,7 +63,6 @@ export default async function AdminDashboardPage() {
           <AdminRecentOrdersTable orders={opsDashboard.recentOrders} />
         </div>
         <aside className="space-y-4 md:space-y-6 xl:col-span-4">
-          <AdminDashboardActionControls />
           <AdminSalesOverviewCard overview={opsDashboard.salesOverview} />
         </aside>
       </section>

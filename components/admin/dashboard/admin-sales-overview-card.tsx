@@ -18,13 +18,15 @@ export function AdminSalesOverviewCard({ overview }: AdminSalesOverviewCardProps
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="rounded-xl border border-sepia-border/60 p-3">
           <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Total Sales</p>
-          <p className="mt-1 text-2xl font-semibold text-ink md:text-3xl">
+          <p className="mt-1 break-words text-xl font-semibold leading-tight text-ink md:text-3xl">
             {formatMoney(overview.totalSales, overview.currency)}
           </p>
         </div>
         <div className="rounded-xl border border-sepia-border/60 p-3">
           <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Total Orders</p>
-          <p className="mt-1 text-2xl font-semibold text-ink md:text-3xl">{overview.totalOrders}</p>
+          <p className="mt-1 text-xl font-semibold leading-tight text-ink md:text-3xl">
+            {overview.totalOrders}
+          </p>
         </div>
       </div>
 
