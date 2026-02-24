@@ -109,6 +109,7 @@ export function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const mobileNavId = useId();
+  const isDashboardRoute = pathname === "/admin";
 
   const isPublicAdminRoute =
     pathname === "/admin/login" || pathname === "/admin/unauthorized";
@@ -150,25 +151,27 @@ export function AdminShell({ children }: AdminShellProps) {
   }
 
   return (
-    <div className="min-h-dvh bg-parchment lg:grid lg:grid-cols-[18rem_1fr]">
-      <AdminSidebar
-        groups={navGroups}
-        pathname={pathname}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        mobilePanelId={mobileNavId}
-      />
-      <div className="min-w-0">
-        <AdminTopbar
-          title={pageMeta.title}
-          subtitle={pageMeta.subtitle}
-          onOpenSidebar={() => setSidebarOpen(true)}
-          mobileNavControlsId={mobileNavId}
-          isSidebarOpen={sidebarOpen}
+    <div className="min-h-dvh bg-parchment p-3">
+      <div className="overflow-hidden rounded-[26px] border border-sepia-border/65 bg-parchment shadow-[0_14px_34px_rgba(37,30,24,0.07)] lg:grid lg:grid-cols-[16rem_1fr]">
+        <AdminSidebar
+          groups={navGroups}
+          pathname={pathname}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          mobilePanelId={mobileNavId}
         />
-        <div className="space-y-4 px-4 py-4 sm:px-6">
-          <AdminBreadcrumbs items={breadcrumbs} />
-          <div>{children}</div>
+        <div className="min-w-0">
+          <AdminTopbar
+            title={pageMeta.title}
+            subtitle={pageMeta.subtitle}
+            onOpenSidebar={() => setSidebarOpen(true)}
+            mobileNavControlsId={mobileNavId}
+            isSidebarOpen={sidebarOpen}
+          />
+          <div className="space-y-4 px-4 py-4 sm:px-6">
+            {!isDashboardRoute ? <AdminBreadcrumbs items={breadcrumbs} /> : null}
+            <div>{children}</div>
+          </div>
         </div>
       </div>
     </div>

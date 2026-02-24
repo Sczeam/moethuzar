@@ -9,22 +9,22 @@ export function AdminSalesOverviewCard({ overview }: AdminSalesOverviewCardProps
   const maxSalesAmount = Math.max(...overview.series.map((point) => Number(point.salesAmount)), 1);
 
   return (
-    <section className="vintage-panel p-5" aria-labelledby="admin-sales-overview-title">
-      <h3 id="admin-sales-overview-title" className="text-lg font-semibold text-ink">
+    <section className="rounded-[24px] border border-sepia-border/50 bg-paper-light p-5 shadow-[0_8px_22px_rgba(37,30,24,0.05)]" aria-labelledby="admin-sales-overview-title">
+      <h3 id="admin-sales-overview-title" className="text-3xl font-semibold text-ink">
         Sales Overview
       </h3>
-      <p className="mt-1 text-xs text-charcoal">{overview.rangeLabel}</p>
+      <p className="mt-1 text-sm text-charcoal">{overview.rangeLabel}</p>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <div className="rounded-none border border-sepia-border p-3">
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-sepia-border/60 p-3">
           <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Total Sales</p>
-          <p className="mt-1 text-xl font-semibold text-ink">
+          <p className="mt-1 text-3xl font-semibold text-ink">
             {formatMoney(overview.totalSales, overview.currency)}
           </p>
         </div>
-        <div className="rounded-none border border-sepia-border p-3">
+        <div className="rounded-xl border border-sepia-border/60 p-3">
           <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Total Orders</p>
-          <p className="mt-1 text-xl font-semibold text-ink">{overview.totalOrders}</p>
+          <p className="mt-1 text-3xl font-semibold text-ink">{overview.totalOrders}</p>
         </div>
       </div>
 
@@ -36,9 +36,9 @@ export function AdminSalesOverviewCard({ overview }: AdminSalesOverviewCardProps
 
           return (
             <li key={point.dayKey} className="space-y-2 text-center">
-              <div className="flex h-24 items-end justify-center rounded-none border border-sepia-border/60 bg-paper-light px-1">
+              <div className="flex h-24 items-end justify-center rounded-lg border border-sepia-border/45 bg-parchment px-1">
                 <div
-                  className="w-4 bg-antique-brass/75"
+                  className="w-4 rounded-sm bg-antique-brass/85"
                   style={{ height: `${barHeightPercent}%` }}
                   aria-hidden="true"
                 />

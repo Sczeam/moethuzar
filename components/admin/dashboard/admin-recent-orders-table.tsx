@@ -28,14 +28,14 @@ function paymentMethodLabel(paymentMethod: RecentOrderSummary["paymentMethod"]):
 
 export function AdminRecentOrdersTable({ orders }: AdminRecentOrdersTableProps) {
   return (
-    <section className="vintage-panel p-5" aria-labelledby="admin-recent-orders-title">
+    <section className="rounded-[24px] border border-sepia-border/50 bg-paper-light p-5 shadow-[0_8px_22px_rgba(37,30,24,0.05)]" aria-labelledby="admin-recent-orders-title">
       <div className="flex items-center justify-between">
-        <h3 id="admin-recent-orders-title" className="text-lg font-semibold text-ink">
+        <h3 id="admin-recent-orders-title" className="text-3xl font-semibold text-ink">
           Recent Orders
         </h3>
         <Link
           href="/admin/orders"
-          className="text-xs font-semibold uppercase tracking-[0.08em] text-ink hover:text-charcoal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-antique-brass"
+          className="text-sm font-semibold uppercase tracking-[0.08em] text-ink hover:text-charcoal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-antique-brass"
         >
           View all
         </Link>
@@ -44,8 +44,8 @@ export function AdminRecentOrdersTable({ orders }: AdminRecentOrdersTableProps) 
       {orders.length === 0 ? (
         <p className="mt-3 text-sm text-charcoal">No recent orders available.</p>
       ) : (
-        <div className="mt-4 overflow-x-auto border border-sepia-border/60">
-          <table className="w-full min-w-[660px] text-left text-sm">
+        <div className="mt-4 overflow-x-auto rounded-xl border border-sepia-border/60">
+          <table className="w-full min-w-[660px] text-left text-base">
             <thead className="bg-parchment text-charcoal">
               <tr>
                 <th className="px-3 py-2">Order</th>
