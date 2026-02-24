@@ -113,12 +113,12 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
         role="dialog"
         aria-modal="true"
         aria-label="Admin navigation"
-        className={`fixed inset-y-0 left-0 z-40 w-[min(84vw,320px)] border-r border-sepia-border/70 bg-paper-light transition-transform lg:sticky lg:top-0 lg:h-[calc(100dvh-1.5rem)] lg:w-64 lg:translate-x-0 lg:rounded-l-[24px] ${
+        className={`fixed inset-y-0 left-0 z-40 w-[min(84vw,330px)] border-r border-sepia-border/70 bg-paper-light transition-transform lg:sticky lg:top-0 lg:h-dvh lg:w-[17rem] lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex h-16 items-center border-b border-sepia-border/70 px-5">
-          <p className="text-xl font-semibold tracking-[0.08em] text-ink">MOETHUZAR ADMIN</p>
+          <p className="text-lg font-semibold tracking-[0.08em] text-ink">MOETHUZAR ADMIN</p>
         </div>
         <nav aria-label="Admin primary navigation" className="h-[calc(100dvh-4rem)] overflow-y-auto px-3 py-4">
           <ul className="space-y-1.5">
@@ -131,7 +131,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
               return (
                 <li key={group.id} className="space-y-1">
                   {groupDisabled ? (
-                    <span className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-[18px] text-charcoal/50">
+                    <span className="flex items-center gap-3 rounded-none border border-transparent px-3 py-2.5 text-base text-charcoal/50">
                       {iconByLabel(group.label)}
                       {group.label}
                     </span>
@@ -139,9 +139,9 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                     <Link
                       href={href}
                       onClick={onClose}
-                      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[18px] transition ${
+                      className={`flex items-center gap-3 border px-3 py-2.5 text-base transition ${
                         isGroupActive
-                          ? "border-antique-brass bg-antique-brass/15 text-ink"
+                          ? "border-antique-brass bg-antique-brass/10 text-ink"
                           : "border-transparent text-charcoal hover:bg-parchment"
                       }`}
                       aria-current={isGroupActive ? "page" : undefined}
@@ -152,7 +152,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                   )}
 
                   {group.children?.length ? (
-                    <ul className="space-y-1 pl-8">
+                    <ul className="space-y-0.5 pl-8">
                       {group.children.map((item) => {
                         const childHref = item.href;
                         const isChildActive =
@@ -163,7 +163,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                         if (childDisabled) {
                           return (
                             <li key={item.id}>
-                              <span className="block rounded-xl border border-transparent px-3 py-2 text-base text-charcoal/45">
+                              <span className="block rounded-none border border-transparent px-3 py-1.5 text-[15px] text-charcoal/45">
                                 {item.label}
                               </span>
                             </li>
@@ -175,7 +175,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                             <Link
                               href={childHref}
                               onClick={onClose}
-                              className={`block rounded-xl border px-3 py-2 text-base transition ${
+                              className={`block rounded-none border px-3 py-1.5 text-[15px] transition ${
                                 isChildActive
                                   ? "border-sepia-border bg-parchment text-ink"
                                   : "border-transparent text-charcoal hover:bg-parchment/80"
