@@ -1,12 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 
 export type OpsOrderSummary = {
   id: string;
   orderCode: string;
   customerName: string;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  totalAmount: Prisma.Decimal;
+  currency: string;
+  shippingZoneLabel: string | null;
   createdAt: Date;
 };
 
@@ -43,7 +47,11 @@ export const prismaAdminOpsDashboardRepository: AdminOpsDashboardRepository = {
         orderCode: true,
         customerName: true,
         status: true,
+        paymentMethod: true,
         paymentStatus: true,
+        totalAmount: true,
+        currency: true,
+        shippingZoneLabel: true,
         createdAt: true,
       },
     });

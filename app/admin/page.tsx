@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminOpsQueueGrid } from "@/components/admin/dashboard/admin-ops-queue-grid";
+import { AdminUrgentActions } from "@/components/admin/dashboard/admin-urgent-actions";
 import { getAdminOpsDashboard } from "@/server/services/admin-ops-dashboard.service";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ export default async function AdminDashboardPage() {
           <div className="rounded-none border border-sepia-border p-3">
             <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Revenue Today</p>
             <p className="mt-1 text-lg font-semibold text-ink">
-              {Number(opsDashboard.dailyMetrics.revenueToday).toLocaleString()}{" "}
+              {Number(opsDashboard.dailyMetrics.revenueToday).toLocaleString()} {" "}
               {opsDashboard.dailyMetrics.currency}
             </p>
           </div>
@@ -58,24 +59,7 @@ export default async function AdminDashboardPage() {
 
       <section className="vintage-panel p-5">
         <h2 className="text-lg font-semibold text-ink">Urgent Actions</h2>
-        <div className="mt-3 space-y-2">
-          {opsDashboard.urgentOrders.length === 0 ? (
-            <p className="text-sm text-charcoal">No urgent orders right now.</p>
-          ) : (
-            opsDashboard.urgentOrders.map((order) => (
-              <Link
-                key={order.orderId}
-                href={order.href}
-                className="block rounded-none border border-sepia-border p-3 hover:bg-parchment"
-              >
-                <p className="text-sm font-semibold text-ink">{order.orderCode}</p>
-                <p className="mt-1 text-xs text-charcoal">
-                  {order.customerName} · {order.status} · {order.paymentStatus}
-                </p>
-              </Link>
-            ))
-          )}
-        </div>
+        <AdminUrgentActions items={opsDashboard.urgentOrders} />
       </section>
 
       <section className="vintage-panel p-5">
