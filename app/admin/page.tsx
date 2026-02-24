@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminDailyMetricsStrip } from "@/components/admin/dashboard/admin-daily-metrics-strip";
 import { AdminOpsQueueGrid } from "@/components/admin/dashboard/admin-ops-queue-grid";
 import { AdminUrgentActions } from "@/components/admin/dashboard/admin-urgent-actions";
 import { getAdminOpsDashboard } from "@/server/services/admin-ops-dashboard.service";
@@ -31,30 +32,8 @@ export default async function AdminDashboardPage() {
 
       <section className="vintage-panel p-5">
         <h2 className="text-lg font-semibold text-ink">Operations Snapshot</h2>
-        <p className="mt-1 text-xs text-charcoal">
-          Refreshed {new Date(opsDashboard.dailyMetrics.refreshedAt).toLocaleString()}
-        </p>
         <AdminOpsQueueGrid queues={opsDashboard.queues} />
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-none border border-sepia-border p-3">
-            <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Orders Today</p>
-            <p className="mt-1 text-lg font-semibold text-ink">{opsDashboard.dailyMetrics.ordersToday}</p>
-          </div>
-          <div className="rounded-none border border-sepia-border p-3">
-            <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Revenue Today</p>
-            <p className="mt-1 text-lg font-semibold text-ink">
-              {Number(opsDashboard.dailyMetrics.revenueToday).toLocaleString()} {" "}
-              {opsDashboard.dailyMetrics.currency}
-            </p>
-          </div>
-          <div className="rounded-none border border-sepia-border p-3">
-            <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Pending Payment Reviews</p>
-            <p className="mt-1 text-lg font-semibold text-ink">
-              {opsDashboard.dailyMetrics.pendingPaymentReviews}
-            </p>
-          </div>
-        </div>
+        <AdminDailyMetricsStrip metrics={opsDashboard.dailyMetrics} />
       </section>
 
       <section className="vintage-panel p-5">
