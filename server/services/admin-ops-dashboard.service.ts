@@ -42,10 +42,48 @@ export type DailyOpsMetrics = {
   refreshedAt: string;
 };
 
+export type SalesOverviewPoint = {
+  dayKey: string;
+  salesAmount: string;
+  ordersCount: number;
+};
+
+export type SalesOverview = {
+  totalSales: string;
+  totalOrders: number;
+  currency: "MMK";
+  rangeLabel: string;
+  series: SalesOverviewPoint[];
+};
+
+export type TopProductSummary = {
+  productId: string;
+  slug: string;
+  name: string;
+  thumbnailUrl: string | null;
+  unitsSold: number;
+  salesAmount: string;
+  currency: "MMK";
+};
+
+export type RecentOrderSummary = {
+  orderId: string;
+  orderCode: string;
+  customerName: string;
+  createdAt: string;
+  paymentMethod: PaymentMethod;
+  status: OrderStatus;
+  totalAmount: string;
+  currency: "MMK";
+};
+
 export type AdminOpsDashboardPayload = {
   queues: DashboardQueueSummary[];
   urgentOrders: UrgentOrderItem[];
   dailyMetrics: DailyOpsMetrics;
+  salesOverview: SalesOverview;
+  topProducts: TopProductSummary[];
+  recentOrders: RecentOrderSummary[];
 };
 
 type QueueDefinition = {
@@ -133,6 +171,26 @@ function toDayRange(now: Date): { start: Date; end: Date } {
   return { start, end };
 }
 
+function buildContractPlaceholderSalesOverview(now: Date, dailyMetrics: DailyOpsMetrics): SalesOverview {
+  const dayKeys = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(now);
+    day.setDate(now.getDate() - (6 - index));
+    return day.toISOString().slice(0, 10);
+  });
+
+  return {
+    totalSales: dailyMetrics.revenueToday,
+    totalOrders: dailyMetrics.ordersToday,
+    currency: "MMK",
+    rangeLabel: "Last 7 days",
+    series: dayKeys.map((dayKey) => ({
+      dayKey,
+      salesAmount: "0",
+      ordersCount: 0,
+    })),
+  };
+}
+
 export async function getAdminOpsDashboard(
   deps: { repository?: AdminOpsDashboardRepository; now?: Date } = {},
 ): Promise<AdminOpsDashboardPayload> {
@@ -194,5 +252,8 @@ export async function getAdminOpsDashboard(
     queues,
     urgentOrders,
     dailyMetrics,
+    salesOverview: buildContractPlaceholderSalesOverview(now, dailyMetrics),
+    topProducts: [],
+    recentOrders: [],
   };
 }
