@@ -8,6 +8,7 @@ type AdminSidebarProps = {
   pathname: string;
   isOpen: boolean;
   onClose: () => void;
+  mobilePanelId?: string;
 };
 
 function isGroupActive(pathname: string, group: AdminSidebarGroup): boolean {
@@ -26,7 +27,7 @@ function isGroupActive(pathname: string, group: AdminSidebarGroup): boolean {
   return pathname === group.href || pathname.startsWith(`${group.href}/`);
 }
 
-export function AdminSidebar({ groups, pathname, isOpen, onClose }: AdminSidebarProps) {
+export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId }: AdminSidebarProps) {
   return (
     <>
       <button
@@ -38,6 +39,10 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose }: AdminSidebar
         }`}
       />
       <aside
+        id={mobilePanelId}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Admin navigation"
         className={`fixed inset-y-0 left-0 z-40 w-[min(84vw,320px)] border-r border-sepia-border/70 bg-paper-light transition-transform lg:sticky lg:top-0 lg:h-dvh lg:w-72 lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}

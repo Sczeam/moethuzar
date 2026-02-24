@@ -4,9 +4,17 @@ type AdminTopbarProps = {
   title: string;
   subtitle?: string;
   onOpenSidebar: () => void;
+  mobileNavControlsId?: string;
+  isSidebarOpen?: boolean;
 };
 
-export function AdminTopbar({ title, subtitle, onOpenSidebar }: AdminTopbarProps) {
+export function AdminTopbar({
+  title,
+  subtitle,
+  onOpenSidebar,
+  mobileNavControlsId,
+  isSidebarOpen = false,
+}: AdminTopbarProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-sepia-border/70 bg-parchment/95 backdrop-blur-sm">
       <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6">
@@ -16,6 +24,8 @@ export function AdminTopbar({ title, subtitle, onOpenSidebar }: AdminTopbarProps
             onClick={onOpenSidebar}
             className="inline-flex h-10 w-10 items-center justify-center border border-sepia-border text-ink transition hover:bg-paper-light lg:hidden"
             aria-label="Open admin navigation"
+            aria-controls={mobileNavControlsId}
+            aria-expanded={isSidebarOpen}
           >
             <span aria-hidden="true" className="text-base leading-none">
               ≡

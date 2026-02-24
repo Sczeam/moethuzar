@@ -208,13 +208,13 @@ If a feature is disabled:
 
 ## 9) A1 Implementation Checklist
 
-- [ ] Introduce `AdminModuleDefinition` and registry file.
-- [ ] Build sidebar from registry (no hardcoded scattered links).
-- [ ] Add secondary nav rendering for `Orders`, `Catalog`, `Storefront`, and `Settings`.
-- [ ] Move catalog create flow to separate route if still mixed.
-- [ ] Add breadcrumb + page title contract.
-- [ ] Ensure labels are plain-language and task-oriented.
-- [ ] Hide deferred modules from primary nav.
+- [x] Introduce `AdminModuleDefinition` and registry file.
+- [x] Build sidebar from registry (no hardcoded scattered links).
+- [x] Add secondary nav rendering for `Orders`, `Catalog`, `Storefront`, and `Settings`.
+- [x] Move catalog create flow to separate route if still mixed.
+- [x] Add breadcrumb + page title contract.
+- [x] Ensure labels are plain-language and task-oriented.
+- [x] Hide deferred modules from primary nav.
 
 ---
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { buildAdminSidebarGroups } from "@/components/admin/navigation/build-nav";
 import { ADMIN_MODULE_REGISTRY } from "@/components/admin/navigation/module-registry";
@@ -108,6 +108,7 @@ type AdminShellProps = {
 export function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const mobileNavId = useId();
 
   const isPublicAdminRoute =
     pathname === "/admin/login" || pathname === "/admin/unauthorized";
@@ -129,15 +130,42 @@ export function AdminShell({ children }: AdminShellProps) {
     [],
   );
 
+  useEffect(() => {
+    if (!sidebarOpen) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setSidebarOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [sidebarOpen]);
+
   if (isPublicAdminRoute) {
     return <>{children}</>;
   }
 
   return (
     <div className="min-h-dvh bg-parchment lg:grid lg:grid-cols-[18rem_1fr]">
-      <AdminSidebar groups={navGroups} pathname={pathname} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <AdminSidebar
+        groups={navGroups}
+        pathname={pathname}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        mobilePanelId={mobileNavId}
+      />
       <div className="min-w-0">
-        <AdminTopbar title={pageMeta.title} subtitle={pageMeta.subtitle} onOpenSidebar={() => setSidebarOpen(true)} />
+        <AdminTopbar
+          title={pageMeta.title}
+          subtitle={pageMeta.subtitle}
+          onOpenSidebar={() => setSidebarOpen(true)}
+          mobileNavControlsId={mobileNavId}
+          isSidebarOpen={sidebarOpen}
+        />
         <div className="space-y-4 px-4 py-4 sm:px-6">
           <AdminBreadcrumbs items={breadcrumbs} />
           <div>{children}</div>
