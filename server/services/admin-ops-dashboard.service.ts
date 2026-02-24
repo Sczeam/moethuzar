@@ -1,6 +1,7 @@
 import type {
   AdminOpsDashboardRepository,
   OpsOrderSummary,
+  OpsSalesOverviewPoint,
 } from "@/server/repositories/admin-ops-dashboard.repository";
 import { prismaAdminOpsDashboardRepository } from "@/server/repositories/admin-ops-dashboard.repository";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
@@ -136,6 +137,12 @@ const queueDefinitions: QueueDefinition[] = [
   },
 ];
 
+const YANGON_TIMEZONE = "Asia/Yangon";
+const YANGON_UTC_OFFSET_MINUTES = 6 * 60 + 30;
+const SALES_OVERVIEW_DAYS = 7;
+const TOP_PRODUCTS_LIMIT = 5;
+const RECENT_ORDERS_LIMIT = 6;
+
 function buildOrdersHref(query: QueueDefinition["query"]): string {
   const searchParams = new URLSearchParams();
   if (query.status) {
@@ -163,31 +170,74 @@ function toUrgentPriority(item: OpsOrderSummary): number {
   return 4;
 }
 
-function toDayRange(now: Date): { start: Date; end: Date } {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
+function toYangonDayRange(now: Date): { start: Date; end: Date } {
+  const offsetMs = YANGON_UTC_OFFSET_MINUTES * 60_000;
+  const shifted = new Date(now.getTime() + offsetMs);
+
+  const startShifted = new Date(
+    Date.UTC(
+      shifted.getUTCFullYear(),
+      shifted.getUTCMonth(),
+      shifted.getUTCDate(),
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
+  const endShifted = new Date(
+    Date.UTC(
+      shifted.getUTCFullYear(),
+      shifted.getUTCMonth(),
+      shifted.getUTCDate(),
+      23,
+      59,
+      59,
+      999,
+    ),
+  );
+
+  const start = new Date(startShifted.getTime() - offsetMs);
+  const end = new Date(endShifted.getTime() - offsetMs);
+
   return { start, end };
 }
 
-function buildContractPlaceholderSalesOverview(now: Date, dailyMetrics: DailyOpsMetrics): SalesOverview {
-  const dayKeys = Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(now);
-    day.setDate(now.getDate() - (6 - index));
-    return day.toISOString().slice(0, 10);
+function toYangonTrailingDaysRange(now: Date, days: number): { start: Date; end: Date } {
+  const dayRange = toYangonDayRange(now);
+  const start = new Date(dayRange.start);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+
+  return {
+    start,
+    end: dayRange.end,
+  };
+}
+
+function toSalesOverviewFromSeries(
+  series: OpsSalesOverviewPoint[],
+): SalesOverview {
+  let totalOrders = 0;
+  let totalSales = 0;
+
+  const points: SalesOverviewPoint[] = series.map((point) => {
+    const numericSales = Number(point.salesAmount.toString());
+    totalSales += numericSales;
+    totalOrders += point.ordersCount;
+
+    return {
+      dayKey: point.dayKey,
+      salesAmount: point.salesAmount.toString(),
+      ordersCount: point.ordersCount,
+    };
   });
 
   return {
-    totalSales: dailyMetrics.revenueToday,
-    totalOrders: dailyMetrics.ordersToday,
+    totalSales: String(totalSales),
+    totalOrders,
     currency: "MMK",
-    rangeLabel: "Last 7 days",
-    series: dayKeys.map((dayKey) => ({
-      dayKey,
-      salesAmount: "0",
-      ordersCount: 0,
-    })),
+    rangeLabel: `Last ${SALES_OVERVIEW_DAYS} days`,
+    series: points,
   };
 }
 
@@ -196,6 +246,8 @@ export async function getAdminOpsDashboard(
 ): Promise<AdminOpsDashboardPayload> {
   const repository = deps.repository ?? prismaAdminOpsDashboardRepository;
   const now = deps.now ?? new Date();
+  const todayRange = toYangonDayRange(now);
+  const trailingRange = toYangonTrailingDaysRange(now, SALES_OVERVIEW_DAYS);
 
   const queueCounts = await Promise.all(
     queueDefinitions.map((definition) =>
@@ -239,7 +291,21 @@ export async function getAdminOpsDashboard(
       href: `/admin/orders/${item.id}`,
     }));
 
-  const daily = await repository.getDailyMetricsRange(toDayRange(now));
+  const [daily, salesSeries, topProductsRaw, recentOrdersRaw] = await Promise.all([
+    repository.getDailyMetricsRange(todayRange),
+    repository.getSalesOverviewSeries({
+      range: trailingRange,
+      timezone: YANGON_TIMEZONE,
+    }),
+    repository.listTopProducts({
+      range: trailingRange,
+      limit: TOP_PRODUCTS_LIMIT,
+    }),
+    repository.listRecentOrders({
+      limit: RECENT_ORDERS_LIMIT,
+    }),
+  ]);
+
   const dailyMetrics: DailyOpsMetrics = {
     ordersToday: daily.ordersToday,
     revenueToday: daily.revenueToday.toString(),
@@ -248,12 +314,33 @@ export async function getAdminOpsDashboard(
     refreshedAt: now.toISOString(),
   };
 
+  const topProducts: TopProductSummary[] = topProductsRaw.map((item) => ({
+    productId: item.productId,
+    slug: item.slug,
+    name: item.name,
+    thumbnailUrl: item.thumbnailUrl,
+    unitsSold: item.unitsSold,
+    salesAmount: item.salesAmount.toString(),
+    currency: "MMK",
+  }));
+
+  const recentOrders: RecentOrderSummary[] = recentOrdersRaw.map((item) => ({
+    orderId: item.orderId,
+    orderCode: item.orderCode,
+    customerName: item.customerName,
+    createdAt: item.createdAt.toISOString(),
+    paymentMethod: item.paymentMethod,
+    status: item.status,
+    totalAmount: item.totalAmount.toString(),
+    currency: "MMK",
+  }));
+
   return {
     queues,
     urgentOrders,
     dailyMetrics,
-    salesOverview: buildContractPlaceholderSalesOverview(now, dailyMetrics),
-    topProducts: [],
-    recentOrders: [],
+    salesOverview: toSalesOverviewFromSeries(salesSeries),
+    topProducts,
+    recentOrders,
   };
 }
