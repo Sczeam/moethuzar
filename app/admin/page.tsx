@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getAdminOpsDashboard } from "@/server/services/admin-ops-dashboard.service";
 
+export const dynamic = "force-dynamic";
+
 const QUICK_ACTIONS = [
   { label: "Open Orders", href: "/admin/orders", description: "Review new and active orders" },
   { label: "Open Products", href: "/admin/catalog", description: "Manage product list and stock" },
