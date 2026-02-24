@@ -17,7 +17,7 @@ export function AdminTopbar({
 }: AdminTopbarProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-sepia-border/70 bg-parchment/95 backdrop-blur-sm">
-      <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6">
+      <div className="flex min-h-14 items-center justify-between gap-3 px-4 md:min-h-[72px] md:px-8 xl:px-20">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -33,10 +33,15 @@ export function AdminTopbar({
           </button>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-lg font-semibold text-ink">{title}</p>
-          {subtitle ? <p className="text-xs text-charcoal">{subtitle}</p> : null}
+          <p className="text-base font-semibold text-ink md:text-lg">{title}</p>
+          {subtitle ? <p className="hidden text-xs text-charcoal md:block">{subtitle}</p> : null}
         </div>
-        <p className="hidden text-xs uppercase tracking-[0.1em] text-charcoal sm:block">Admin Console</p>
+        <div className="flex items-center gap-2">
+          <p className="hidden text-xs uppercase tracking-[0.1em] text-charcoal sm:block">Admin Console</p>
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sepia-border bg-paper-light text-xs font-semibold text-ink md:h-10 md:w-10 md:text-sm">
+            AD
+          </span>
+        </div>
       </div>
     </header>
   );

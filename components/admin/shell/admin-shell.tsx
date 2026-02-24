@@ -151,7 +151,7 @@ export function AdminShell({ children }: AdminShellProps) {
   }
 
   return (
-    <div className="min-h-dvh bg-parchment lg:grid lg:grid-cols-[17rem_1fr]">
+    <div className="min-h-dvh bg-parchment lg:grid lg:grid-cols-[15rem_1fr]">
       <AdminSidebar
         groups={navGroups}
         pathname={pathname}
@@ -167,7 +167,7 @@ export function AdminShell({ children }: AdminShellProps) {
           mobileNavControlsId={mobileNavId}
           isSidebarOpen={sidebarOpen}
         />
-        <div className="space-y-4 px-4 py-4 sm:px-6">
+        <div className="space-y-4 px-4 py-4 md:space-y-8 md:px-8 md:py-8 xl:px-20">
           {!isDashboardRoute ? <AdminBreadcrumbs items={breadcrumbs} /> : null}
           <div>{children}</div>
         </div>

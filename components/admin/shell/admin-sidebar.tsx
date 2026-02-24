@@ -113,7 +113,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
         role="dialog"
         aria-modal="true"
         aria-label="Admin navigation"
-        className={`fixed inset-y-0 left-0 z-40 w-[min(84vw,330px)] border-r border-sepia-border/70 bg-paper-light transition-transform lg:sticky lg:top-0 lg:h-dvh lg:w-[17rem] lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-[min(84vw,330px)] border-r border-sepia-border/70 bg-paper-light transition-transform lg:sticky lg:top-0 lg:h-dvh lg:w-[15rem] lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -131,7 +131,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
               return (
                 <li key={group.id} className="space-y-1">
                   {groupDisabled ? (
-                    <span className="flex items-center gap-3 rounded-none border border-transparent px-3 py-2.5 text-base text-charcoal/50">
+                    <span className="flex items-center gap-3 rounded-none border border-transparent px-3 py-2.5 text-[15px] text-charcoal/50">
                       {iconByLabel(group.label)}
                       {group.label}
                     </span>
@@ -139,7 +139,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                     <Link
                       href={href}
                       onClick={onClose}
-                      className={`flex items-center gap-3 border px-3 py-2.5 text-base transition ${
+                      className={`flex items-center gap-3 border px-3 py-2.5 text-[15px] transition ${
                         isGroupActive
                           ? "border-antique-brass bg-antique-brass/10 text-ink"
                           : "border-transparent text-charcoal hover:bg-parchment"

@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { AdminDashboardActionControls } from "@/components/admin/dashboard/admin-dashboard-action-controls";
-import { AdminDailyMetricsStrip } from "@/components/admin/dashboard/admin-daily-metrics-strip";
 import { AdminRecentOrdersTable } from "@/components/admin/dashboard/admin-recent-orders-table";
-import { AdminOpsQueueGrid } from "@/components/admin/dashboard/admin-ops-queue-grid";
 import { AdminSalesOverviewCard } from "@/components/admin/dashboard/admin-sales-overview-card";
 import { AdminTopProductsCard } from "@/components/admin/dashboard/admin-top-products-card";
 import { AdminUrgentSummaryCard } from "@/components/admin/dashboard/admin-urgent-summary-card";
+import { formatMoney } from "@/lib/format";
 import { getAdminOpsDashboard } from "@/server/services/admin-ops-dashboard.service";
 
 export const dynamic = "force-dynamic";
@@ -24,47 +23,60 @@ const QUICK_ACTIONS = [
 
 export default async function AdminDashboardPage() {
   const opsDashboard = await getAdminOpsDashboard();
+  const newOrdersQueue = opsDashboard.queues.find((queue) => queue.id === "new_orders");
 
   return (
-    <main className="space-y-5">
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
-        <div className="space-y-6">
-          <AdminUrgentSummaryCard items={opsDashboard.urgentOrders} />
+    <main className="space-y-4 md:space-y-8">
+      <AdminUrgentSummaryCard items={opsDashboard.urgentOrders} />
 
-          <section className="vintage-panel rounded-[24px] border-sepia-border/50 p-5 shadow-[0_8px_22px_rgba(37,30,24,0.05)]" aria-labelledby="operations-snapshot-title">
-            <h2 id="operations-snapshot-title" className="text-3xl font-semibold text-ink">
-              Operations Snapshot
-            </h2>
-            <AdminOpsQueueGrid queues={opsDashboard.queues} />
-            <div className="mt-5 border-t border-sepia-border/70 pt-4">
-              <AdminDailyMetricsStrip metrics={opsDashboard.dailyMetrics} />
-            </div>
-          </section>
+      <section className="grid grid-cols-2 gap-4 md:gap-6" aria-label="Dashboard KPIs">
+        <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
+          <p className="text-sm text-charcoal">New Orders</p>
+          <p className="mt-1 text-4xl font-semibold text-ink">{newOrdersQueue?.count ?? 0}</p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-charcoal/85">Priority 1 - immediate</p>
+        </article>
+        <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
+          <p className="text-sm text-charcoal">Today&apos;s Revenue</p>
+          <p className="mt-1 text-3xl font-semibold text-ink md:text-4xl">
+            {formatMoney(opsDashboard.dailyMetrics.revenueToday, opsDashboard.dailyMetrics.currency)}
+          </p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-charcoal/85">Updated today</p>
+        </article>
+      </section>
 
+      <section className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-12">
+        <div className="xl:col-span-8">
           <AdminRecentOrdersTable orders={opsDashboard.recentOrders} />
-
-          <section className="vintage-panel rounded-[24px] border-sepia-border/50 p-5 shadow-[0_8px_22px_rgba(37,30,24,0.05)]" aria-labelledby="quick-actions-title">
-            <h2 id="quick-actions-title" className="text-3xl font-semibold text-ink">
-              Quick Actions
-            </h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {QUICK_ACTIONS.map((action) => (
-                <Link
-                  key={action.label}
-                  href={action.href}
-                  className="rounded-xl border border-sepia-border/70 bg-parchment p-4 transition hover:bg-paper-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-antique-brass"
-                >
-                  <p className="text-2xl font-semibold text-ink">{action.label}</p>
-                  <p className="mt-1 text-sm text-charcoal">{action.description}</p>
-                </Link>
-              ))}
-            </div>
-          </section>
         </div>
-
-        <aside className="space-y-6">
+        <aside className="space-y-4 md:space-y-6 xl:col-span-4">
           <AdminDashboardActionControls />
           <AdminSalesOverviewCard overview={opsDashboard.salesOverview} />
+        </aside>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-12">
+        <section
+          className="vintage-panel rounded-[24px] border-sepia-border/50 p-4 md:p-5 xl:col-span-8"
+          aria-labelledby="quick-actions-title"
+        >
+          <h2 id="quick-actions-title" className="text-2xl font-semibold text-ink md:text-3xl">
+            Quick Actions
+          </h2>
+          <div className="mt-4 grid grid-cols-2 gap-3 md:gap-4">
+            {QUICK_ACTIONS.map((action) => (
+              <Link
+                key={action.label}
+                href={action.href}
+                className="rounded-xl border border-sepia-border/70 bg-parchment p-3 transition hover:bg-paper-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-antique-brass md:p-4"
+              >
+                <p className="text-base font-semibold text-ink md:text-2xl">{action.label}</p>
+                <p className="mt-1 text-xs text-charcoal md:text-sm">{action.description}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <aside className="xl:col-span-4">
           <AdminTopProductsCard items={opsDashboard.topProducts} />
         </aside>
       </section>
