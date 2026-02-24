@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Libre_Baskerville } from "next/font/google";
 import localFont from "next/font/local";
-import SiteFooter from "@/components/layout/site-footer";
-import SiteHeader from "@/components/layout/site-header";
+import { SiteChrome } from "@/components/layout/site-chrome";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -44,11 +43,7 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <SiteHeader />
-        <main id="main-content" className="min-h-[calc(100vh-16rem)]">
-          {children}
-        </main>
-        <SiteFooter />
+        <SiteChrome>{children}</SiteChrome>
       </body>
     </html>
   );
