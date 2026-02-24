@@ -3,7 +3,7 @@ import type {
   OpsOrderSummary,
 } from "@/server/repositories/admin-ops-dashboard.repository";
 import { prismaAdminOpsDashboardRepository } from "@/server/repositories/admin-ops-dashboard.repository";
-import { OrderStatus, PaymentStatus } from "@prisma/client";
+import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 
 type QueueId =
   | "new_orders"
@@ -25,7 +25,11 @@ export type UrgentOrderItem = {
   orderCode: string;
   customerName: string;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  totalAmount: string;
+  currency: string;
+  zoneLabel: string | null;
   createdAt: string;
   href: string;
 };
@@ -168,7 +172,11 @@ export async function getAdminOpsDashboard(
       orderCode: item.orderCode,
       customerName: item.customerName,
       status: item.status,
+      paymentMethod: item.paymentMethod,
       paymentStatus: item.paymentStatus,
+      totalAmount: item.totalAmount.toString(),
+      currency: item.currency,
+      zoneLabel: item.shippingZoneLabel,
       createdAt: item.createdAt.toISOString(),
       href: `/admin/orders/${item.id}`,
     }));

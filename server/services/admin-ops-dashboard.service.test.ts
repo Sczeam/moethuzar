@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { getAdminOpsDashboard } from "@/server/services/admin-ops-dashboard.service";
 import type { AdminOpsDashboardRepository } from "@/server/repositories/admin-ops-dashboard.repository";
 
@@ -27,7 +27,11 @@ function buildRepositoryMock(): AdminOpsDashboardRepository {
           orderCode: "MZT-1",
           customerName: "Confirmed",
           status: OrderStatus.CONFIRMED,
+          paymentMethod: PaymentMethod.COD,
           paymentStatus: PaymentStatus.VERIFIED,
+          totalAmount: new Prisma.Decimal("22000.00"),
+          currency: "MMK",
+          shippingZoneLabel: "Yangon",
           createdAt: new Date("2026-02-24T04:00:00.000Z"),
         },
         {
@@ -35,7 +39,11 @@ function buildRepositoryMock(): AdminOpsDashboardRepository {
           orderCode: "MZT-2",
           customerName: "Payment Review",
           status: OrderStatus.PENDING,
+          paymentMethod: PaymentMethod.PREPAID_TRANSFER,
           paymentStatus: PaymentStatus.PENDING_REVIEW,
+          totalAmount: new Prisma.Decimal("35000.00"),
+          currency: "MMK",
+          shippingZoneLabel: "Mandalay",
           createdAt: new Date("2026-02-24T03:00:00.000Z"),
         },
         {
@@ -43,7 +51,11 @@ function buildRepositoryMock(): AdminOpsDashboardRepository {
           orderCode: "MZT-3",
           customerName: "Pending",
           status: OrderStatus.PENDING,
+          paymentMethod: PaymentMethod.COD,
           paymentStatus: PaymentStatus.NOT_REQUIRED,
+          totalAmount: new Prisma.Decimal("15000.00"),
+          currency: "MMK",
+          shippingZoneLabel: null,
           createdAt: new Date("2026-02-24T02:00:00.000Z"),
         },
       ];
@@ -90,5 +102,22 @@ describe("admin ops dashboard service", () => {
       "order-pending",
       "order-confirmed",
     ]);
+  });
+
+  it("returns enriched urgent order fields for operator triage", async () => {
+    const data = await getAdminOpsDashboard({
+      repository: buildRepositoryMock(),
+      now: new Date("2026-02-24T06:00:00.000Z"),
+    });
+
+    expect(data.urgentOrders[0]).toMatchObject({
+      orderId: "order-payment-review",
+      paymentMethod: PaymentMethod.PREPAID_TRANSFER,
+      paymentStatus: PaymentStatus.PENDING_REVIEW,
+      totalAmount: "35000",
+      currency: "MMK",
+      zoneLabel: "Mandalay",
+      href: "/admin/orders/order-payment-review",
+    });
   });
 });
