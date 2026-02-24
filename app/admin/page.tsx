@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminOpsQueueGrid } from "@/components/admin/dashboard/admin-ops-queue-grid";
 import { getAdminOpsDashboard } from "@/server/services/admin-ops-dashboard.service";
 
 export const dynamic = "force-dynamic";
@@ -32,19 +33,7 @@ export default async function AdminDashboardPage() {
         <p className="mt-1 text-xs text-charcoal">
           Refreshed {new Date(opsDashboard.dailyMetrics.refreshedAt).toLocaleString()}
         </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {opsDashboard.queues.map((queue) => (
-            <Link
-              key={queue.id}
-              href={queue.href}
-              className="rounded-none border border-sepia-border p-4 hover:bg-parchment"
-            >
-              <p className="text-xs uppercase tracking-[0.08em] text-charcoal">{queue.label}</p>
-              <p className="mt-1 text-2xl font-semibold text-ink">{queue.count}</p>
-              <p className="mt-1 text-xs text-charcoal">{queue.helpText}</p>
-            </Link>
-          ))}
-        </div>
+        <AdminOpsQueueGrid queues={opsDashboard.queues} />
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <div className="rounded-none border border-sepia-border p-3">
