@@ -12,50 +12,6 @@ type AdminSidebarProps = {
   mobilePanelId?: string;
 };
 
-type SidebarItem = {
-  id: string;
-  label: string;
-  href?: string;
-  disabled?: boolean;
-};
-
-const SIDEBAR_ORDER = [
-  "dashboard",
-  "orders",
-  "catalog-products",
-  "catalog-categories",
-  "catalog-collections",
-  "catalog-inventory",
-  "storefront",
-  "marketing",
-  "reports",
-  "settings",
-] as const;
-
-function resolveSidebarItems(groups: AdminSidebarGroup[]): SidebarItem[] {
-  const byId = new Map<string, SidebarItem>();
-
-  for (const group of groups) {
-    byId.set(group.id, {
-      id: group.id,
-      label: group.label,
-      href: group.href,
-      disabled: group.disabled,
-    });
-
-    for (const child of group.children ?? []) {
-      byId.set(child.id, {
-        id: child.id,
-        label: child.label,
-        href: child.href,
-        disabled: child.disabled,
-      });
-    }
-  }
-
-  return SIDEBAR_ORDER.map((id) => byId.get(id)).filter((item): item is SidebarItem => Boolean(item));
-}
-
 function iconByLabel(label: string): ReactNode {
   const common = "h-4 w-4 shrink-0 fill-none stroke-current stroke-[1.6]";
 
@@ -142,8 +98,6 @@ function iconByLabel(label: string): ReactNode {
 }
 
 export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId }: AdminSidebarProps) {
-  const items = resolveSidebarItems(groups);
-
   return (
     <>
       <button
@@ -168,37 +122,73 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
         </div>
         <nav aria-label="Admin primary navigation" className="h-[calc(100dvh-4rem)] overflow-y-auto px-3 py-4">
           <ul className="space-y-1.5">
-            {items.map((item) => {
-              const href = item.href;
-              const isActive = Boolean(href) && (pathname === href || pathname.startsWith(`${href}/`));
-              const disabled = item.disabled || !href;
-
-              const rowClass = isActive
-                ? "border-antique-brass bg-antique-brass/15 text-ink"
-                : "border-transparent text-charcoal hover:bg-parchment";
-
-              if (disabled) {
-                return (
-                  <li key={item.id}>
-                    <span className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-[18px] text-charcoal/50">
-                      {iconByLabel(item.label)}
-                      {item.label}
-                    </span>
-                  </li>
-                );
-              }
+            {groups.map((group) => {
+              const href = group.href;
+              const isGroupActive =
+                Boolean(href) && (pathname === href || pathname.startsWith(`${href}/`));
+              const groupDisabled = group.disabled || !href;
 
               return (
-                <li key={item.id}>
-                  <Link
-                    href={href ?? "/admin"}
-                    onClick={onClose}
-                    className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[18px] transition ${rowClass}`}
-                    aria-current={isActive ? "page" : undefined}
-                  >
-                    {iconByLabel(item.label)}
-                    {item.label}
-                  </Link>
+                <li key={group.id} className="space-y-1">
+                  {groupDisabled ? (
+                    <span className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-[18px] text-charcoal/50">
+                      {iconByLabel(group.label)}
+                      {group.label}
+                    </span>
+                  ) : (
+                    <Link
+                      href={href}
+                      onClick={onClose}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[18px] transition ${
+                        isGroupActive
+                          ? "border-antique-brass bg-antique-brass/15 text-ink"
+                          : "border-transparent text-charcoal hover:bg-parchment"
+                      }`}
+                      aria-current={isGroupActive ? "page" : undefined}
+                    >
+                      {iconByLabel(group.label)}
+                      {group.label}
+                    </Link>
+                  )}
+
+                  {group.children?.length ? (
+                    <ul className="space-y-1 pl-8">
+                      {group.children.map((item) => {
+                        const childHref = item.href;
+                        const isChildActive =
+                          Boolean(childHref) &&
+                          (pathname === childHref || pathname.startsWith(`${childHref}/`));
+                        const childDisabled = item.disabled || !childHref;
+
+                        if (childDisabled) {
+                          return (
+                            <li key={item.id}>
+                              <span className="block rounded-xl border border-transparent px-3 py-2 text-base text-charcoal/45">
+                                {item.label}
+                              </span>
+                            </li>
+                          );
+                        }
+
+                        return (
+                          <li key={item.id}>
+                            <Link
+                              href={childHref}
+                              onClick={onClose}
+                              className={`block rounded-xl border px-3 py-2 text-base transition ${
+                                isChildActive
+                                  ? "border-sepia-border bg-parchment text-ink"
+                                  : "border-transparent text-charcoal hover:bg-parchment/80"
+                              }`}
+                              aria-current={isChildActive ? "page" : undefined}
+                            >
+                              {item.label}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
                 </li>
               );
             })}
