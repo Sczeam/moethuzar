@@ -23,32 +23,40 @@ export default async function AdminDashboardPage() {
 
   return (
     <main className="vintage-shell space-y-6">
-      <section className="vintage-panel p-5">
-        <h1 className="text-2xl font-semibold text-ink">Admin Dashboard</h1>
+      <section className="vintage-panel p-5" aria-labelledby="admin-dashboard-title">
+        <h1 id="admin-dashboard-title" className="text-2xl font-semibold text-ink">
+          Admin Dashboard
+        </h1>
         <p className="mt-2 text-sm text-charcoal">
           Use quick actions below to complete common daily tasks in one click.
         </p>
       </section>
 
-      <section className="vintage-panel p-5">
-        <h2 className="text-lg font-semibold text-ink">Operations Snapshot</h2>
+      <section className="vintage-panel p-5" aria-labelledby="operations-snapshot-title">
+        <h2 id="operations-snapshot-title" className="text-lg font-semibold text-ink">
+          Operations Snapshot
+        </h2>
         <AdminOpsQueueGrid queues={opsDashboard.queues} />
         <AdminDailyMetricsStrip metrics={opsDashboard.dailyMetrics} />
       </section>
 
-      <section className="vintage-panel p-5">
-        <h2 className="text-lg font-semibold text-ink">Urgent Actions</h2>
+      <section className="vintage-panel p-5" aria-labelledby="urgent-actions-title">
+        <h2 id="urgent-actions-title" className="text-lg font-semibold text-ink">
+          Urgent Actions
+        </h2>
         <AdminUrgentActions items={opsDashboard.urgentOrders} />
       </section>
 
-      <section className="vintage-panel p-5">
-        <h2 className="text-lg font-semibold text-ink">Quick Actions</h2>
+      <section className="vintage-panel p-5" aria-labelledby="quick-actions-title">
+        <h2 id="quick-actions-title" className="text-lg font-semibold text-ink">
+          Quick Actions
+        </h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {QUICK_ACTIONS.map((action) => (
             <Link
               key={action.label}
               href={action.href}
-              className="rounded-none border border-sepia-border p-4 hover:bg-parchment"
+              className="rounded-none border border-sepia-border p-4 transition hover:bg-parchment focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-antique-brass"
             >
               <p className="text-sm font-semibold text-ink">{action.label}</p>
               <p className="mt-1 text-xs text-charcoal">{action.description}</p>
