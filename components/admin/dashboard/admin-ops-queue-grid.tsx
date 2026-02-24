@@ -7,7 +7,7 @@ type AdminOpsQueueGridProps = {
 
 export function AdminOpsQueueGrid({ queues }: AdminOpsQueueGridProps) {
   return (
-    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4" aria-label="Order operation queues">
       {queues.map((queue) => (
         <AdminOpsQueueCard key={queue.id} queue={queue} />
       ))}
