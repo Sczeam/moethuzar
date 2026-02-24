@@ -42,27 +42,56 @@ Supporting principle: **Single Responsibility Principle (SRP)**
 
 ---
 
-## 3) Target IA (Current Scope)
+## 3) Frozen IA (A1, v1)
+
+Status: **FROZEN**  
+Effective date: 2026-02-24
+
+This IA is locked for A1 implementation. Any changes require a follow-up decision note in this document and issue `#84`.
 
 Top-level:
 
 1. Dashboard
 2. Orders
 3. Catalog
-4. Storefront (or Content)
+4. Storefront
 5. Discounts
 6. Settings
 
-Secondary (v1):
+Secondary navigation (v1):
 
-- Catalog: Products, Categories, Collections, Inventory, Media
-- Settings: Shipping, Payments, Staff & Roles, Store Details
+- Orders:
+  - Orders
+  - Returns & Refunds
+- Catalog:
+  - Products
+  - Categories
+  - Collections
+  - Inventory
+  - Media
+- Storefront:
+  - Homepage Sections
+  - Navigation / Menus
+  - Pages
+  - Lookbook / Editorial
+- Settings:
+  - Shipping
+  - Payments
+  - Staff & Roles
+  - Store Details
 
 Deferred (hidden until real pages exist):
 
 - Reports
 - Customers (standalone)
 - Marketing integrations
+- Abandoned checkouts
+
+Labeling rules for non-technical operators:
+
+- Use plain words (`Payments`, `Shipping`, `Products`).
+- Avoid technical jargon in menu labels.
+- Keep one stable place per task (no duplicated navigation entry points).
 
 ---
 
@@ -171,9 +200,9 @@ If a feature is disabled:
 ## 8) Anti-Patterns to Avoid
 
 - Central giant switch that hardcodes every module and subpage.
-- Shared “god component” that contains routing + business logic + UI rendering.
+- Shared "god component" that contains routing + business logic + UI rendering.
 - Showing placeholder modules with no actionable page.
-- Technical labels (e.g., “variant matrix config”) for non-technical users.
+- Technical labels (e.g., "variant matrix config") for non-technical users.
 
 ---
 
@@ -181,7 +210,7 @@ If a feature is disabled:
 
 - [ ] Introduce `AdminModuleDefinition` and registry file.
 - [ ] Build sidebar from registry (no hardcoded scattered links).
-- [ ] Add secondary nav rendering for `Catalog` and `Settings`.
+- [ ] Add secondary nav rendering for `Orders`, `Catalog`, `Storefront`, and `Settings`.
 - [ ] Move catalog create flow to separate route if still mixed.
 - [ ] Add breadcrumb + page title contract.
 - [ ] Ensure labels are plain-language and task-oriented.
