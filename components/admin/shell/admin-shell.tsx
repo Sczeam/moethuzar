@@ -38,6 +38,15 @@ function buildBreadcrumbs(pathname: string): BreadcrumbItem[] {
   }
 
   if (pathname.startsWith("/admin/catalog")) {
+    if (pathname.startsWith("/admin/catalog/new")) {
+      return [
+        { label: "Dashboard", href: "/admin" },
+        { label: "Catalog", href: "/admin/catalog" },
+        { label: "Products", href: "/admin/catalog" },
+        { label: "Create Product" },
+      ];
+    }
+
     return [{ label: "Dashboard", href: "/admin" }, { label: "Catalog" }];
   }
 
@@ -74,6 +83,10 @@ function getPageTitle(pathname: string): { title: string; subtitle?: string } {
   }
 
   if (pathname.startsWith("/admin/catalog")) {
+    if (pathname.startsWith("/admin/catalog/new")) {
+      return { title: "Create Product", subtitle: "Add a new product to catalog" };
+    }
+
     return { title: "Catalog", subtitle: "Products, variants, and media" };
   }
 

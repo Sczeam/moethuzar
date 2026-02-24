@@ -216,7 +216,13 @@ function formatFileSize(sizeInBytes: number): string {
   return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function CatalogClient() {
+type CatalogClientView = "all" | "list" | "create";
+
+type CatalogClientProps = {
+  view?: CatalogClientView;
+};
+
+export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [statusText, setStatusText] = useState("");
@@ -233,6 +239,8 @@ export default function CatalogClient() {
     {}
   );
   const [inventoryNoteByVariant, setInventoryNoteByVariant] = useState<Record<string, string>>({});
+  const showProductList = view !== "create";
+  const showCreateForm = view !== "list";
 
   const categoryFallbackId = useMemo(() => categories[0]?.id ?? "", [categories]);
   const setCreateDraftSafe: DraftSetter = useCallback(
@@ -710,8 +718,19 @@ export default function CatalogClient() {
   return (
     <main className="vintage-shell">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-4xl font-semibold text-ink">Catalog</h1>
+        <h1 className="text-4xl font-semibold text-ink">
+          {showCreateForm && !showProductList ? "Create Product" : "Catalog"}
+        </h1>
         <div className="flex flex-wrap gap-2">
+          {showProductList ? (
+            <Link href="/admin/catalog/new" className="btn-primary">
+              Create Product
+            </Link>
+          ) : (
+            <Link href="/admin/catalog" className="btn-secondary">
+              Back to Products
+            </Link>
+          )}
           <Link href="/admin/orders" className="btn-secondary">
             Orders
           </Link>
@@ -750,7 +769,8 @@ export default function CatalogClient() {
 
       {!loading && !loadError ? (
         <div className="space-y-6">
-          <section className="vintage-panel p-5">
+          {showProductList ? (
+            <section className="vintage-panel p-5">
             <h2 className="text-2xl font-semibold text-ink">Products</h2>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -803,8 +823,10 @@ export default function CatalogClient() {
               </table>
             </div>
           </section>
+          ) : null}
 
-          <section className="vintage-panel p-5">
+          {showCreateForm ? (
+            <section className="vintage-panel p-5">
             <h2 className="text-2xl font-semibold text-ink">Create Product</h2>
             <form onSubmit={submitCreate} className="mt-4 space-y-4">
               <ProductFormFields
@@ -826,8 +848,9 @@ export default function CatalogClient() {
               </button>
             </form>
           </section>
+          ) : null}
 
-          {editingProduct && editingProductId ? (
+          {showProductList && editingProduct && editingProductId ? (
             <section className="vintage-panel p-5">
               <h2 className="text-2xl font-semibold text-ink">Edit Product</h2>
               <p className="mt-1 text-sm text-charcoal">Product ID: {editingProductId}</p>
