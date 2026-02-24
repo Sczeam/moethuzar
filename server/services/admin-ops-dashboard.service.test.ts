@@ -89,6 +89,15 @@ describe("admin ops dashboard service", () => {
       count: 3,
       href: "/admin/orders?paymentStatus=PENDING_REVIEW&page=1&pageSize=20",
     });
+    expect(data.salesOverview).toMatchObject({
+      totalSales: "420000",
+      totalOrders: 12,
+      currency: "MMK",
+      rangeLabel: "Last 7 days",
+    });
+    expect(data.salesOverview.series).toHaveLength(7);
+    expect(data.topProducts).toEqual([]);
+    expect(data.recentOrders).toEqual([]);
   });
 
   it("prioritizes urgent orders by payment review then pending age", async () => {
@@ -119,5 +128,17 @@ describe("admin ops dashboard service", () => {
       zoneLabel: "Mandalay",
       href: "/admin/orders/order-payment-review",
     });
+  });
+
+  it("returns contract-safe defaults for newly added dashboard modules", async () => {
+    const data = await getAdminOpsDashboard({
+      repository: buildRepositoryMock(),
+      now: new Date("2026-02-24T06:00:00.000Z"),
+    });
+
+    expect(data.salesOverview.series.every((point) => point.salesAmount === "0")).toBe(true);
+    expect(data.salesOverview.series.every((point) => point.ordersCount === 0)).toBe(true);
+    expect(data.topProducts).toHaveLength(0);
+    expect(data.recentOrders).toHaveLength(0);
   });
 });
