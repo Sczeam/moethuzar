@@ -9,11 +9,11 @@ import { AdminSidebar } from "@/components/admin/shell/admin-sidebar";
 import { AdminTopbar } from "@/components/admin/shell/admin-topbar";
 
 const ADMIN_FEATURE_FLAGS = {
-  adminStorefrontEnabled: false,
+  adminStorefrontEnabled: true,
   adminDiscountsEnabled: false,
-  adminReturnsEnabled: false,
-  adminStaffAndRolesEnabled: false,
-  adminStoreDetailsEnabled: false,
+  adminReturnsEnabled: true,
+  adminStaffAndRolesEnabled: true,
+  adminStoreDetailsEnabled: true,
 } as const;
 
 function buildBreadcrumbs(pathname: string): BreadcrumbItem[] {
@@ -109,6 +109,7 @@ export function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const mobileNavId = useId();
+  const isDashboardRoute = pathname === "/admin";
 
   const isPublicAdminRoute =
     pathname === "/admin/login" || pathname === "/admin/unauthorized";
@@ -150,7 +151,7 @@ export function AdminShell({ children }: AdminShellProps) {
   }
 
   return (
-    <div className="min-h-dvh bg-parchment lg:grid lg:grid-cols-[18rem_1fr]">
+    <div className="min-h-dvh bg-parchment lg:grid lg:grid-cols-[15rem_1fr]">
       <AdminSidebar
         groups={navGroups}
         pathname={pathname}
@@ -166,8 +167,8 @@ export function AdminShell({ children }: AdminShellProps) {
           mobileNavControlsId={mobileNavId}
           isSidebarOpen={sidebarOpen}
         />
-        <div className="space-y-4 px-4 py-4 sm:px-6">
-          <AdminBreadcrumbs items={breadcrumbs} />
+        <div className="space-y-4 px-4 py-4 md:space-y-8 md:px-8 md:py-8 xl:px-20">
+          {!isDashboardRoute ? <AdminBreadcrumbs items={breadcrumbs} /> : null}
           <div>{children}</div>
         </div>
       </div>

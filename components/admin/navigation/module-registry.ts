@@ -34,22 +34,43 @@ export const ADMIN_MODULE_REGISTRY: AdminModuleDefinition[] = [
   {
     id: "storefront",
     label: "Storefront",
-    disabled: true,
     featureFlag: "admin_storefront_enabled",
+    href: "/admin",
     order: 40,
     children: [
-      { id: "sf-home", label: "Homepage Sections", disabled: true, order: 10 },
+      { id: "sf-home", label: "Homepage Sections", href: "/admin", order: 10 },
       { id: "sf-nav", label: "Navigation / Menus", disabled: true, order: 20 },
       { id: "sf-pages", label: "Pages", disabled: true, order: 30 },
       { id: "sf-lookbook", label: "Lookbook / Editorial", disabled: true, order: 40 },
     ],
   },
   {
-    id: "discounts",
-    label: "Discounts",
+    id: "marketing",
+    label: "Marketing",
+    href: "/admin",
+    order: 50,
+    children: [
+      { id: "marketing-promos", label: "Discounts", disabled: true, order: 10 },
+      { id: "marketing-seo", label: "SEO", disabled: true, order: 20 },
+      { id: "marketing-campaigns", label: "Campaigns", disabled: true, order: 30 },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    href: "/admin",
+    order: 55,
+    children: [
+      { id: "reports-sales", label: "Sales Report", disabled: true, order: 10 },
+      { id: "reports-products", label: "Product Performance", disabled: true, order: 20 },
+    ],
+  },
+  {
+    id: "discounts-legacy",
+    label: "Discounts (Legacy)",
     disabled: true,
     featureFlag: "admin_discounts_enabled",
-    order: 50,
+    order: 57,
   },
   {
     id: "settings",
