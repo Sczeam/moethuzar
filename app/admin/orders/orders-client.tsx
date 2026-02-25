@@ -265,28 +265,27 @@ export default function OrdersClient({
             Apply
           </button>
         </form>
-        <div className="mt-2 flex justify-end">
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {statuses.map((status) => {
+              const active = status === normalizedStatus;
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => pushState({ status, page: 1 })}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
+                    active ? "bg-teak-brown text-paper-light" : "bg-paper-light text-charcoal"
+                  }`}
+                >
+                  {status}
+                </button>
+              );
+            })}
+          </div>
           <button type="button" onClick={onExportCsv} className="btn-secondary text-xs md:text-sm">
             Export Current CSV
           </button>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {statuses.map((status) => {
-            const active = status === normalizedStatus;
-            return (
-              <button
-                key={status}
-                type="button"
-                onClick={() => pushState({ status, page: 1 })}
-                className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
-                  active ? "bg-teak-brown text-paper-light" : "bg-paper-light text-charcoal"
-                }`}
-              >
-                {status}
-              </button>
-            );
-          })}
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
