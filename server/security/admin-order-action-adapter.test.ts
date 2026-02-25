@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildOrderActionRequest, INVALID_TRANSITION_CODES } from "./order-action-adapter";
+import { buildOrderActionRequest } from "@/app/admin/orders/[orderId]/order-action-adapter";
 
-describe("order-action-adapter", () => {
-  it("maps payment verify action to payment endpoint payload", () => {
+describe("admin order action request adapter", () => {
+  it("maps payment verify action to payment endpoint", () => {
     const request = buildOrderActionRequest("order-1", "payment.verify", "  note  ");
     expect(request).toEqual({
       endpoint: "/api/admin/orders/order-1/payment",
@@ -13,7 +13,7 @@ describe("order-action-adapter", () => {
     });
   });
 
-  it("maps status cancel action to status endpoint payload", () => {
+  it("maps status cancel action to status endpoint", () => {
     const request = buildOrderActionRequest("order-1", "status.cancel", "cancel reason");
     expect(request).toEqual({
       endpoint: "/api/admin/orders/order-1/status",
@@ -22,10 +22,5 @@ describe("order-action-adapter", () => {
         note: "cancel reason",
       },
     });
-  });
-
-  it("contains key invalid transition guardrail codes", () => {
-    expect(INVALID_TRANSITION_CODES.has("INVALID_ORDER_STATUS_TRANSITION")).toBe(true);
-    expect(INVALID_TRANSITION_CODES.has("PAYMENT_REVIEW_NOT_PENDING")).toBe(true);
   });
 });

@@ -3,13 +3,6 @@ import type { UiOrderStatus } from "@/lib/constants/order-status-ui";
 
 type OrderStatus = UiOrderStatus;
 
-export const INVALID_TRANSITION_CODES = new Set([
-  "INVALID_ORDER_STATUS_TRANSITION",
-  "PAYMENT_REVIEW_NOT_PENDING",
-  "PAYMENT_REVIEW_NOT_APPLICABLE",
-  "PAYMENT_PROOF_MISSING",
-]);
-
 export function buildOrderActionRequest(
   orderId: string,
   actionId: OrderActionId,
