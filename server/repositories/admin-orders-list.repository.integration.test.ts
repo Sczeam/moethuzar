@@ -89,5 +89,39 @@ describeIfDatabase("admin orders KPI repository integration", () => {
     expect(kpis.deliveredCount).toBe(1);
     expect(kpis.eligibleCount).toBe(3);
   });
+
+  it("applies status filters to KPI aggregates", async () => {
+    const where = buildAdminOrdersWhere({
+      status: enums.OrderStatus.PENDING,
+      paymentStatus: undefined,
+      q: orderCodePrefix,
+      from: undefined,
+      to: undefined,
+    });
+
+    const kpis = await repository.getOrdersKpiAggregates(where);
+    expect(kpis.totalOrders).toBe(1);
+    expect(kpis.totalRevenueAmount.toString()).toBe("40000");
+    expect(kpis.averageOrderValueAmount.toString()).toBe("40000");
+    expect(kpis.deliveredCount).toBe(0);
+    expect(kpis.eligibleCount).toBe(0);
+  });
+
+  it("returns zero-safe aggregate payload for empty datasets", async () => {
+    const where = buildAdminOrdersWhere({
+      status: undefined,
+      paymentStatus: undefined,
+      q: `${orderCodePrefix}-NO-MATCH`,
+      from: undefined,
+      to: undefined,
+    });
+
+    const kpis = await repository.getOrdersKpiAggregates(where);
+    expect(kpis.totalOrders).toBe(0);
+    expect(kpis.totalRevenueAmount.toString()).toBe("0");
+    expect(kpis.averageOrderValueAmount.toString()).toBe("0");
+    expect(kpis.deliveredCount).toBe(0);
+    expect(kpis.eligibleCount).toBe(0);
+  });
 });
 

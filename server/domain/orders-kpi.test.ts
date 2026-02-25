@@ -22,6 +22,20 @@ describe("orders KPI formula", () => {
     expect(computeFulfillmentRate({ deliveredCount: -2, eligibleCount: 5 })).toBe(0);
     expect(computeFulfillmentRate({ deliveredCount: 9, eligibleCount: 5 })).toBe(100);
   });
+
+  it("supports fractional ratios without rounding at domain layer", () => {
+    expect(computeFulfillmentRate({ deliveredCount: 1, eligibleCount: 3 })).toBeCloseTo(
+      33.3333333,
+      6,
+    );
+  });
+
+  it("guards against non-finite values", () => {
+    expect(computeFulfillmentRate({ deliveredCount: Number.POSITIVE_INFINITY, eligibleCount: 5 })).toBe(
+      0,
+    );
+    expect(computeFulfillmentRate({ deliveredCount: Number.NaN, eligibleCount: 5 })).toBe(0);
+  });
 });
 
 describe("orders KPI status eligibility", () => {
