@@ -97,5 +97,27 @@ describe("admin order payment review route", () => {
       adminUserId: "admin-user-id",
     });
   });
+
+  it("returns conflict code for payment review that is no longer pending", async () => {
+    requireAdminUserMock.mockResolvedValueOnce("admin-user-id");
+    reviewOrderPaymentMock.mockRejectedValueOnce(
+      new AppError("Payment is not pending review.", 409, "PAYMENT_REVIEW_NOT_PENDING")
+    );
+
+    const response = await reviewPaymentPatch(
+      new Request(`http://localhost:3000/api/admin/orders/${orderId}/payment`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision: "VERIFIED" }),
+      }),
+      { params: Promise.resolve({ orderId }) }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload.ok).toBe(false);
+    expect(payload.code).toBe("PAYMENT_REVIEW_NOT_PENDING");
+    expect(emitPaymentReviewHookMock).not.toHaveBeenCalled();
+  });
 });
 
