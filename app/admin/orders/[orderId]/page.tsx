@@ -1,6 +1,16 @@
 "use client";
 
 import { orderStatusBadgeClass, type UiOrderStatus } from "@/lib/constants/order-status-ui";
+import {
+  ACTION_DESCRIPTORS,
+  COPY_TEXT,
+  type CopyKey,
+  type OrderActionId,
+} from "@/lib/constants/admin-order-action-contract";
+import {
+  buildOrderActionRequest,
+  INVALID_TRANSITION_CODES,
+} from "./order-action-adapter";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -49,14 +59,14 @@ type OrderDetail = {
     note: string | null;
     createdAt: string;
   }>;
-};
-
-const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
-  PENDING: ["CONFIRMED", "CANCELLED"],
-  CONFIRMED: ["DELIVERING", "CANCELLED"],
-  DELIVERING: ["DELIVERED", "CANCELLED"],
-  DELIVERED: [],
-  CANCELLED: [],
+  actionState: {
+    allowedActions: OrderActionId[];
+    recommendedAction: OrderActionId | null;
+    blockedActions: Array<{
+      actionId: OrderActionId;
+      reasonKey: CopyKey;
+    }>;
+  };
 };
 
 function paymentStatusBadgeClass(status: PaymentStatus) {
@@ -72,21 +82,6 @@ function paymentStatusBadgeClass(status: PaymentStatus) {
   }
 }
 
-function transitionLabel(status: OrderStatus) {
-  switch (status) {
-    case "CONFIRMED":
-      return "Confirm Order";
-    case "DELIVERING":
-      return "Mark Delivering";
-    case "DELIVERED":
-      return "Mark Delivered";
-    case "CANCELLED":
-      return "Cancel Order";
-    default:
-      return status;
-  }
-}
-
 export default function AdminOrderDetailPage() {
   const params = useParams<{ orderId: string }>();
   const orderId = params.orderId;
@@ -94,11 +89,9 @@ export default function AdminOrderDetailPage() {
   const [statusText, setStatusText] = useState("");
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [reviewingPayment, setReviewingPayment] = useState(false);
-  const [selectedTransition, setSelectedTransition] = useState<OrderStatus | null>(null);
-  const [transitionNote, setTransitionNote] = useState("");
-  const [paymentReviewNote, setPaymentReviewNote] = useState("");
+  const [actionPending, setActionPending] = useState(false);
+  const [selectedActionId, setSelectedActionId] = useState<OrderActionId | null>(null);
+  const [actionNote, setActionNote] = useState("");
   const router = useRouter();
 
   const loadOrder = useCallback(async () => {
@@ -126,111 +119,69 @@ export default function AdminOrderDetailPage() {
     })();
   }, [loadOrder]);
 
-  const availableTransitions = useMemo(() => {
+  const actionState = useMemo(() => {
     if (!order) {
-      return [];
-    }
-    return statusTransitions[order.status];
-  }, [order]);
-
-  const transitionImpactText = useMemo(() => {
-    if (!selectedTransition) {
       return null;
     }
+    return order.actionState;
+  }, [order]);
 
-    if (selectedTransition === "CANCELLED") {
-      return "Cancelling will restore reserved inventory and mark this order as cancelled.";
+  const recommendedAction = actionState?.recommendedAction ?? null;
+  const allowedActions = actionState?.allowedActions ?? [];
+  const secondaryAllowedActions = useMemo(
+    () => allowedActions.filter((actionId) => actionId !== recommendedAction),
+    [allowedActions, recommendedAction]
+  );
+  const blockedActionReasons = useMemo(() => {
+    const map = new Map<OrderActionId, CopyKey>();
+    for (const blocked of actionState?.blockedActions ?? []) {
+      if (!map.has(blocked.actionId)) {
+        map.set(blocked.actionId, blocked.reasonKey);
+      }
     }
+    return map;
+  }, [actionState?.blockedActions]);
 
-    if (selectedTransition === "CONFIRMED") {
-      return "Confirmation keeps inventory reserved and signals phone confirmation complete.";
-    }
-
-    if (selectedTransition === "DELIVERING") {
-      return "Use this when the package has left for delivery.";
-    }
-
-    if (selectedTransition === "DELIVERED") {
-      return "Mark delivered only after successful handoff and COD collection.";
-    }
-
-    return null;
-  }, [selectedTransition]);
-
-  async function updateStatus() {
-    if (!selectedTransition) {
+  async function runAction() {
+    if (!order || !selectedActionId) {
       return;
     }
 
-    if (selectedTransition === "CANCELLED" && transitionNote.trim().length < 4) {
-      setStatusText("Please add a cancellation note (at least 4 characters).");
+    const descriptor = ACTION_DESCRIPTORS[selectedActionId];
+    if (descriptor.requiresNote && actionNote.trim().length < 4) {
+      setStatusText("Please add a note with at least 4 characters.");
       return;
     }
 
-    setUpdatingStatus(true);
+    const request = buildOrderActionRequest(orderId, selectedActionId, actionNote);
+
+    setActionPending(true);
     setStatusText("");
 
     try {
-      const response = await fetch(`/api/admin/orders/${orderId}/status`, {
+      const response = await fetch(request.endpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          toStatus: selectedTransition,
-          note: transitionNote.trim() || undefined,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to update status.");
-        return;
-      }
-
-      setSelectedTransition(null);
-      setTransitionNote("");
-      setStatusText(`Status updated to ${selectedTransition}.`);
-      await loadOrder();
-    } catch {
-      setStatusText("Unexpected server error while updating status.");
-    } finally {
-      setUpdatingStatus(false);
-    }
-  }
-
-  async function reviewPayment(decision: "VERIFIED" | "REJECTED") {
-    if (!order) {
-      return;
-    }
-
-    setReviewingPayment(true);
-    setStatusText("");
-
-    try {
-      const response = await fetch(`/api/admin/orders/${orderId}/payment`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          decision,
-          note: paymentReviewNote.trim() || undefined,
-        }),
+        body: JSON.stringify(request.body),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to review payment.");
+        if (INVALID_TRANSITION_CODES.has(data?.code)) {
+          setStatusText(COPY_TEXT["error.action.invalid_transition"]);
+        } else {
+          setStatusText(data.error ?? COPY_TEXT["error.action.generic"]);
+        }
         return;
       }
 
-      setPaymentReviewNote("");
-      setStatusText(
-        decision === "VERIFIED"
-          ? "Payment marked as verified."
-          : "Payment marked as rejected."
-      );
+      setStatusText(COPY_TEXT[descriptor.successMessageKey]);
+      setSelectedActionId(null);
+      setActionNote("");
       await loadOrder();
     } catch {
-      setStatusText("Unexpected server error while reviewing payment.");
+      setStatusText(COPY_TEXT["error.action.generic"]);
     } finally {
-      setReviewingPayment(false);
+      setActionPending(false);
     }
   }
 
@@ -412,42 +363,6 @@ export default function AdminOrderDetailPage() {
                 ) : (
                   <p className="text-seal-wax">Payment proof missing.</p>
                 )}
-
-                {order.paymentStatus === "PENDING_REVIEW" ? (
-                  <div className="mt-3 rounded-lg border border-sepia-border bg-parchment p-3">
-                    <label className="block text-xs font-medium text-charcoal">
-                      Review note (optional)
-                    </label>
-                    <textarea
-                      value={paymentReviewNote}
-                      onChange={(event) => setPaymentReviewNote(event.target.value)}
-                      className="mt-1 min-h-20 w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-                      placeholder="Add context for verify/reject decision"
-                    />
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={reviewingPayment}
-                        onClick={() => void reviewPayment("VERIFIED")}
-                        className="btn-primary disabled:opacity-60"
-                      >
-                        {reviewingPayment ? "Saving..." : "Approve Payment"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={reviewingPayment}
-                        onClick={() => void reviewPayment("REJECTED")}
-                        className="btn-secondary disabled:opacity-60"
-                      >
-                        Reject Payment
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mt-2 text-xs text-charcoal/80">
-                    Payment review already resolved. No further review actions available.
-                  </p>
-                )}
               </div>
             ) : (
               <p className="mt-3 text-sm text-charcoal">
@@ -472,81 +387,69 @@ export default function AdminOrderDetailPage() {
           </section>
 
           <section className="vintage-panel p-5">
-            <h2 className="text-lg font-semibold">Update Status</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {availableTransitions.map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  disabled={updatingStatus}
-                  onClick={() => {
-                    setSelectedTransition(status);
-                    if (status !== "CANCELLED") {
-                      setTransitionNote("");
-                    }
-                  }}
-                  className="btn-primary disabled:opacity-60"
-                >
-                  {transitionLabel(status)}
-                </button>
-              ))}
-              {availableTransitions.length === 0 ? (
-                <p className="text-sm text-charcoal">No further transitions available.</p>
-              ) : null}
-            </div>
-
-            {selectedTransition ? (
-              <div className="mt-4 rounded-lg border border-sepia-border bg-parchment p-4">
-                <p className="text-sm font-medium">
-                  Confirm transition: <span className="font-semibold">{order.status}</span> to{" "}
-                  <span className="font-semibold">{selectedTransition}</span>
+            <h2 className="text-lg font-semibold">Action Center</h2>
+            {recommendedAction ? (
+              <div className="mt-3 rounded-lg border border-antique-brass/60 bg-parchment p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-charcoal/80">
+                  Recommended Next Action
                 </p>
-                {transitionImpactText ? (
-                  <p
-                    className={`mt-2 rounded-md px-3 py-2 text-xs ${
-                      selectedTransition === "CANCELLED"
-                        ? "border border-seal-wax/40 bg-seal-wax/10 text-seal-wax"
-                        : "border border-sepia-border bg-paper-light text-charcoal"
-                    }`}
-                  >
-                    {transitionImpactText}
-                  </p>
-                ) : null}
+                <button
+                  type="button"
+                  disabled={actionPending}
+                  onClick={() => {
+                    setSelectedActionId(recommendedAction);
+                    setActionNote("");
+                  }}
+                  className="btn-primary mt-3 disabled:opacity-60"
+                >
+                  {COPY_TEXT[ACTION_DESCRIPTORS[recommendedAction].labelKey]}
+                </button>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-charcoal">No further actions available for this order.</p>
+            )}
 
-                <label className="mt-3 block text-xs font-medium text-charcoal">
-                  Transition note {selectedTransition === "CANCELLED" ? "(Required)" : "(Optional)"}
-                </label>
-                <textarea
-                  value={transitionNote}
-                  onChange={(event) => setTransitionNote(event.target.value)}
-                  className="mt-1 min-h-20 w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-                  placeholder={
-                    selectedTransition === "CANCELLED"
-                      ? "Reason for cancellation"
-                      : "Add an internal note"
-                  }
-                />
+            {secondaryAllowedActions.length > 0 ? (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-charcoal/80">
+                  Other Allowed Actions
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {secondaryAllowedActions.map((actionId) => (
+                    <button
+                      key={actionId}
+                      type="button"
+                      disabled={actionPending}
+                      onClick={() => {
+                        setSelectedActionId(actionId);
+                        setActionNote("");
+                      }}
+                      className="btn-secondary disabled:opacity-60"
+                    >
+                      {COPY_TEXT[ACTION_DESCRIPTORS[actionId].labelKey]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    disabled={updatingStatus}
-                    onClick={() => void updateStatus()}
-                    className="btn-primary disabled:opacity-60"
-                  >
-                    {updatingStatus ? "Updating..." : "Confirm Status Update"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={updatingStatus}
-                    onClick={() => {
-                      setSelectedTransition(null);
-                      setTransitionNote("");
-                    }}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
+            {blockedActionReasons.size > 0 ? (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-charcoal/80">
+                  Blocked Actions
+                </p>
+                <div className="mt-2 space-y-2">
+                  {Array.from(blockedActionReasons.entries()).map(([actionId, reasonKey]) => (
+                    <div
+                      key={actionId}
+                      className="rounded-md border border-sepia-border/80 bg-paper-light px-3 py-2"
+                    >
+                      <button type="button" disabled className="btn-secondary opacity-60">
+                        {COPY_TEXT[ACTION_DESCRIPTORS[actionId].labelKey]}
+                      </button>
+                      <p className="mt-2 text-xs text-charcoal/90">{COPY_TEXT[reasonKey]}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : null}
@@ -576,6 +479,55 @@ export default function AdminOrderDetailPage() {
       ) : null}
 
       {statusText ? <p className="mt-4 text-sm text-charcoal">{statusText}</p> : null}
+
+      {selectedActionId ? (
+        <div className="fixed inset-0 z-60 bg-ink/35 p-4">
+          <div className="mx-auto mt-20 w-full max-w-lg rounded-none border border-sepia-border bg-paper-light p-5">
+            <h3 className="text-lg font-semibold text-ink">
+              {COPY_TEXT[ACTION_DESCRIPTORS[selectedActionId].confirmTitleKey]}
+            </h3>
+            <p className="mt-2 text-sm text-charcoal">
+              {COPY_TEXT[ACTION_DESCRIPTORS[selectedActionId].confirmBodyKey]}
+            </p>
+
+            <label className="mt-4 block text-xs font-medium text-charcoal">
+              Note {ACTION_DESCRIPTORS[selectedActionId].requiresNote ? "(Required)" : "(Optional)"}
+            </label>
+            <textarea
+              value={actionNote}
+              onChange={(event) => setActionNote(event.target.value)}
+              className="mt-1 min-h-24 w-full rounded-none border border-sepia-border bg-parchment px-3 py-2 text-sm"
+              placeholder={
+                ACTION_DESCRIPTORS[selectedActionId].requiresNote
+                  ? "Explain why this action is needed"
+                  : "Add internal context (optional)"
+              }
+            />
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={actionPending}
+                onClick={() => void runAction()}
+                className="btn-primary disabled:opacity-60"
+              >
+                {actionPending ? "Saving..." : COPY_TEXT[ACTION_DESCRIPTORS[selectedActionId].labelKey]}
+              </button>
+              <button
+                type="button"
+                disabled={actionPending}
+                onClick={() => {
+                  setSelectedActionId(null);
+                  setActionNote("");
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
