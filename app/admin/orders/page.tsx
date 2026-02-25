@@ -40,14 +40,7 @@ export default async function AdminOrdersPage({
       to={query.to ?? ""}
       page={String(query.page)}
       pageSize={String(query.pageSize)}
-      kpis={{
-        totalOrders: data.kpis.totalOrders,
-        totalRevenueAmount: String(data.kpis.totalRevenueAmount),
-        averageOrderValueAmount: String(data.kpis.averageOrderValueAmount),
-        fulfillmentRate: data.kpis.fulfillmentRate,
-        currency: data.kpis.currency,
-        scope: data.kpis.scope,
-      }}
+      kpis={data.kpis}
       orders={data.orders.map((order: OrderRow) => ({
         id: order.id,
         orderCode: order.orderCode,
