@@ -39,9 +39,7 @@ const QUICK_ACTIONS = [
 
 export default async function AdminDashboardPage() {
   const opsDashboard = await getAdminOpsDashboard();
-  const newOrdersQueue = opsDashboard.queues.find(
-    (queue) => queue.id === "new_orders",
-  );
+  const newOrdersQueue = opsDashboard.queues.find((queue) => queue.id === "new_orders");
 
   return (
     <main className="space-y-4 md:space-y-8">
@@ -49,10 +47,7 @@ export default async function AdminDashboardPage() {
         <div className="space-y-4 md:space-y-6 xl:col-span-8">
           <AdminUrgentSummaryCard items={opsDashboard.urgentOrders} />
 
-          <section
-            className="grid grid-cols-2 gap-4 md:gap-6"
-            aria-label="Dashboard KPIs"
-          >
+          <section className="grid grid-cols-2 gap-4 md:gap-6" aria-label="Dashboard KPIs">
             <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
               <p className="text-sm text-charcoal">New Orders</p>
               <p className="mt-1 text-3xl font-semibold text-ink md:text-4xl">

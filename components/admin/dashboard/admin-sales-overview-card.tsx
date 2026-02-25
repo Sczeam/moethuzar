@@ -24,7 +24,10 @@ export function AdminSalesOverviewCard({ overview }: AdminSalesOverviewCardProps
   }));
 
   return (
-    <section className="rounded-[24px] border border-sepia-border/50 bg-paper-light p-4 shadow-[0_8px_22px_rgba(37,30,24,0.05)] md:p-5" aria-labelledby="admin-sales-overview-title">
+    <section
+      className="rounded-[24px] border border-sepia-border/50 bg-paper-light p-4 shadow-[0_8px_22px_rgba(37,30,24,0.05)] md:p-5"
+      aria-labelledby="admin-sales-overview-title"
+    >
       <h3 id="admin-sales-overview-title" className="text-2xl font-semibold text-ink md:text-3xl">
         Sales Overview
       </h3>
@@ -66,12 +69,7 @@ export function AdminSalesOverviewCard({ overview }: AdminSalesOverviewCardProps
                 fontSize: "12px",
               }}
             />
-            <Bar
-              dataKey="salesAmount"
-              fill="#B08D3A"
-              radius={[4, 4, 0, 0]}
-              maxBarSize={22}
-            />
+            <Bar dataKey="salesAmount" fill="#B08D3A" radius={[4, 4, 0, 0]} maxBarSize={22} />
           </BarChart>
         </ResponsiveContainer>
       </div>
