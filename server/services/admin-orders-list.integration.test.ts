@@ -122,5 +122,24 @@ describeIfDatabase("admin orders list integration", () => {
     expect(filtered.kpis.totalOrders).toBeGreaterThanOrEqual(1);
     expect(filtered.kpis.fulfillmentRate).toBeGreaterThanOrEqual(0);
   });
+
+  it("returns zero-safe KPI snapshot for no-match filters", async () => {
+    const noMatch = await listOrdersWithKpis({
+      status: undefined,
+      paymentStatus: undefined,
+      q: `${baseCode}-NO-MATCH`,
+      from: undefined,
+      to: undefined,
+      page: 1,
+      pageSize: 50,
+      format: "json",
+    });
+
+    expect(noMatch.kpis.scope).toBe("FILTERED");
+    expect(noMatch.kpis.totalOrders).toBe(0);
+    expect(noMatch.kpis.totalRevenueAmount).toBe(0);
+    expect(noMatch.kpis.averageOrderValueAmount).toBe(0);
+    expect(noMatch.kpis.fulfillmentRate).toBe(0);
+  });
 });
 
