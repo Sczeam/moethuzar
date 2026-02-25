@@ -14,7 +14,7 @@ export function orderStatusBadgeClass(status: UiOrderStatus): string {
     case "DELIVERING":
       return "bg-teak-brown/15 text-ink";
     case "DELIVERED":
-      return "bg-antique-brass/30 text-ink";
+      return "bg-teal-700/15 text-ink";
     case "CANCELLED":
       return "bg-seal-wax/15 text-seal-wax";
     default:
