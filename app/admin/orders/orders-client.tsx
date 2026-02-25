@@ -265,6 +265,11 @@ export default function OrdersClient({
             Apply
           </button>
         </form>
+        <div className="mt-2 flex justify-end">
+          <button type="button" onClick={onExportCsv} className="btn-secondary text-xs md:text-sm">
+            Export Current CSV
+          </button>
+        </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {statuses.map((status) => {
@@ -300,9 +305,6 @@ export default function OrdersClient({
               </button>
             );
           })}
-          <button type="button" onClick={onExportCsv} className="btn-secondary text-xs md:text-sm">
-            Export Current CSV
-          </button>
         </div>
       </section>
 
