@@ -231,3 +231,31 @@ If a feature is disabled:
   - one registry entry
   - module route/page
   - no core-shell rewrite.
+
+---
+
+## 11) Orders KPI Contract (A3.6 Baseline)
+
+Status: **FROZEN for implementation**
+
+Shared contract source:
+- `lib/constants/admin-orders-kpi-contract.ts`
+- `server/domain/orders-kpi.ts`
+
+`OrdersKpiSnapshot` fields:
+- `totalOrders`
+- `totalRevenueAmount`
+- `averageOrderValueAmount`
+- `fulfillmentRate` (`0..100`)
+- `currency`
+- `scope` (`ALL_TIME` | `FILTERED`)
+
+Fulfillment formula:
+- numerator statuses: `DELIVERED`
+- denominator statuses: `CONFIRMED`, `DELIVERING`, `DELIVERED`, `CANCELLED`
+- `fulfillmentRate = denominator === 0 ? 0 : (numerator / denominator) * 100`
+- output is safety-clamped into `0..100`
+
+Reasoning:
+- `PENDING` is excluded from denominator because fulfillment has not started.
+- Contract is stable for UI and remains extensible without changing page structure.
