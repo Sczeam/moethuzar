@@ -78,6 +78,33 @@ function buildOrdersQuery(params: {
   return searchParams.toString();
 }
 
+type OrdersKpi = {
+  totalOrders: number;
+  avgOrderValue: number;
+  fulfillmentRate: number;
+  totalRevenue: number;
+};
+
+function formatMMK(value: number) {
+  return `MMK ${Math.round(value).toLocaleString()}`;
+}
+
+function computeOrdersKpis(orders: OrderItem[], totalOrders: number): OrdersKpi {
+  const totalRevenue = orders.reduce((sum, order) => {
+    return sum + Number(order.totalAmount);
+  }, 0);
+  const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
+  const fulfilledCount = orders.filter((order) => order.status === "DELIVERED").length;
+  const fulfillmentRate = orders.length > 0 ? (fulfilledCount / orders.length) * 100 : 0;
+
+  return {
+    totalOrders,
+    avgOrderValue,
+    fulfillmentRate,
+    totalRevenue,
+  };
+}
+
 export default function OrdersClient({
   statusFilter,
   paymentStatusFilter,
@@ -137,12 +164,6 @@ export default function OrdersClient({
     router.push(`/admin/orders${query ? `?${query}` : ""}`);
   }
 
-  async function onLogout() {
-    await fetch("/api/admin/auth/logout", { method: "POST" });
-    router.push("/admin/login");
-    router.refresh();
-  }
-
   function onExportCsv() {
     const params = new URLSearchParams();
     if (normalizedStatus !== "ALL") {
@@ -164,172 +185,237 @@ export default function OrdersClient({
     window.location.href = `/api/admin/orders?${params.toString()}`;
   }
 
+  const kpis = useMemo(() => computeOrdersKpis(orders, pagination.total), [orders, pagination.total]);
+
   return (
-    <main className="vintage-shell">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-4xl font-semibold text-ink">Orders</h1>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/admin/catalog" className="btn-secondary">
-            Catalog
-          </Link>
-          <Link href="/admin/shipping-rules" className="btn-secondary">
-            Shipping Rules
-          </Link>
-          <Link href="/admin/payment-transfer-methods" className="btn-secondary">
-            Payment Methods
-          </Link>
-          <button type="button" onClick={onExportCsv} className="btn-secondary">
-            Export CSV
+    <main className="space-y-4 md:space-y-6">
+      <section className="vintage-panel rounded-[24px] border-sepia-border/50 p-4 md:p-5">
+        <p className="text-[1.75rem] font-semibold leading-tight text-ink md:text-[2rem]">
+          Orders Revenue
+        </p>
+        <p className="mt-1 text-sm text-charcoal/85">All time</p>
+        <p className="mt-3 text-[clamp(1.5rem,4.5vw,3rem)] font-semibold leading-none text-ink">
+          {formatMMK(kpis.totalRevenue)}
+        </p>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5" aria-label="Order KPIs">
+        <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
+          <p className="text-sm text-charcoal">Total Orders</p>
+          <p className="mt-2 text-[clamp(1.5rem,4.5vw,2.5rem)] font-semibold leading-none text-ink">
+            {kpis.totalOrders.toLocaleString()}
+          </p>
+          <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">All time</p>
+        </article>
+        <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
+          <p className="text-sm text-charcoal">Avg. Order Value</p>
+          <p className="mt-2 text-[clamp(1.2rem,4vw,2rem)] font-semibold leading-none text-ink">
+            {formatMMK(kpis.avgOrderValue)}
+          </p>
+          <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">Current page</p>
+        </article>
+        <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
+          <p className="text-sm text-charcoal">Orders Fulfillment Rate</p>
+          <p className="mt-2 text-[clamp(1.2rem,4vw,2rem)] font-semibold leading-none text-ink">
+            {kpis.fulfillmentRate.toFixed(1)}%
+          </p>
+          <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">Current page</p>
+        </article>
+      </section>
+
+      <section className="vintage-panel rounded-[24px] border-sepia-border/50 p-4 md:p-5">
+        <form
+          className="mt-4 grid gap-2 md:grid-cols-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            pushState({ q: searchText, from: fromDate, to: toDate, page: 1 });
+          }}
+        >
+          <input
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Search code/name/phone"
+            className="rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm md:col-span-2"
+          />
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(event) => setFromDate(event.target.value)}
+            className="rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
+          />
+          <input
+            type="date"
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+            className="rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
+          />
+          <select
+            value={pageSizeNumber}
+            onChange={(event) => {
+              const nextSize = Number.parseInt(event.target.value, 10) || 20;
+              pushState({ pageSize: nextSize, page: 1 });
+            }}
+            className="rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
+          >
+            <option value={10}>10 / page</option>
+            <option value={20}>20 / page</option>
+            <option value={50}>50 / page</option>
+          </select>
+          <button type="submit" className="btn-primary rounded-xl">
+            Apply
           </button>
-          <button type="button" onClick={() => void onLogout()} className="btn-secondary">
-            Logout
+        </form>
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {statuses.map((status) => {
+              const active = status === normalizedStatus;
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => pushState({ status, page: 1 })}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
+                    active ? "bg-teak-brown text-paper-light" : "bg-paper-light text-charcoal"
+                  }`}
+                >
+                  {status}
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" onClick={onExportCsv} className="btn-secondary text-xs md:text-sm">
+            Export Current CSV
           </button>
         </div>
-      </div>
 
-      <form
-        className="mb-5 grid gap-2 rounded-lg border border-sepia-border bg-paper-light p-3 sm:grid-cols-5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          pushState({ q: searchText, from: fromDate, to: toDate, page: 1 });
-        }}
-      >
-        <input
-          value={searchText}
-          onChange={(event) => setSearchText(event.target.value)}
-          placeholder="Search code/name/phone"
-          className="rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm"
-        />
-        <input
-          type="date"
-          value={fromDate}
-          onChange={(event) => setFromDate(event.target.value)}
-          className="rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm"
-        />
-        <input
-          type="date"
-          value={toDate}
-          onChange={(event) => setToDate(event.target.value)}
-          className="rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm"
-        />
-        <select
-          value={pageSizeNumber}
-          onChange={(event) => {
-            const nextSize = Number.parseInt(event.target.value, 10) || 20;
-            pushState({ pageSize: nextSize, page: 1 });
-          }}
-          className="rounded-md border border-sepia-border bg-parchment px-3 py-2 text-sm"
-        >
-          <option value={10}>10 / page</option>
-          <option value={20}>20 / page</option>
-          <option value={50}>50 / page</option>
-        </select>
-        <button type="submit" className="btn-primary">
-          Apply Filters
-        </button>
-      </form>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {paymentStatuses.map((paymentStatus) => {
+            const active = paymentStatus === normalizedPaymentStatus;
+            return (
+              <button
+                key={paymentStatus}
+                type="button"
+                onClick={() => pushState({ paymentStatus, page: 1 })}
+                className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
+                  active ? "bg-antique-brass text-ink" : "bg-paper-light text-charcoal"
+                }`}
+              >
+                {paymentStatus}
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
-      <div className="mb-5 flex flex-wrap gap-2">
-        {statuses.map((status) => {
-          const active = status === normalizedStatus;
-          return (
-            <button
-              key={status}
-              type="button"
-              onClick={() => pushState({ status, page: 1 })}
-              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${
-                active ? "bg-teak-brown text-paper-light" : "bg-paper-light text-charcoal"
-              }`}
-            >
-              {status}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mb-5 flex flex-wrap gap-2">
-        {paymentStatuses.map((paymentStatus) => {
-          const active = paymentStatus === normalizedPaymentStatus;
-          return (
-            <button
-              key={paymentStatus}
-              type="button"
-              onClick={() => pushState({ paymentStatus, page: 1 })}
-              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${
-                active ? "bg-antique-brass text-ink" : "bg-paper-light text-charcoal"
-              }`}
-            >
-              {paymentStatus}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="overflow-x-auto vintage-panel">
-        <table className="min-w-full text-sm">
-          <thead className="bg-parchment text-left text-charcoal">
-            <tr>
-              <th className="px-4 py-3">Order</th>
-              <th className="px-4 py-3">Customer</th>
-              <th className="px-4 py-3">Order Status</th>
-              <th className="px-4 py-3">Payment</th>
-              <th className="px-4 py-3">Total</th>
-              <th className="px-4 py-3">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((order) => (
-              <tr key={order.id} className="border-t border-sepia-border/60">
-                <td className="px-4 py-3">
-                  <Link href={`/admin/orders/${order.id}`} className="font-semibold underline">
-                    {order.orderCode}
-                  </Link>
-                </td>
-                <td className="px-4 py-3">
-                  <p>{order.customerName}</p>
-                  <p className="text-charcoal/80">{order.customerPhone}</p>
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(
-                      order.status
-                    )}`}
-                  >
-                    {order.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-charcoal">
-                      {paymentMethodLabel(order.paymentMethod)}
-                    </p>
+      <section className="vintage-panel rounded-[24px] border-sepia-border/50 p-4 md:p-5">
+        <div className="hidden overflow-x-auto md:block">
+          <table className="min-w-full text-sm">
+            <thead className="bg-parchment text-left text-charcoal">
+              <tr>
+                <th className="px-4 py-3">Order</th>
+                <th className="px-4 py-3">Customer</th>
+                <th className="px-4 py-3">Order Date</th>
+                <th className="px-4 py-3">Payment</th>
+                <th className="px-4 py-3">Order Status</th>
+                <th className="px-4 py-3">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id} className="border-t border-sepia-border/60">
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/orders/${order.id}`} className="font-semibold underline">
+                      {order.orderCode}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <p>{order.customerName}</p>
+                    <p className="text-charcoal/80">{order.customerPhone}</p>
+                  </td>
+                  <td className="px-4 py-3">{new Date(order.createdAt).toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-charcoal">
+                        {paymentMethodLabel(order.paymentMethod)}
+                      </p>
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${paymentStatusBadgeClass(
+                          order.paymentStatus
+                        )}`}
+                      >
+                        {order.paymentStatus}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
                     <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${paymentStatusBadgeClass(
-                        order.paymentStatus
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(
+                        order.status
                       )}`}
                     >
-                      {order.paymentStatus}
+                      {order.status}
                     </span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  {Number(order.totalAmount).toLocaleString()} {order.currency}
-                </td>
-                <td className="px-4 py-3">{new Date(order.createdAt).toLocaleString()}</td>
-              </tr>
-            ))}
-            {orders.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-charcoal">
-                  No orders found.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {Number(order.totalAmount).toLocaleString()} {order.currency}
+                  </td>
+                </tr>
+              ))}
+              {orders.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-charcoal">
+                    No orders found.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="space-y-3 md:hidden">
+          {orders.length === 0 ? (
+            <p className="rounded-xl border border-sepia-border/60 bg-parchment p-4 text-sm text-charcoal">
+              No orders found.
+            </p>
+          ) : null}
+          {orders.map((order) => (
+            <article key={order.id} className="rounded-xl border border-sepia-border/70 bg-parchment p-3">
+              <div className="flex items-start justify-between gap-3">
+                <Link href={`/admin/orders/${order.id}`} className="text-sm font-semibold underline">
+                  {order.orderCode}
+                </Link>
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${orderStatusBadgeClass(
+                    order.status
+                  )}`}
+                >
+                  {order.status}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-ink">{order.customerName}</p>
+              <p className="text-xs text-charcoal/80">{order.customerPhone}</p>
+              <div className="mt-2 flex items-center justify-between gap-2 text-xs text-charcoal">
+                <p>{paymentMethodLabel(order.paymentMethod)}</p>
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${paymentStatusBadgeClass(
+                    order.paymentStatus
+                  )}`}
+                >
+                  {order.paymentStatus}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs text-charcoal">
+                <p>{new Date(order.createdAt).toLocaleDateString()}</p>
+                <p className="font-semibold text-ink">
+                  {Number(order.totalAmount).toLocaleString()} {order.currency}
+                </p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-charcoal">
           Page {pagination.page} of {pagination.totalPages} ({pagination.total} orders)
         </p>
