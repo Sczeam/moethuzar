@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { OrdersKpiSnapshot } from "@/lib/constants/admin-orders-kpi-contract";
 import { orderStatusBadgeClass, type UiOrderStatus } from "@/lib/constants/order-status-ui";
 
 type PaymentStatus = "NOT_REQUIRED" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
@@ -26,15 +27,6 @@ type PaginationMeta = {
   pageSize: number;
   total: number;
   totalPages: number;
-};
-
-type OrdersKpiSnapshot = {
-  totalOrders: number;
-  totalRevenueAmount: string;
-  averageOrderValueAmount: string;
-  fulfillmentRate: number;
-  currency: string;
-  scope: "ALL_TIME" | "FILTERED";
 };
 
 const statuses = ["ALL", "PENDING", "CONFIRMED", "DELIVERING", "DELIVERED", "CANCELLED"] as const;
@@ -87,8 +79,13 @@ function buildOrdersQuery(params: {
   return searchParams.toString();
 }
 
-function formatMMK(value: number) {
-  return `MMK ${Math.round(value).toLocaleString()}`;
+function asSafeNumber(value: number): number {
+  return Number.isFinite(value) ? value : 0;
+}
+
+function formatMoneyAmount(value: number, currency: string) {
+  const normalized = asSafeNumber(value);
+  return `${currency} ${Math.round(normalized).toLocaleString()}`;
 }
 
 export default function OrdersClient({
@@ -173,15 +170,16 @@ export default function OrdersClient({
     window.location.href = `/api/admin/orders?${params.toString()}`;
   }
 
-  const kpisView = useMemo(
-    () => ({
-      totalOrders: kpis.totalOrders,
-      totalRevenue: Number(kpis.totalRevenueAmount),
-      avgOrderValue: Number(kpis.averageOrderValueAmount),
-      fulfillmentRate: kpis.fulfillmentRate,
-    }),
-    [kpis],
-  );
+  const kpisView = useMemo(() => {
+    return {
+      totalOrders: asSafeNumber(kpis.totalOrders),
+      totalRevenueAmount: asSafeNumber(kpis.totalRevenueAmount),
+      averageOrderValueAmount: asSafeNumber(kpis.averageOrderValueAmount),
+      fulfillmentRate: asSafeNumber(kpis.fulfillmentRate),
+      currency: kpis.currency || "MMK",
+      scopeLabel: kpis.scope === "ALL_TIME" ? "All time" : "Filtered results",
+    };
+  }, [kpis]);
 
   return (
     <main className="space-y-4 md:space-y-6">
@@ -189,9 +187,9 @@ export default function OrdersClient({
         <p className="text-[1.75rem] font-semibold leading-tight text-ink md:text-[2rem]">
           Orders Revenue
         </p>
-        <p className="mt-1 text-sm text-charcoal/85">All time</p>
+        <p className="mt-1 text-sm text-charcoal/85">{kpisView.scopeLabel}</p>
         <p className="mt-3 text-[clamp(1.5rem,4.5vw,3rem)] font-semibold leading-none text-ink">
-          {formatMMK(kpisView.totalRevenue)}
+          {formatMoneyAmount(kpisView.totalRevenueAmount, kpisView.currency)}
         </p>
       </section>
 
@@ -201,14 +199,18 @@ export default function OrdersClient({
           <p className="mt-2 text-[clamp(1.5rem,4.5vw,2.5rem)] font-semibold leading-none text-ink">
             {kpisView.totalOrders.toLocaleString()}
           </p>
-          <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">All time</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">
+            {kpisView.scopeLabel}
+          </p>
         </article>
         <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
           <p className="text-sm text-charcoal">Avg. Order Value</p>
           <p className="mt-2 text-[clamp(1.2rem,4vw,2rem)] font-semibold leading-none text-ink">
-            {formatMMK(kpisView.avgOrderValue)}
+            {formatMoneyAmount(kpisView.averageOrderValueAmount, kpisView.currency)}
           </p>
-          <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">Current page</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">
+            {kpisView.scopeLabel}
+          </p>
         </article>
         <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
           <p className="text-sm text-charcoal">Orders Fulfillment Rate</p>
