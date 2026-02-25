@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { AdminOrdersListQueryInput } from "@/lib/validation/admin-order";
+import { buildOrderActionContract } from "@/server/domain/admin-order-action-contract";
 import {
   assertOrderStatusTransition,
   buildOrderTimestampPatch,
@@ -13,6 +14,18 @@ import {
   PaymentStatus,
 } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
+
+type AdminOrderDetail = Prisma.OrderGetPayload<{
+  include: {
+    address: true;
+    items: true;
+    history: {
+      orderBy: { createdAt: "asc" };
+    };
+  };
+}> & {
+  actionState: ReturnType<typeof buildOrderActionContract>;
+};
 
 function normalizeOptionalText(value?: string) {
   const trimmed = value?.trim();
@@ -169,7 +182,17 @@ export async function getOrderById(orderId: string) {
     throw new AppError("Order not found.", 404, "ORDER_NOT_FOUND");
   }
 
-  return order;
+  const actionState = buildOrderActionContract({
+    orderStatus: order.status,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    hasPaymentProof: Boolean(order.paymentProofUrl),
+  });
+
+  return {
+    ...order,
+    actionState,
+  } satisfies AdminOrderDetail;
 }
 
 export async function updateOrderStatus(input: {
