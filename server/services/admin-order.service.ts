@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { AdminOrdersListQueryInput } from "@/lib/validation/admin-order";
+import { buildOrdersKpiSnapshot } from "@/server/domain/orders-kpi";
 import {
   buildAdminOrdersWhere,
   prismaAdminOrdersListRepository,
@@ -36,6 +37,16 @@ function normalizeOptionalText(value?: string) {
   return trimmed ? trimmed : null;
 }
 
+function hasActiveOrdersKpiFilters(query: Pick<AdminOrdersListQueryInput, "status" | "paymentStatus" | "q" | "from" | "to">): boolean {
+  return Boolean(
+    query.status ||
+      query.paymentStatus ||
+      query.q?.trim() ||
+      query.from?.trim() ||
+      query.to?.trim()
+  );
+}
+
 export async function listOrders(query: AdminOrdersListQueryInput) {
   const where = buildAdminOrdersWhere(query);
 
@@ -65,6 +76,37 @@ export async function listOrders(query: AdminOrdersListQueryInput) {
       total,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
     },
+  };
+}
+
+export async function listOrdersWithKpis(query: AdminOrdersListQueryInput) {
+  const filterQuery = {
+    status: query.status,
+    paymentStatus: query.paymentStatus,
+    q: query.q,
+    from: query.from,
+    to: query.to,
+  } as const;
+
+  const [listResult, kpiAggregate] = await Promise.all([
+    listOrders(query),
+    getOrdersKpiAggregates(filterQuery),
+  ]);
+
+  const fallbackCurrency = listResult.orders[0]?.currency ?? "MMK";
+  const kpis = buildOrdersKpiSnapshot({
+    totalOrders: kpiAggregate.totalOrders,
+    totalRevenueAmount: Number(kpiAggregate.totalRevenueAmount.toString()),
+    averageOrderValueAmount: Number(kpiAggregate.averageOrderValueAmount.toString()),
+    deliveredCount: kpiAggregate.deliveredCount,
+    eligibleCount: kpiAggregate.eligibleCount,
+    currency: fallbackCurrency,
+    scope: hasActiveOrdersKpiFilters(filterQuery) ? "FILTERED" : "ALL_TIME",
+  });
+
+  return {
+    ...listResult,
+    kpis,
   };
 }
 

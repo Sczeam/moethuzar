@@ -14,13 +14,14 @@ describeIfDatabase("admin orders list integration", () => {
 
   let prisma: PrismaClient;
   let listOrders: (typeof import("@/server/services/admin-order.service"))["listOrders"];
+  let listOrdersWithKpis: (typeof import("@/server/services/admin-order.service"))["listOrdersWithKpis"];
   let enums: typeof import("@prisma/client");
 
   const createdOrderIds: string[] = [];
 
   beforeAll(async () => {
     ({ prisma } = await import("@/lib/prisma"));
-    ({ listOrders } = await import("@/server/services/admin-order.service"));
+    ({ listOrders, listOrdersWithKpis } = await import("@/server/services/admin-order.service"));
     enums = await import("@prisma/client");
 
     const createBaseOrder = async (index: number, paymentStatus: (typeof enums.PaymentStatus)[keyof typeof enums.PaymentStatus]) => {
@@ -85,6 +86,41 @@ describeIfDatabase("admin orders list integration", () => {
     const filtered = pending.orders.filter((order) => order.orderCode.startsWith(baseCode));
     expect(filtered.length).toBe(1);
     expect(filtered[0].paymentStatus).toBe(enums.PaymentStatus.PENDING_REVIEW);
+  });
+
+  it("returns KPI snapshot with ALL_TIME and FILTERED scopes", async () => {
+    const allTime = await listOrdersWithKpis({
+      status: undefined,
+      paymentStatus: undefined,
+      q: undefined,
+      from: undefined,
+      to: undefined,
+      page: 1,
+      pageSize: 50,
+      format: "json",
+    });
+
+    expect(allTime.kpis.scope).toBe("ALL_TIME");
+    expect(allTime.kpis.totalOrders).toBeGreaterThanOrEqual(1);
+    expect(allTime.kpis.currency).toBe("MMK");
+    expect(allTime.kpis.totalRevenueAmount).toBeGreaterThan(0);
+    expect(allTime.kpis.averageOrderValueAmount).toBeGreaterThan(0);
+    expect(allTime.kpis.fulfillmentRate).toBeGreaterThanOrEqual(0);
+
+    const filtered = await listOrdersWithKpis({
+      status: enums.OrderStatus.PENDING,
+      paymentStatus: undefined,
+      q: undefined,
+      from: undefined,
+      to: undefined,
+      page: 1,
+      pageSize: 50,
+      format: "json",
+    });
+
+    expect(filtered.kpis.scope).toBe("FILTERED");
+    expect(filtered.kpis.totalOrders).toBeGreaterThanOrEqual(1);
+    expect(filtered.kpis.fulfillmentRate).toBeGreaterThanOrEqual(0);
   });
 });
 
