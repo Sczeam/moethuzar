@@ -1,15 +1,33 @@
+"use client";
+
 import { formatMoney } from "@/lib/format";
 import type { SalesOverview } from "@/server/services/admin-ops-dashboard.service";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 type AdminSalesOverviewCardProps = {
   overview: SalesOverview;
 };
 
 export function AdminSalesOverviewCard({ overview }: AdminSalesOverviewCardProps) {
-  const maxSalesAmount = Math.max(...overview.series.map((point) => Number(point.salesAmount)), 1);
+  const chartData = overview.series.map((point) => ({
+    day: point.dayKey.slice(-2),
+    salesAmount: Number(point.salesAmount),
+    ordersCount: point.ordersCount,
+  }));
 
   return (
-    <section className="rounded-[24px] border border-sepia-border/50 bg-paper-light p-4 shadow-[0_8px_22px_rgba(37,30,24,0.05)] md:p-5" aria-labelledby="admin-sales-overview-title">
+    <section
+      className="rounded-[24px] border border-sepia-border/50 bg-paper-light p-4 shadow-[0_8px_22px_rgba(37,30,24,0.05)] md:p-5"
+      aria-labelledby="admin-sales-overview-title"
+    >
       <h3 id="admin-sales-overview-title" className="text-2xl font-semibold text-ink md:text-3xl">
         Sales Overview
       </h3>
@@ -18,38 +36,43 @@ export function AdminSalesOverviewCard({ overview }: AdminSalesOverviewCardProps
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="rounded-xl border border-sepia-border/60 p-3">
           <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Total Sales</p>
-          <p className="mt-1 break-words text-xl font-semibold leading-tight text-ink md:text-3xl">
+          <p className="mt-1 break-words text-[clamp(0.95rem,4.7vw,1.25rem)] font-semibold leading-tight text-ink md:text-3xl">
             {formatMoney(overview.totalSales, overview.currency)}
           </p>
         </div>
         <div className="rounded-xl border border-sepia-border/60 p-3">
           <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Total Orders</p>
-          <p className="mt-1 text-xl font-semibold leading-tight text-ink md:text-3xl">
+          <p className="mt-1 text-[clamp(0.95rem,4.7vw,1.25rem)] font-semibold leading-tight text-ink md:text-3xl">
             {overview.totalOrders}
           </p>
         </div>
       </div>
 
-      <ul className="mt-4 grid grid-cols-7 gap-2 md:mt-5" aria-label="Last seven days sales bars">
-        {overview.series.map((point) => {
-          const salesAmount = Number(point.salesAmount);
-          const barHeightPercent = Math.max((salesAmount / maxSalesAmount) * 100, salesAmount > 0 ? 10 : 4);
-          const dayLabel = point.dayKey.slice(-2);
-
-          return (
-            <li key={point.dayKey} className="space-y-2 text-center">
-              <div className="flex h-16 items-end justify-center rounded-lg border border-sepia-border/45 bg-parchment px-1 md:h-24">
-                <div
-                  className="w-4 rounded-sm bg-antique-brass/85"
-                  style={{ height: `${barHeightPercent}%` }}
-                  aria-hidden="true"
-                />
-              </div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-charcoal">{dayLabel}</p>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="mt-4 h-40 rounded-xl border border-sepia-border/55 bg-parchment/60 p-2 md:mt-5 md:h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
+            <CartesianGrid stroke="#CBB79F" strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="day"
+              tick={{ fill: "#3B332B", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis hide domain={[0, "dataMax + 1"]} />
+            <Tooltip
+              cursor={{ fill: "rgba(176, 141, 58, 0.08)" }}
+              contentStyle={{
+                border: "1px solid #CBB79F",
+                backgroundColor: "#F1E8DA",
+                color: "#251E18",
+                borderRadius: "10px",
+                fontSize: "12px",
+              }}
+            />
+            <Bar dataKey="salesAmount" fill="#B08D3A" radius={[4, 4, 0, 0]} maxBarSize={22} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </section>
   );
 }

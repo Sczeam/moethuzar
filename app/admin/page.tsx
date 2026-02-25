@@ -10,10 +10,26 @@ import { getAdminOpsDashboard } from "@/server/services/admin-ops-dashboard.serv
 export const dynamic = "force-dynamic";
 
 const QUICK_ACTIONS = [
-  { label: "Open Orders", href: "/admin/orders", description: "Review new and active orders" },
-  { label: "Open Products", href: "/admin/catalog", description: "Manage product list and stock" },
-  { label: "Create Product", href: "/admin/catalog/new", description: "Start a new product draft" },
-  { label: "Shipping Settings", href: "/admin/shipping-rules", description: "Edit zones and fees" },
+  {
+    label: "Open Orders",
+    href: "/admin/orders",
+    description: "Review new and active orders",
+  },
+  {
+    label: "Open Products",
+    href: "/admin/catalog",
+    description: "Manage product list and stock",
+  },
+  {
+    label: "Create Product",
+    href: "/admin/catalog/new",
+    description: "Start a new product draft",
+  },
+  {
+    label: "Shipping Settings",
+    href: "/admin/shipping-rules",
+    description: "Edit zones and fees",
+  },
   {
     label: "Payment Settings",
     href: "/admin/payment-transfer-methods",
@@ -43,53 +59,52 @@ export default async function AdminDashboardPage() {
             </article>
             <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
               <p className="text-sm text-charcoal">Today&apos;s Revenue</p>
-              <p className="mt-1 text-2xl font-semibold leading-tight text-ink md:text-4xl">
-                {formatMoney(opsDashboard.dailyMetrics.revenueToday, opsDashboard.dailyMetrics.currency)}
+              <p className="mt-1 text-[clamp(0.9rem,4.6vw,2.5rem)] font-semibold leading-tight text-ink [overflow-wrap:anywhere] md:text-4xl">
+                {formatMoney(
+                  opsDashboard.dailyMetrics.revenueToday,
+                  opsDashboard.dailyMetrics.currency,
+                )}
               </p>
               <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-charcoal/85 md:text-xs">
                 Updated today
               </p>
             </article>
           </section>
-        </div>
 
-        <aside className="xl:col-span-4">
-          <AdminDashboardActionControls />
-        </aside>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-12">
-        <div className="xl:col-span-8">
           <AdminRecentOrdersTable orders={opsDashboard.recentOrders} />
+
+          <section
+            className="vintage-panel rounded-[24px] border-sepia-border/50 p-4 md:p-5"
+            aria-labelledby="quick-actions-title"
+          >
+            <h2
+              id="quick-actions-title"
+              className="text-2xl font-semibold text-ink md:text-3xl"
+            >
+              Quick Actions
+            </h2>
+            <div className="mt-4 grid grid-cols-2 gap-3 md:gap-4">
+              {QUICK_ACTIONS.map((action) => (
+                <Link
+                  key={action.label}
+                  href={action.href}
+                  className="rounded-xl border border-sepia-border/70 bg-parchment p-3 transition hover:bg-paper-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-antique-brass md:p-4"
+                >
+                  <p className="text-base font-semibold text-ink md:text-2xl">
+                    {action.label}
+                  </p>
+                  <p className="mt-1 text-xs text-charcoal md:text-sm">
+                    {action.description}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
         </div>
+
         <aside className="space-y-4 md:space-y-6 xl:col-span-4">
+          <AdminDashboardActionControls />
           <AdminSalesOverviewCard overview={opsDashboard.salesOverview} />
-        </aside>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-12">
-        <section
-          className="vintage-panel rounded-[24px] border-sepia-border/50 p-4 md:p-5 xl:col-span-8"
-          aria-labelledby="quick-actions-title"
-        >
-          <h2 id="quick-actions-title" className="text-2xl font-semibold text-ink md:text-3xl">
-            Quick Actions
-          </h2>
-          <div className="mt-4 grid grid-cols-2 gap-3 md:gap-4">
-            {QUICK_ACTIONS.map((action) => (
-              <Link
-                key={action.label}
-                href={action.href}
-                className="rounded-xl border border-sepia-border/70 bg-parchment p-3 transition hover:bg-paper-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-antique-brass md:p-4"
-              >
-                <p className="text-base font-semibold text-ink md:text-2xl">{action.label}</p>
-                <p className="mt-1 text-xs text-charcoal md:text-sm">{action.description}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <aside className="xl:col-span-4">
           <AdminTopProductsCard items={opsDashboard.topProducts} />
         </aside>
       </section>
