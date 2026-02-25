@@ -114,6 +114,7 @@ export default function AdminOrderDetailPage() {
   } | null>(null);
   const modalCancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastActionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
 
   const loadOrder = useCallback(async () => {
@@ -167,6 +168,30 @@ export default function AdminOrderDetailPage() {
       if (event.key === "Escape" && !actionPending) {
         setSelectedActionId(null);
         setNoteError("");
+        return;
+      }
+
+      if (event.key === "Tab" && modalRef.current) {
+        const focusable = Array.from(
+          modalRef.current.querySelectorAll<HTMLElement>(
+            "button:not([disabled]), textarea:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex='-1'])"
+          )
+        );
+        if (focusable.length === 0) {
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+
+        if (event.shiftKey && active === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && active === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -623,13 +648,15 @@ export default function AdminOrderDetailPage() {
             role="dialog"
             aria-modal="true"
             aria-label="Confirm order action"
+            aria-describedby="order-action-confirm-body"
+            ref={modalRef}
             className="mx-auto mt-20 w-full max-w-lg rounded-none border border-sepia-border bg-paper-light p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-ink">
               {COPY_TEXT[ACTION_DESCRIPTORS[selectedActionId].confirmTitleKey]}
             </h3>
-            <p className="mt-2 text-sm text-charcoal">
+            <p id="order-action-confirm-body" className="mt-2 text-sm text-charcoal">
               {COPY_TEXT[ACTION_DESCRIPTORS[selectedActionId].confirmBodyKey]}
             </p>
 
@@ -644,6 +671,8 @@ export default function AdminOrderDetailPage() {
                   setNoteError("");
                 }
               }}
+              aria-invalid={noteError ? "true" : "false"}
+              aria-describedby={noteError ? "order-action-note-error" : undefined}
               className="mt-1 min-h-24 w-full rounded-none border border-sepia-border bg-parchment px-3 py-2 text-sm"
               placeholder={
                 ACTION_DESCRIPTORS[selectedActionId].requiresNote
@@ -651,7 +680,11 @@ export default function AdminOrderDetailPage() {
                   : "Add internal context (optional)"
               }
             />
-            {noteError ? <p className="mt-2 text-xs text-seal-wax">{noteError}</p> : null}
+            {noteError ? (
+              <p id="order-action-note-error" className="mt-2 text-xs text-seal-wax" role="alert">
+                {noteError}
+              </p>
+            ) : null}
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
