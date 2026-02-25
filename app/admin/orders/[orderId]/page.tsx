@@ -7,17 +7,20 @@ import {
   type CopyKey,
   type OrderActionId,
 } from "@/lib/constants/admin-order-action-contract";
-import {
-  buildOrderActionRequest,
-  INVALID_TRANSITION_CODES,
-} from "./order-action-adapter";
+import { buildOrderActionRequest } from "./order-action-adapter";
+import { mapOrderActionError, type ActionFeedbackSeverity } from "./action-feedback";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type OrderStatus = UiOrderStatus;
 type PaymentMethod = "COD" | "PREPAID_TRANSFER";
 type PaymentStatus = "NOT_REQUIRED" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
+type ActionFeedbackState = {
+  severity: ActionFeedbackSeverity;
+  message: string;
+  retryable: boolean;
+};
 
 type OrderDetail = {
   id: string;
@@ -82,16 +85,35 @@ function paymentStatusBadgeClass(status: PaymentStatus) {
   }
 }
 
+function feedbackClass(severity: ActionFeedbackSeverity) {
+  switch (severity) {
+    case "success":
+      return "border-emerald-300 bg-emerald-50 text-emerald-900";
+    case "warning":
+      return "border-antique-brass/70 bg-antique-brass/10 text-ink";
+    case "error":
+    default:
+      return "border-seal-wax/40 bg-seal-wax/10 text-seal-wax";
+  }
+}
+
 export default function AdminOrderDetailPage() {
   const params = useParams<{ orderId: string }>();
   const orderId = params.orderId;
   const [order, setOrder] = useState<OrderDetail | null>(null);
-  const [statusText, setStatusText] = useState("");
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionPending, setActionPending] = useState(false);
   const [selectedActionId, setSelectedActionId] = useState<OrderActionId | null>(null);
   const [actionNote, setActionNote] = useState("");
+  const [noteError, setNoteError] = useState("");
+  const [feedback, setFeedback] = useState<ActionFeedbackState | null>(null);
+  const [retryIntent, setRetryIntent] = useState<{
+    actionId: OrderActionId;
+    note: string;
+  } | null>(null);
+  const modalCancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const lastActionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
 
   const loadOrder = useCallback(async () => {
@@ -100,15 +122,20 @@ export default function AdminOrderDetailPage() {
     const data = await response.json();
     if (!response.ok || !data.ok) {
       setLoadError(data.error ?? "Failed to load order.");
-      setStatusText(
-        typeof data?.requestId === "string" ? `Request ID: ${data.requestId}` : "Please retry."
-      );
+      setFeedback({
+        severity: "error",
+        message:
+          typeof data?.requestId === "string"
+            ? `${data.error ?? "Failed to load order."} (Request ID: ${data.requestId})`
+            : data.error ?? "Failed to load order. Please retry.",
+        retryable: true,
+      });
       setLoading(false);
       return;
     }
 
     setOrder(data.order);
-    setStatusText("");
+    setLoadError("");
     setLoading(false);
   }, [orderId]);
 
@@ -118,6 +145,47 @@ export default function AdminOrderDetailPage() {
       setLoading(false);
     })();
   }, [loadOrder]);
+
+  useEffect(() => {
+    if (!feedback || feedback.severity !== "success") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setFeedback((current) => (current?.severity === "success" ? null : current));
+    }, 3200);
+
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+
+  useEffect(() => {
+    if (!selectedActionId) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !actionPending) {
+        setSelectedActionId(null);
+        setNoteError("");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+
+    const timer = window.setTimeout(() => {
+      modalCancelButtonRef.current?.focus();
+    }, 0);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.clearTimeout(timer);
+    };
+  }, [selectedActionId, actionPending]);
+
+  useEffect(() => {
+    if (selectedActionId === null) {
+      lastActionTriggerRef.current?.focus();
+    }
+  }, [selectedActionId]);
 
   const actionState = useMemo(() => {
     if (!order) {
@@ -142,21 +210,29 @@ export default function AdminOrderDetailPage() {
     return map;
   }, [actionState?.blockedActions]);
 
-  async function runAction() {
-    if (!order || !selectedActionId) {
+  async function runAction(intent?: { actionId: OrderActionId; note: string }) {
+    if (!order) {
       return;
     }
 
-    const descriptor = ACTION_DESCRIPTORS[selectedActionId];
-    if (descriptor.requiresNote && actionNote.trim().length < 4) {
-      setStatusText("Please add a note with at least 4 characters.");
+    const actionId = intent?.actionId ?? selectedActionId;
+    if (!actionId) {
       return;
     }
+    const note = intent?.note ?? actionNote;
 
-    const request = buildOrderActionRequest(orderId, selectedActionId, actionNote);
+    const descriptor = ACTION_DESCRIPTORS[actionId];
+    if (descriptor.requiresNote && note.trim().length < 4) {
+      setNoteError("Please add a note with at least 4 characters.");
+      return;
+    }
+    setNoteError("");
+
+    const request = buildOrderActionRequest(orderId, actionId, note);
 
     setActionPending(true);
-    setStatusText("");
+    setFeedback(null);
+    setRetryIntent(null);
 
     try {
       const response = await fetch(request.endpoint, {
@@ -166,20 +242,38 @@ export default function AdminOrderDetailPage() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        if (INVALID_TRANSITION_CODES.has(data?.code)) {
-          setStatusText(COPY_TEXT["error.action.invalid_transition"]);
-        } else {
-          setStatusText(data.error ?? COPY_TEXT["error.action.generic"]);
+        const mapped = mapOrderActionError(data ?? {});
+        setFeedback({
+          severity: mapped.severity,
+          message: mapped.message,
+          retryable: mapped.retryable,
+        });
+
+        if (mapped.staleState) {
+          setSelectedActionId(null);
+          await loadOrder();
+        } else if (mapped.retryable) {
+          setRetryIntent({ actionId, note });
         }
         return;
       }
 
-      setStatusText(COPY_TEXT[descriptor.successMessageKey]);
+      setFeedback({
+        severity: "success",
+        message: COPY_TEXT[descriptor.successMessageKey],
+        retryable: false,
+      });
       setSelectedActionId(null);
       setActionNote("");
+      setNoteError("");
       await loadOrder();
     } catch {
-      setStatusText(COPY_TEXT["error.action.generic"]);
+      setFeedback({
+        severity: "error",
+        message: COPY_TEXT["error.action.generic"],
+        retryable: true,
+      });
+      setRetryIntent({ actionId, note });
     } finally {
       setActionPending(false);
     }
@@ -188,9 +282,17 @@ export default function AdminOrderDetailPage() {
   async function copyText(value: string, successMessage: string) {
     try {
       await navigator.clipboard.writeText(value);
-      setStatusText(successMessage);
+      setFeedback({
+        severity: "success",
+        message: successMessage,
+        retryable: false,
+      });
     } catch {
-      setStatusText("Unable to copy.");
+      setFeedback({
+        severity: "error",
+        message: "Unable to copy.",
+        retryable: false,
+      });
     }
   }
 
@@ -224,13 +326,40 @@ export default function AdminOrderDetailPage() {
         </button>
       </div>
 
+      {feedback ? (
+        <section
+          className={`mb-4 rounded-none border px-4 py-3 text-sm ${feedbackClass(feedback.severity)}`}
+          role={feedback.severity === "error" ? "alert" : "status"}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="flex-1">{feedback.message}</p>
+            {feedback.retryable && retryIntent ? (
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                disabled={actionPending}
+                onClick={() => void runAction(retryIntent)}
+              >
+                {actionPending ? "Retrying..." : "Retry"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="btn-secondary text-xs"
+              onClick={() => setFeedback(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {loading ? <p className="text-charcoal">Loading order...</p> : null}
 
       {!loading && loadError ? (
         <section className="vintage-panel border-seal-wax/40 p-5">
           <h2 className="text-xl font-semibold text-ink">Unable to load order</h2>
           <p className="mt-2 text-sm text-charcoal">{loadError}</p>
-          {statusText ? <p className="mt-1 text-xs text-charcoal/80">{statusText}</p> : null}
           <button
             type="button"
             onClick={() => {
@@ -396,9 +525,10 @@ export default function AdminOrderDetailPage() {
                 <button
                   type="button"
                   disabled={actionPending}
-                  onClick={() => {
+                  onClick={(event) => {
+                    lastActionTriggerRef.current = event.currentTarget;
                     setSelectedActionId(recommendedAction);
-                    setActionNote("");
+                    setNoteError("");
                   }}
                   className="btn-primary mt-3 disabled:opacity-60"
                 >
@@ -420,9 +550,10 @@ export default function AdminOrderDetailPage() {
                       key={actionId}
                       type="button"
                       disabled={actionPending}
-                      onClick={() => {
+                      onClick={(event) => {
+                        lastActionTriggerRef.current = event.currentTarget;
                         setSelectedActionId(actionId);
-                        setActionNote("");
+                        setNoteError("");
                       }}
                       className="btn-secondary disabled:opacity-60"
                     >
@@ -478,11 +609,23 @@ export default function AdminOrderDetailPage() {
         </div>
       ) : null}
 
-      {statusText ? <p className="mt-4 text-sm text-charcoal">{statusText}</p> : null}
-
       {selectedActionId ? (
-        <div className="fixed inset-0 z-60 bg-ink/35 p-4">
-          <div className="mx-auto mt-20 w-full max-w-lg rounded-none border border-sepia-border bg-paper-light p-5">
+        <div
+          className="fixed inset-0 z-60 bg-ink/35 p-4"
+          onClick={() => {
+            if (!actionPending) {
+              setSelectedActionId(null);
+              setNoteError("");
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm order action"
+            className="mx-auto mt-20 w-full max-w-lg rounded-none border border-sepia-border bg-paper-light p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold text-ink">
               {COPY_TEXT[ACTION_DESCRIPTORS[selectedActionId].confirmTitleKey]}
             </h3>
@@ -495,7 +638,12 @@ export default function AdminOrderDetailPage() {
             </label>
             <textarea
               value={actionNote}
-              onChange={(event) => setActionNote(event.target.value)}
+              onChange={(event) => {
+                setActionNote(event.target.value);
+                if (noteError && event.target.value.trim().length >= 4) {
+                  setNoteError("");
+                }
+              }}
               className="mt-1 min-h-24 w-full rounded-none border border-sepia-border bg-parchment px-3 py-2 text-sm"
               placeholder={
                 ACTION_DESCRIPTORS[selectedActionId].requiresNote
@@ -503,6 +651,7 @@ export default function AdminOrderDetailPage() {
                   : "Add internal context (optional)"
               }
             />
+            {noteError ? <p className="mt-2 text-xs text-seal-wax">{noteError}</p> : null}
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -516,9 +665,10 @@ export default function AdminOrderDetailPage() {
               <button
                 type="button"
                 disabled={actionPending}
+                ref={modalCancelButtonRef}
                 onClick={() => {
                   setSelectedActionId(null);
-                  setActionNote("");
+                  setNoteError("");
                 }}
                 className="btn-secondary"
               >
