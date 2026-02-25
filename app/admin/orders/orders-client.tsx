@@ -224,28 +224,6 @@ export default function OrdersClient({
       </section>
 
       <section className="vintage-panel rounded-[24px] border-sepia-border/50 p-4 md:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled
-              className="rounded-full border border-sepia-border/70 bg-parchment px-4 py-2 text-sm font-semibold text-charcoal/50"
-            >
-              Export CSV
-            </button>
-            <button
-              type="button"
-              disabled
-              className="rounded-full border border-sepia-border/70 bg-parchment px-4 py-2 text-sm font-semibold text-charcoal/50"
-            >
-              Download Report
-            </button>
-          </div>
-          <button type="button" onClick={onExportCsv} className="btn-secondary text-xs md:text-sm">
-            Export Current CSV
-          </button>
-        </div>
-
         <form
           className="mt-4 grid gap-2 md:grid-cols-6"
           onSubmit={(event) => {
@@ -306,7 +284,7 @@ export default function OrdersClient({
           })}
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           {paymentStatuses.map((paymentStatus) => {
             const active = paymentStatus === normalizedPaymentStatus;
             return (
@@ -322,6 +300,9 @@ export default function OrdersClient({
               </button>
             );
           })}
+          <button type="button" onClick={onExportCsv} className="btn-secondary text-xs md:text-sm">
+            Export Current CSV
+          </button>
         </div>
       </section>
 
