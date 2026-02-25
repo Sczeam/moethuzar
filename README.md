@@ -6,6 +6,8 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
 
 - MVP scope: `docs/foundation-mvp.md`
 - Frontend architecture: `docs/frontend-architecture.md`
+- Admin architecture (OCP): `docs/admin-architecture-ocp.md`
+- Admin A2 plan: `docs/admin-a2-order-ops-plan.md`
 - Launch operations runbook: `docs/launch-ops-runbook.md`
 - Manual QA checklist: `docs/mvp-qa-checklist.md`
 
@@ -27,6 +29,16 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
   - prepaid transfer with payment-proof upload and admin verification
 - Shipping fee rules by Myanmar zones
 - Order tracking and admin order workflow
+- Admin operations dashboard (`/admin`) with:
+  - urgent follow-up lane
+  - order queue cards with direct filtered links
+  - revenue/sales snapshot + recent orders + top products
+  - quick action cards for daily workflows
+- Admin order workspace (`/admin/orders`) with:
+  - KPI cards
+  - table/list view by responsive layout
+  - fast filters for order + payment review status
+  - guided action model on order detail (`/admin/orders/[orderId]`)
 - Admin catalog editor with:
   - bulk variant editing
   - matrix generation
@@ -106,8 +118,10 @@ Storefront:
 Admin:
 
 - `/admin/login`
+- `/admin`
 - `/admin/catalog`
 - `/admin/orders`
+- `/admin/orders/[orderId]`
 - `/admin/shipping-rules`
 - `/admin/payment-transfer-methods`
 
@@ -150,6 +164,7 @@ Admin:
 - `GET /api/admin/orders` supports `status`, `q`, `from`, `to`, `page`, `pageSize`, `format=json|csv`
 - `GET /api/admin/orders/[orderId]`
 - `PATCH /api/admin/orders/[orderId]/status`
+- `PATCH /api/admin/orders/[orderId]/payment`
 - `GET /api/admin/shipping-rules`
 - `POST /api/admin/shipping-rules`
 - `PATCH /api/admin/shipping-rules/[ruleId]`
