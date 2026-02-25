@@ -12,6 +12,75 @@ type AdminSidebarProps = {
   mobilePanelId?: string;
 };
 
+const SIDEBAR_SECTION_ORDER = [
+  "overview",
+  "sales",
+  "catalog",
+  "content",
+  "marketing",
+  "settings",
+] as const;
+
+type SidebarSectionId = (typeof SIDEBAR_SECTION_ORDER)[number];
+
+type SidebarSection = {
+  id: SidebarSectionId;
+  label: string;
+  groups: AdminSidebarGroup[];
+};
+
+function sectionByGroup(groupId: string): SidebarSectionId {
+  if (groupId === "dashboard" || groupId === "orders") {
+    return "overview";
+  }
+  if (groupId === "reports") {
+    return "sales";
+  }
+  if (groupId === "catalog") {
+    return "catalog";
+  }
+  if (groupId === "storefront") {
+    return "content";
+  }
+  if (groupId === "marketing") {
+    return "marketing";
+  }
+  return "settings";
+}
+
+function buildSidebarSections(groups: AdminSidebarGroup[]): SidebarSection[] {
+  const labelBySection: Record<SidebarSectionId, string> = {
+    overview: "Overview",
+    sales: "Sales",
+    catalog: "Catalog",
+    content: "Content",
+    marketing: "Marketing",
+    settings: "Settings",
+  };
+
+  const grouped = groups.reduce<Record<SidebarSectionId, AdminSidebarGroup[]>>(
+    (acc, group) => {
+      const section = sectionByGroup(group.id);
+      acc[section].push(group);
+      return acc;
+    },
+    {
+      overview: [],
+      sales: [],
+      catalog: [],
+      content: [],
+      marketing: [],
+      settings: [],
+    },
+  );
+
+  return SIDEBAR_SECTION_ORDER.map((sectionId) => ({
+    id: sectionId,
+    label: labelBySection[sectionId],
+    groups: grouped[sectionId],
+  })).filter((section) => section.groups.length > 0);
+}
+
 function iconByLabel(label: string): ReactNode {
   const common = "h-4 w-4 shrink-0 fill-none stroke-current stroke-[1.6]";
 
@@ -98,6 +167,8 @@ function iconByLabel(label: string): ReactNode {
 }
 
 export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId }: AdminSidebarProps) {
+  const sections = buildSidebarSections(groups);
+
   return (
     <>
       <button
@@ -117,82 +188,109 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-16 items-center border-b border-sepia-border/70 px-5">
-          <p className="text-lg font-semibold tracking-[0.08em] text-ink">MOETHUZAR ADMIN</p>
+        <div className="flex h-[72px] items-center border-b border-sepia-border/70 px-5">
+          <div className="space-y-0.5">
+            <p className="text-[1.02rem] font-semibold tracking-[0.08em] text-ink">MOETHUZAR</p>
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-charcoal/75">Admin</p>
+          </div>
         </div>
-        <nav aria-label="Admin primary navigation" className="h-[calc(100dvh-4rem)] overflow-y-auto px-3 py-4">
-          <ul className="space-y-1.5">
-            {groups.map((group) => {
-              const href = group.href;
-              const isGroupActive =
-                Boolean(href) && (pathname === href || pathname.startsWith(`${href}/`));
-              const groupDisabled = group.disabled || !href;
+        <nav
+          aria-label="Admin primary navigation"
+          className="h-[calc(100dvh-72px)] overflow-y-auto px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:w-0"
+        >
+          <div className="space-y-4">
+            {sections.map((section) => (
+              <section
+                key={section.id}
+                className="border-b border-sepia-border/50 pb-4 last:border-b-0 last:pb-0"
+                aria-label={section.label}
+              >
+                <h2 className="px-2 text-[0.78rem] font-semibold uppercase tracking-[0.12em] text-charcoal/80">
+                  {section.label}
+                </h2>
+                <ul className="mt-2 space-y-1.5">
+                  {section.groups.map((group) => {
+                    const href = group.href;
+                    const isGroupActive =
+                      Boolean(href) && (pathname === href || pathname.startsWith(`${href}/`));
+                    const groupDisabled = group.disabled || !href;
 
-              return (
-                <li key={group.id} className="space-y-1">
-                  {groupDisabled ? (
-                    <span className="flex items-center gap-3 rounded-none border border-transparent px-3 py-2.5 text-[15px] text-charcoal/50">
-                      {iconByLabel(group.label)}
-                      {group.label}
-                    </span>
-                  ) : (
-                    <Link
-                      href={href}
-                      onClick={onClose}
-                      className={`flex items-center gap-3 border px-3 py-2.5 text-[15px] transition ${
-                        isGroupActive
-                          ? "border-antique-brass bg-antique-brass/10 text-ink"
-                          : "border-transparent text-charcoal hover:bg-parchment"
-                      }`}
-                      aria-current={isGroupActive ? "page" : undefined}
-                    >
-                      {iconByLabel(group.label)}
-                      {group.label}
-                    </Link>
-                  )}
-
-                  {group.children?.length ? (
-                    <ul className="space-y-0.5 pl-8">
-                      {group.children.map((item) => {
-                        const childHref = item.href;
-                        const isChildActive =
-                          Boolean(childHref) &&
-                          (pathname === childHref || pathname.startsWith(`${childHref}/`));
-                        const childDisabled = item.disabled || !childHref;
-
-                        if (childDisabled) {
-                          return (
-                            <li key={item.id}>
-                              <span className="block rounded-none border border-transparent px-3 py-1.5 text-[15px] text-charcoal/45">
-                                {item.label}
-                              </span>
-                            </li>
-                          );
-                        }
-
-                        return (
-                          <li key={item.id}>
-                            <Link
-                              href={childHref}
-                              onClick={onClose}
-                              className={`block rounded-none border px-3 py-1.5 text-[15px] transition ${
-                                isChildActive
-                                  ? "border-sepia-border bg-parchment text-ink"
-                                  : "border-transparent text-charcoal hover:bg-parchment/80"
+                    return (
+                      <li key={group.id} className="space-y-1">
+                        {groupDisabled ? (
+                          <span className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] text-charcoal/45">
+                            {iconByLabel(group.label)}
+                            {group.label}
+                          </span>
+                        ) : (
+                          <Link
+                            href={href}
+                            onClick={onClose}
+                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] transition ${
+                              isGroupActive
+                                ? "bg-parchment text-ink"
+                                : "text-charcoal hover:bg-parchment/85"
+                            }`}
+                            aria-current={isGroupActive ? "page" : undefined}
+                          >
+                            <span
+                              className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${
+                                isGroupActive
+                                  ? "bg-antique-brass/20 text-ink"
+                                  : "text-charcoal/85"
                               }`}
-                              aria-current={isChildActive ? "page" : undefined}
                             >
-                              {item.label}
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
+                              {iconByLabel(group.label)}
+                            </span>
+                            {group.label}
+                          </Link>
+                        )}
+
+                        {group.children?.length ? (
+                          <ul className="space-y-0.5 pl-8">
+                            {group.children.map((item) => {
+                              const childHref = item.href;
+                              const isChildActive =
+                                Boolean(childHref) &&
+                                (pathname === childHref || pathname.startsWith(`${childHref}/`));
+                              const childDisabled = item.disabled || !childHref;
+
+                              if (childDisabled) {
+                                return (
+                                  <li key={item.id}>
+                                    <span className="block rounded-lg px-3 py-1.5 text-[15px] text-charcoal/45">
+                                      {item.label}
+                                    </span>
+                                  </li>
+                                );
+                              }
+
+                              return (
+                                <li key={item.id}>
+                                  <Link
+                                    href={childHref}
+                                    onClick={onClose}
+                                    className={`block rounded-lg px-3 py-1.5 text-[15px] transition ${
+                                      isChildActive
+                                        ? "bg-parchment text-ink"
+                                        : "text-charcoal hover:bg-parchment/80"
+                                    }`}
+                                    aria-current={isChildActive ? "page" : undefined}
+                                  >
+                                    {item.label}
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
         </nav>
       </aside>
     </>
