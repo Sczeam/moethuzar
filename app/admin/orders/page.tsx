@@ -1,6 +1,6 @@
 import OrdersClient from "./orders-client";
 import { adminOrdersListQuerySchema } from "@/lib/validation/admin-order";
-import { listOrders } from "@/server/services/admin-order.service";
+import { listOrdersWithKpis } from "@/server/services/admin-order.service";
 
 export default async function AdminOrdersPage({
   searchParams,
@@ -27,8 +27,8 @@ export default async function AdminOrdersPage({
     format: "json",
   });
 
-  const data = await listOrders(query);
-  type OrdersResult = Awaited<ReturnType<typeof listOrders>>;
+  const data = await listOrdersWithKpis(query);
+  type OrdersResult = Awaited<ReturnType<typeof listOrdersWithKpis>>;
   type OrderRow = OrdersResult["orders"][number];
 
   return (
@@ -40,6 +40,14 @@ export default async function AdminOrdersPage({
       to={query.to ?? ""}
       page={String(query.page)}
       pageSize={String(query.pageSize)}
+      kpis={{
+        totalOrders: data.kpis.totalOrders,
+        totalRevenueAmount: String(data.kpis.totalRevenueAmount),
+        averageOrderValueAmount: String(data.kpis.averageOrderValueAmount),
+        fulfillmentRate: data.kpis.fulfillmentRate,
+        currency: data.kpis.currency,
+        scope: data.kpis.scope,
+      }}
       orders={data.orders.map((order: OrderRow) => ({
         id: order.id,
         orderCode: order.orderCode,

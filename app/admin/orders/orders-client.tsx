@@ -28,6 +28,15 @@ type PaginationMeta = {
   totalPages: number;
 };
 
+type OrdersKpiSnapshot = {
+  totalOrders: number;
+  totalRevenueAmount: string;
+  averageOrderValueAmount: string;
+  fulfillmentRate: number;
+  currency: string;
+  scope: "ALL_TIME" | "FILTERED";
+};
+
 const statuses = ["ALL", "PENDING", "CONFIRMED", "DELIVERING", "DELIVERED", "CANCELLED"] as const;
 const paymentStatuses = ["ALL", "PENDING_REVIEW", "VERIFIED", "REJECTED", "NOT_REQUIRED"] as const;
 
@@ -78,31 +87,8 @@ function buildOrdersQuery(params: {
   return searchParams.toString();
 }
 
-type OrdersKpi = {
-  totalOrders: number;
-  avgOrderValue: number;
-  fulfillmentRate: number;
-  totalRevenue: number;
-};
-
 function formatMMK(value: number) {
   return `MMK ${Math.round(value).toLocaleString()}`;
-}
-
-function computeOrdersKpis(orders: OrderItem[], totalOrders: number): OrdersKpi {
-  const totalRevenue = orders.reduce((sum, order) => {
-    return sum + Number(order.totalAmount);
-  }, 0);
-  const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
-  const fulfilledCount = orders.filter((order) => order.status === "DELIVERED").length;
-  const fulfillmentRate = orders.length > 0 ? (fulfilledCount / orders.length) * 100 : 0;
-
-  return {
-    totalOrders,
-    avgOrderValue,
-    fulfillmentRate,
-    totalRevenue,
-  };
 }
 
 export default function OrdersClient({
@@ -113,6 +99,7 @@ export default function OrdersClient({
   to,
   page,
   pageSize,
+  kpis,
   orders,
   pagination,
 }: {
@@ -123,6 +110,7 @@ export default function OrdersClient({
   to: string;
   page: string;
   pageSize: string;
+  kpis: OrdersKpiSnapshot;
   orders: OrderItem[];
   pagination: PaginationMeta;
 }) {
@@ -185,7 +173,15 @@ export default function OrdersClient({
     window.location.href = `/api/admin/orders?${params.toString()}`;
   }
 
-  const kpis = useMemo(() => computeOrdersKpis(orders, pagination.total), [orders, pagination.total]);
+  const kpisView = useMemo(
+    () => ({
+      totalOrders: kpis.totalOrders,
+      totalRevenue: Number(kpis.totalRevenueAmount),
+      avgOrderValue: Number(kpis.averageOrderValueAmount),
+      fulfillmentRate: kpis.fulfillmentRate,
+    }),
+    [kpis],
+  );
 
   return (
     <main className="space-y-4 md:space-y-6">
@@ -195,7 +191,7 @@ export default function OrdersClient({
         </p>
         <p className="mt-1 text-sm text-charcoal/85">All time</p>
         <p className="mt-3 text-[clamp(1.5rem,4.5vw,3rem)] font-semibold leading-none text-ink">
-          {formatMMK(kpis.totalRevenue)}
+          {formatMMK(kpisView.totalRevenue)}
         </p>
       </section>
 
@@ -203,21 +199,21 @@ export default function OrdersClient({
         <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
           <p className="text-sm text-charcoal">Total Orders</p>
           <p className="mt-2 text-[clamp(1.5rem,4.5vw,2.5rem)] font-semibold leading-none text-ink">
-            {kpis.totalOrders.toLocaleString()}
+            {kpisView.totalOrders.toLocaleString()}
           </p>
           <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">All time</p>
         </article>
         <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
           <p className="text-sm text-charcoal">Avg. Order Value</p>
           <p className="mt-2 text-[clamp(1.2rem,4vw,2rem)] font-semibold leading-none text-ink">
-            {formatMMK(kpis.avgOrderValue)}
+            {formatMMK(kpisView.avgOrderValue)}
           </p>
           <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">Current page</p>
         </article>
         <article className="vintage-panel rounded-[22px] border-sepia-border/50 p-4 md:p-5">
           <p className="text-sm text-charcoal">Orders Fulfillment Rate</p>
           <p className="mt-2 text-[clamp(1.2rem,4vw,2rem)] font-semibold leading-none text-ink">
-            {kpis.fulfillmentRate.toFixed(1)}%
+            {kpisView.fulfillmentRate.toFixed(1)}%
           </p>
           <p className="mt-2 text-xs uppercase tracking-[0.08em] text-charcoal/80">Current page</p>
         </article>
