@@ -1,5 +1,19 @@
 "use client";
 
+import {
+  type CatalogDraft,
+  createEmptyVariant,
+  createInitialCatalogDraft,
+  slugifyCatalogValue,
+  type CatalogDraftImage,
+  type CatalogDraftVariant,
+  type ProductStatus,
+} from "@/lib/admin/catalog-draft-contract";
+import {
+  catalogEditorSteps,
+  type CatalogEditorStepId,
+  getCatalogEditorStepLabel,
+} from "@/lib/admin/catalog-step-registry";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -10,30 +24,8 @@ type CategoryItem = {
   slug: string;
 };
 
-type ProductStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
-
-type ProductImageItem = {
-  id?: string;
-  url: string;
-  alt: string | null;
-  variantId?: string | null;
-  sortOrder: number;
-};
-
-type ProductVariantItem = {
-  id?: string;
-  sku: string;
-  name: string;
-  color: string | null;
-  size: string | null;
-  material: string | null;
-  price: string | null;
-  compareAtPrice: string | null;
-  inventory?: number;
-  initialInventory?: number;
-  isActive: boolean;
-  sortOrder: number;
-};
+type ProductImageItem = CatalogDraftImage;
+type ProductVariantItem = CatalogDraftVariant;
 
 type VariantMatrixRow = {
   key: string;
@@ -83,60 +75,9 @@ type ProductItem = {
   variants: ProductVariantItem[];
 };
 
-type ProductDraft = {
-  name: string;
-  slug: string;
-  description: string;
-  price: string;
-  currency: string;
-  status: ProductStatus;
-  categoryId: string;
-  images: ProductImageItem[];
-  variants: ProductVariantItem[];
-};
-
-type DraftSetter = (updater: (prev: ProductDraft) => ProductDraft) => void;
+type DraftSetter = (updater: (prev: CatalogDraft) => CatalogDraft) => void;
 
 const statusOptions: ProductStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
-const editorSteps = ["BASICS", "IMAGES", "VARIANTS", "REVIEW"] as const;
-type EditorStep = (typeof editorSteps)[number];
-
-function editorStepLabel(step: EditorStep): string {
-  if (step === "BASICS") return "Basics";
-  if (step === "IMAGES") return "Images";
-  if (step === "VARIANTS") return "Variants";
-  return "Review";
-}
-
-function makeEmptyVariant(sortOrder: number): ProductVariantItem {
-  return {
-    sku: "",
-    name: "",
-    color: "",
-    size: "",
-    material: "",
-    price: "",
-    compareAtPrice: "",
-    inventory: 0,
-    initialInventory: 0,
-    isActive: true,
-    sortOrder,
-  };
-}
-
-function makeInitialDraft(categoryId = ""): ProductDraft {
-  return {
-    name: "",
-    slug: "",
-    description: "",
-    price: "",
-    currency: "MMK",
-    status: "DRAFT",
-    categoryId,
-    images: [{ url: "", alt: "", variantId: null, sortOrder: 0 }],
-    variants: [makeEmptyVariant(0)],
-  };
-}
 
 function statusBadge(status: ProductStatus): string {
   if (status === "ACTIVE") {
@@ -161,16 +102,6 @@ function parseListInput(value: string): string[] {
     const found = parts.find((item) => item.toLowerCase() === lower);
     return found ?? lower;
   });
-}
-
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 function readValidationMessage(data: unknown, fallback: string): string {
@@ -232,8 +163,8 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   const [updating, setUpdating] = useState(false);
   const [openingProductId, setOpeningProductId] = useState<string | null>(null);
   const [adjustingVariantId, setAdjustingVariantId] = useState<string | null>(null);
-  const [createDraft, setCreateDraft] = useState<ProductDraft>(makeInitialDraft());
-  const [editingProduct, setEditingProduct] = useState<ProductDraft | null>(null);
+  const [createDraft, setCreateDraft] = useState<CatalogDraft>(createInitialCatalogDraft());
+  const [editingProduct, setEditingProduct] = useState<CatalogDraft | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [inventoryDeltaByVariant, setInventoryDeltaByVariant] = useState<Record<string, string>>(
     {}
@@ -297,7 +228,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
     void loadCatalog();
   }, [loadCatalog]);
 
-  function applyProductToDraft(product: ProductItem): ProductDraft {
+  function applyProductToDraft(product: ProductItem): CatalogDraft {
     return {
       name: product.name,
       slug: product.slug,
@@ -332,7 +263,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
               isActive: variant.isActive,
               sortOrder: variant.sortOrder,
             }))
-          : [makeEmptyVariant(0)],
+          : [createEmptyVariant(0)],
     };
   }
 
@@ -427,7 +358,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       }
 
       setStatusText(`Created product ${data.product.name}.`);
-      setCreateDraft(makeInitialDraft(categoryFallbackId));
+      setCreateDraft(createInitialCatalogDraft(categoryFallbackId));
       await loadCatalog();
     } catch {
       setStatusText("Unexpected error while creating product.");
@@ -962,7 +893,7 @@ function ProductFormFields({
   onUploadImage,
   mode,
 }: {
-  draft: ProductDraft;
+  draft: CatalogDraft;
   categories: CategoryItem[];
   onCategoryCreated: (category: CategoryItem) => void;
   onDraftChange: DraftSetter;
@@ -999,7 +930,7 @@ function ProductFormFields({
   const [presets, setPresets] = useState<VariantPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [presetFeedback, setPresetFeedback] = useState("");
-  const [currentStep, setCurrentStep] = useState<EditorStep>("BASICS");
+  const [currentStep, setCurrentStep] = useState<CatalogEditorStepId>("BASICS");
   const [stepFeedback, setStepFeedback] = useState("");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -1012,7 +943,7 @@ function ProductFormFields({
       return;
     }
 
-    const generatedSlug = slugify(draft.name);
+    const generatedSlug = slugifyCatalogValue(draft.name);
     if (!generatedSlug || draft.slug === generatedSlug) {
       return;
     }
@@ -1098,7 +1029,7 @@ function ProductFormFields({
 
   async function createCategoryInline() {
     const name = newCategoryName.trim();
-    const slug = slugify(name);
+    const slug = slugifyCatalogValue(name);
 
     if (!name || !slug) {
       setCategoryFeedback("Category name must include letters or numbers.");
@@ -1403,7 +1334,7 @@ function ProductFormFields({
 
       return {
         ...prev,
-        variants: filtered.length > 0 ? filtered : [makeEmptyVariant(0)],
+        variants: filtered.length > 0 ? filtered : [createEmptyVariant(0)],
       };
     });
 
@@ -1530,7 +1461,7 @@ function ProductFormFields({
     setPresetFeedback(`Applied preset: ${preset.name}`);
   }
 
-  function validateStep(step: EditorStep): string | null {
+  function validateStep(step: CatalogEditorStepId): string | null {
     if (step === "BASICS") {
       if (!draft.name.trim()) return "Product name is required.";
       if (!draft.slug.trim()) {
@@ -1561,17 +1492,17 @@ function ProductFormFields({
       return;
     }
 
-    const currentIndex = editorSteps.indexOf(currentStep);
-    if (currentIndex < editorSteps.length - 1) {
-      setCurrentStep(editorSteps[currentIndex + 1]);
+    const currentIndex = catalogEditorSteps.indexOf(currentStep);
+    if (currentIndex < catalogEditorSteps.length - 1) {
+      setCurrentStep(catalogEditorSteps[currentIndex + 1]);
       setStepFeedback("");
     }
   }
 
   function goToPreviousStep() {
-    const currentIndex = editorSteps.indexOf(currentStep);
+    const currentIndex = catalogEditorSteps.indexOf(currentStep);
     if (currentIndex > 0) {
-      setCurrentStep(editorSteps[currentIndex - 1]);
+      setCurrentStep(catalogEditorSteps[currentIndex - 1]);
       setStepFeedback("");
     }
   }
@@ -1581,7 +1512,7 @@ function ProductFormFields({
       <div className="rounded-md border border-sepia-border/70 bg-paper-light/30 p-3">
         <p className="mb-2 text-xs uppercase tracking-[0.08em] text-charcoal">Editor Steps</p>
         <div className="flex flex-wrap gap-2">
-          {editorSteps.map((step) => (
+          {catalogEditorSteps.map((step) => (
             <button
               key={step}
               type="button"
@@ -1595,7 +1526,7 @@ function ProductFormFields({
                 setStepFeedback("");
               }}
             >
-              {editorStepLabel(step)}
+              {getCatalogEditorStepLabel(step)}
             </button>
           ))}
         </div>
@@ -1951,7 +1882,7 @@ function ProductFormFields({
                 onDraftChange((prev) =>
                   ({
                     ...prev,
-                    variants: [...prev.variants, makeEmptyVariant(prev.variants.length)],
+                    variants: [...prev.variants, createEmptyVariant(prev.variants.length)],
                   })
                 )
               }
@@ -2278,7 +2209,9 @@ function ProductFormFields({
         >
           Back
         </button>
-        <p className="text-xs uppercase tracking-[0.08em] text-charcoal">{editorStepLabel(currentStep)}</p>
+        <p className="text-xs uppercase tracking-[0.08em] text-charcoal">
+          {getCatalogEditorStepLabel(currentStep)}
+        </p>
         <button
           type="button"
           className="btn-secondary disabled:opacity-50"
