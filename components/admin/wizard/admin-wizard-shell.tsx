@@ -27,10 +27,6 @@ export function AdminWizardShell<TStep extends string>({
   const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
-    setFeedback("");
-  }, [currentStep]);
-
-  useEffect(() => {
     if (!isDirty) {
       return;
     }
@@ -55,6 +51,7 @@ export function AdminWizardShell<TStep extends string>({
       setFeedback(error);
       return;
     }
+    setFeedback("");
     onStepChange(nextStep);
   }
 
@@ -67,6 +64,7 @@ export function AdminWizardShell<TStep extends string>({
       guardedMove(step);
       return;
     }
+    setFeedback("");
     onStepChange(step);
   }
 
@@ -74,6 +72,7 @@ export function AdminWizardShell<TStep extends string>({
     if (currentIndex <= 0) {
       return;
     }
+    setFeedback("");
     onStepChange(steps[currentIndex - 1].id);
   }
 

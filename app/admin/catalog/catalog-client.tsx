@@ -940,14 +940,20 @@ function ProductFormFields({
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [categoryFeedback, setCategoryFeedback] = useState("");
   const initialDraftSignatureRef = useRef("");
+  const draftIdentityRef = useRef("");
   const variantDiagnostics = useMemo(() => buildVariantDiagnostics(draft.variants), [draft.variants]);
   const draftSignature = useMemo(() => JSON.stringify(draft), [draft]);
   const isDirty = initialDraftSignatureRef.current !== "" && draftSignature !== initialDraftSignatureRef.current;
 
   useEffect(() => {
-    initialDraftSignatureRef.current = JSON.stringify(draft);
+    if (draftIdentityRef.current === draftIdentity) {
+      return;
+    }
+
+    draftIdentityRef.current = draftIdentity;
+    initialDraftSignatureRef.current = draftSignature;
     setCurrentStep("BASICS");
-  }, [draftIdentity]);
+  }, [draftIdentity, draftSignature]);
 
   useEffect(() => {
     if (mode !== "create") {
