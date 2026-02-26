@@ -147,6 +147,28 @@ function formatFileSize(sizeInBytes: number): string {
   return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function mapUploadErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+
+  if (message.includes("SIGN_UPLOAD_FAILED")) {
+    return "Could not prepare upload. Please retry.";
+  }
+  if (message.includes("UPLOAD_FAILED_")) {
+    return "Direct upload failed. Trying fallback upload failed too.";
+  }
+  if (message.includes("UPLOAD_NETWORK_ERROR")) {
+    return "Network error while uploading. Check your connection and retry.";
+  }
+  if (message.includes("INVALID_FILE_TYPE")) {
+    return "Unsupported file type. Use JPG, PNG, WEBP, or AVIF.";
+  }
+  if (message.includes("FILE_TOO_LARGE")) {
+    return "File is too large. Maximum is 8MB.";
+  }
+
+  return "Upload failed. Try again.";
+}
+
 type CatalogClientView = "all" | "list" | "create";
 
 type CatalogClientProps = {
@@ -1134,7 +1156,7 @@ function ProductFormFields({
             entry.id === item.id ? { ...entry, status: "done", progressPct: 100 } : entry
           )
         );
-      } catch {
+      } catch (error) {
         setUploadQueue((prev) =>
           prev.map((entry) =>
             entry.id === item.id
@@ -1142,7 +1164,7 @@ function ProductFormFields({
                   ...entry,
                   status: "failed",
                   progressPct: 100,
-                  error: "Upload failed. Try again.",
+                  error: mapUploadErrorMessage(error),
                 }
               : entry
           )
@@ -1734,10 +1756,10 @@ function ProductFormFields({
       })()}
 
       <div className={`${currentStep === "IMAGES" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-ink">Images</h3>
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-ink">Images</h3>
+              <div className="flex flex-wrap items-center gap-2">
               <input
                 ref={imageFileInputRef}
                 type="file"
@@ -1749,6 +1771,7 @@ function ProductFormFields({
               <button
                 type="button"
                 className="btn-secondary"
+                disabled={isQueueUploading}
                 onClick={() => imageFileInputRef.current?.click()}
               >
                 Select Files
@@ -1756,6 +1779,7 @@ function ProductFormFields({
               <button
                 type="button"
                 className="btn-secondary"
+                disabled={isQueueUploading}
                 onClick={() =>
                   onDraftChange((prev) => ({
                     ...prev,
@@ -1790,6 +1814,9 @@ function ProductFormFields({
             <p className="font-medium text-ink">Drag and drop images here</p>
             <p className="text-xs text-charcoal">
               JPG, PNG, WEBP, AVIF up to 8 MB. Multiple files supported.
+            </p>
+            <p className="mt-1 text-xs text-charcoal/80">
+              Tip: use “Make Primary” to pin the first image shown in listings and product pages.
             </p>
           </div>
 
@@ -1838,7 +1865,7 @@ function ProductFormFields({
                             Retry
                           </button>
                         ) : null}
-                        {(item.status === "done" || item.status === "failed") ? (
+                        {item.status !== "uploading" ? (
                           <button
                             type="button"
                             className="btn-secondary"
@@ -1858,7 +1885,7 @@ function ProductFormFields({
         {draft.images.map((image, index) => (
           <div
             key={`image-${index}`}
-            className="grid gap-2 sm:grid-cols-[1fr_1fr_180px_100px_auto]"
+            className="grid gap-2 sm:grid-cols-[1fr_1fr_200px_110px_auto]"
           >
             <input
               value={image.url}
@@ -1897,6 +1924,7 @@ function ProductFormFields({
             <button
               type="button"
               className="btn-secondary"
+              disabled={isQueueUploading || draft.images.length <= 1}
               onClick={() =>
                 onDraftChange((prev) =>
                   prev.images.length > 1
@@ -1907,6 +1935,87 @@ function ProductFormFields({
             >
               Remove
             </button>
+            <div className="sm:col-span-full flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={isQueueUploading || index === 0}
+                onClick={() =>
+                  onDraftChange((prev) => {
+                    if (index <= 0) {
+                      return prev;
+                    }
+                    const nextImages = [...prev.images];
+                    const current = nextImages[index];
+                    nextImages[index] = nextImages[index - 1];
+                    nextImages[index - 1] = current;
+                    return {
+                      ...prev,
+                      images: nextImages.map((item, imageIndex) => ({
+                        ...item,
+                        sortOrder: imageIndex,
+                      })),
+                    };
+                  })
+                }
+              >
+                Move Up
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={isQueueUploading || index >= draft.images.length - 1}
+                onClick={() =>
+                  onDraftChange((prev) => {
+                    if (index >= prev.images.length - 1) {
+                      return prev;
+                    }
+                    const nextImages = [...prev.images];
+                    const current = nextImages[index];
+                    nextImages[index] = nextImages[index + 1];
+                    nextImages[index + 1] = current;
+                    return {
+                      ...prev,
+                      images: nextImages.map((item, imageIndex) => ({
+                        ...item,
+                        sortOrder: imageIndex,
+                      })),
+                    };
+                  })
+                }
+              >
+                Move Down
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={isQueueUploading || index === 0}
+                onClick={() =>
+                  onDraftChange((prev) => {
+                    if (index === 0) {
+                      return prev;
+                    }
+                    const nextImages = [...prev.images];
+                    const [selected] = nextImages.splice(index, 1);
+                    nextImages.unshift(selected);
+                    return {
+                      ...prev,
+                      images: nextImages.map((item, imageIndex) => ({
+                        ...item,
+                        sortOrder: imageIndex,
+                      })),
+                    };
+                  })
+                }
+              >
+                Make Primary
+              </button>
+              {index === 0 ? (
+                <span className="rounded border border-sepia-border px-2 py-1 text-xs uppercase tracking-[0.08em] text-charcoal">
+                  Primary
+                </span>
+              ) : null}
+            </div>
           </div>
         ))}
       </div>
