@@ -1478,14 +1478,25 @@ function ProductFormFields({
     setPresetFeedback(`Applied preset: ${preset.name}`);
   }
 
+  function getBasicInfoErrors() {
+    return {
+      name: draft.name.trim().length === 0 ? "Product name is required." : "",
+      slug:
+        draft.slug.trim().length === 0
+          ? "Product name must include letters or numbers."
+          : "",
+      price: draft.price.trim().length === 0 ? "Base price is required." : "",
+      category: draft.categoryId.trim().length === 0 ? "Category is required." : "",
+    };
+  }
+
   function validateStep(step: CatalogEditorStepId): string | null {
     if (step === "BASICS") {
-      if (!draft.name.trim()) return "Product name is required.";
-      if (!draft.slug.trim()) {
-        return "Product name must include letters or numbers.";
-      }
-      if (!draft.price.trim()) return "Base price is required.";
-      if (!draft.categoryId.trim()) return "Category is required.";
+      const errors = getBasicInfoErrors();
+      if (errors.name) return errors.name;
+      if (errors.slug) return errors.slug;
+      if (errors.price) return errors.price;
+      if (errors.category) return errors.category;
     }
 
     if (step === "IMAGES") {
@@ -1510,87 +1521,150 @@ function ProductFormFields({
       validateStep={validateStep}
       isDirty={isDirty}
     >
+      {(() => {
+        const basicInfoErrors = getBasicInfoErrors();
+        const showBasicInfoErrors = currentStep === "BASICS";
+        return (
 
       <div className={currentStep === "BASICS" ? "space-y-4" : "hidden"}>
-      {mode === "create" ? (
-        <p className="text-xs text-charcoal">
-          Variant image mapping is available after first save (when variant IDs exist).
+      <section className="rounded-md border border-sepia-border p-4">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-charcoal">
+          Basic Information
+        </h3>
+        <p className="mt-1 text-xs text-charcoal/80">
+          Start with the essentials. Advanced settings stay hidden for now.
         </p>
-      ) : null}
-      <div className="grid gap-3 sm:grid-cols-1">
-        <input
-          value={draft.name}
-          onChange={(event) => {
-            const nextName = event.target.value;
-            onDraftChange((prev) => ({ ...prev, name: nextName }));
-          }}
-          placeholder="Product name"
-          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
-        />
-      </div>
+        {mode === "create" ? (
+          <p className="mt-2 text-xs text-charcoal/80">
+            URL slug is auto-generated from product name. Variant image mapping unlocks after first
+            save.
+          </p>
+        ) : null}
 
-      <textarea
-        value={draft.description}
-        onChange={(event) =>
-          onDraftChange((prev) => ({ ...prev, description: event.target.value }))
-        }
-        placeholder="Description"
-        className="min-h-24 w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2"
-      />
+        <div className="mt-4 grid gap-4">
+          <div className="space-y-1">
+            <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Product Name</label>
+            <input
+              value={draft.name}
+              onChange={(event) => {
+                const nextName = event.target.value;
+                onDraftChange((prev) => ({ ...prev, name: nextName }));
+              }}
+              placeholder="e.g. Midnight Bloom Blazer Set"
+              className={`rounded-md border bg-paper-light px-3 py-2 ${
+                showBasicInfoErrors && basicInfoErrors.name
+                  ? "border-seal-wax/80"
+                  : "border-sepia-border"
+              }`}
+            />
+            {showBasicInfoErrors && basicInfoErrors.name ? (
+              <p className="text-xs text-seal-wax">{basicInfoErrors.name}</p>
+            ) : null}
+          </div>
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        <input
-          value={draft.price}
-          onChange={(event) =>
-            onDraftChange((prev) => ({ ...prev, price: event.target.value }))
-          }
-          placeholder="Base price"
-          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
-        />
-        <input
-          value={draft.currency}
-          onChange={(event) =>
-            onDraftChange((prev) => ({ ...prev, currency: event.target.value }))
-          }
-          placeholder="MMK"
-          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
-        />
-        <select
-          value={draft.status}
-          onChange={(event) =>
-            onDraftChange((prev) => ({ ...prev, status: event.target.value as ProductStatus }))
-          }
-          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
-        >
-          {statusOptions.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
-        <select
-          value={draft.categoryId}
-          onChange={(event) => {
-            const value = event.target.value;
-            if (value === "__create__") {
-              setCategoryFeedback("");
-              setNewCategoryName("");
-              setIsCategoryModalOpen(true);
-              return;
-            }
-            onDraftChange((prev) => ({ ...prev, categoryId: value }));
-          }}
-          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2"
-        >
-          <option value="">Select category</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-          <option value="__create__">+ Create category</option>
-        </select>
-      </div>
+          <div className="space-y-1">
+            <label className="text-xs uppercase tracking-[0.08em] text-charcoal">
+              Description (Optional)
+            </label>
+            <textarea
+              value={draft.description}
+              onChange={(event) =>
+                onDraftChange((prev) => ({ ...prev, description: event.target.value }))
+              }
+              placeholder="Short description shown on product detail page."
+              className="min-h-24 w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2"
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-4">
+            <div className="space-y-1">
+              <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Base Price</label>
+              <input
+                value={draft.price}
+                onChange={(event) =>
+                  onDraftChange((prev) => ({ ...prev, price: event.target.value }))
+                }
+                placeholder="e.g. 55000"
+                className={`w-full rounded-md border bg-paper-light px-3 py-2 ${
+                  showBasicInfoErrors && basicInfoErrors.price
+                    ? "border-seal-wax/80"
+                    : "border-sepia-border"
+                }`}
+              />
+              {showBasicInfoErrors && basicInfoErrors.price ? (
+                <p className="text-xs text-seal-wax">{basicInfoErrors.price}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Currency</label>
+              <input
+                value={draft.currency}
+                onChange={(event) =>
+                  onDraftChange((prev) => ({ ...prev, currency: event.target.value }))
+                }
+                placeholder="MMK"
+                className="w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Status</label>
+              <select
+                value={draft.status}
+                onChange={(event) =>
+                  onDraftChange((prev) => ({ ...prev, status: event.target.value as ProductStatus }))
+                }
+                className="w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2"
+              >
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Category</label>
+              <select
+                value={draft.categoryId}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "__create__") {
+                    setCategoryFeedback("");
+                    setNewCategoryName("");
+                    setIsCategoryModalOpen(true);
+                    return;
+                  }
+                  onDraftChange((prev) => ({ ...prev, categoryId: value }));
+                }}
+                className={`w-full rounded-md border bg-paper-light px-3 py-2 ${
+                  showBasicInfoErrors && basicInfoErrors.category
+                    ? "border-seal-wax/80"
+                    : "border-sepia-border"
+                }`}
+              >
+                <option value="">Select category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+                <option value="__create__">+ Create category</option>
+              </select>
+              {showBasicInfoErrors && basicInfoErrors.category ? (
+                <p className="text-xs text-seal-wax">{basicInfoErrors.category}</p>
+              ) : null}
+            </div>
+          </div>
+
+          {showBasicInfoErrors && basicInfoErrors.slug ? (
+            <p className="text-xs text-seal-wax">{basicInfoErrors.slug}</p>
+          ) : null}
+        </div>
+      </section>
+
       {categoryFeedback ? <p className="text-xs text-charcoal">{categoryFeedback}</p> : null}
       {isCategoryModalOpen ? (
         <div
@@ -1656,6 +1730,8 @@ function ProductFormFields({
         </div>
       ) : null}
       </div>
+        );
+      })()}
 
       <div className={`${currentStep === "IMAGES" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
         <div className="space-y-3">
