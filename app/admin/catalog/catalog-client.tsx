@@ -175,6 +175,79 @@ type CatalogClientProps = {
   view?: CatalogClientView;
 };
 
+type SubmitIntent = "draft" | "publish";
+
+type ValidationStepHint = {
+  step: CatalogEditorStepId;
+  message: string;
+};
+
+function toIssuePathString(path: unknown): string {
+  if (Array.isArray(path)) {
+    return path.map((part) => String(part)).join(".");
+  }
+  if (typeof path === "string") {
+    return path;
+  }
+  return "";
+}
+
+function inferStepFromIssuePath(path: string): CatalogEditorStepId {
+  if (!path) {
+    return "REVIEW";
+  }
+  if (path.startsWith("variants")) {
+    return "VARIANTS";
+  }
+  if (path.startsWith("images")) {
+    return "IMAGES";
+  }
+  if (
+    path.startsWith("name") ||
+    path.startsWith("slug") ||
+    path.startsWith("description") ||
+    path.startsWith("price") ||
+    path.startsWith("currency") ||
+    path.startsWith("status") ||
+    path.startsWith("categoryId")
+  ) {
+    return "BASICS";
+  }
+  return "REVIEW";
+}
+
+function readValidationStepHint(data: unknown, fallbackMessage: string): ValidationStepHint | null {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+
+  const payload = data as {
+    issues?: Array<{ path?: unknown; message?: unknown }>;
+    error?: unknown;
+  };
+
+  const firstIssue = Array.isArray(payload.issues) ? payload.issues[0] : null;
+  if (firstIssue) {
+    const path = toIssuePathString(firstIssue.path);
+    return {
+      step: inferStepFromIssuePath(path),
+      message:
+        typeof firstIssue.message === "string" && firstIssue.message.trim().length > 0
+          ? firstIssue.message
+          : fallbackMessage,
+    };
+  }
+
+  if (typeof payload.error === "string" && payload.error.trim().length > 0) {
+    return {
+      step: "REVIEW",
+      message: payload.error,
+    };
+  }
+
+  return null;
+}
+
 export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -186,8 +259,12 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   const [openingProductId, setOpeningProductId] = useState<string | null>(null);
   const [adjustingVariantId, setAdjustingVariantId] = useState<string | null>(null);
   const [createDraft, setCreateDraft] = useState<CatalogDraft>(createInitialCatalogDraft());
+  const [createCurrentStep, setCreateCurrentStep] = useState<CatalogEditorStepId>("BASICS");
+  const [createSubmitIntent, setCreateSubmitIntent] = useState<SubmitIntent>("draft");
   const [editingProduct, setEditingProduct] = useState<CatalogDraft | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editCurrentStep, setEditCurrentStep] = useState<CatalogEditorStepId>("BASICS");
+  const [editSubmitIntent, setEditSubmitIntent] = useState<SubmitIntent>("draft");
   const [inventoryDeltaByVariant, setInventoryDeltaByVariant] = useState<Record<string, string>>(
     {}
   );
@@ -295,6 +372,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
     if (localProduct) {
       setEditingProductId(productId);
       setEditingProduct(applyProductToDraft(localProduct));
+      setEditCurrentStep("BASICS");
       setInventoryDeltaByVariant({});
       setInventoryNoteByVariant({});
     }
@@ -309,6 +387,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 
       setEditingProductId(productId);
       setEditingProduct(applyProductToDraft(data.product));
+      setEditCurrentStep("BASICS");
       setInventoryDeltaByVariant({});
       setInventoryNoteByVariant({});
       setStatusText("");
@@ -326,6 +405,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 
     const payload = {
       ...createDraft,
+      status: createSubmitIntent === "publish" ? "ACTIVE" : "DRAFT",
       categoryId: createDraft.categoryId || categoryFallbackId,
       images: createDraft.images
         .filter((image) => image.url.trim().length > 0)
@@ -359,12 +439,24 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const draftCheckData = await draftCheck.json();
       if (!draftCheck.ok) {
+        const hint = readValidationStepHint(draftCheckData, "Failed to validate product draft.");
+        if (hint) {
+          setCreateCurrentStep(hint.step);
+        }
         setStatusText(readValidationMessage(draftCheckData, "Failed to validate product draft."));
         return;
       }
       if (!draftCheckData.valid || draftCheckData.issues?.length > 0) {
-        const firstIssue = draftCheckData.issues?.[0];
-        setStatusText(firstIssue?.message ?? "Fix draft issues before creating this product.");
+        const hint = readValidationStepHint(
+          draftCheckData,
+          "Fix draft issues before creating this product."
+        );
+        if (hint) {
+          setCreateCurrentStep(hint.step);
+          setStatusText(hint.message);
+          return;
+        }
+        setStatusText("Fix draft issues before creating this product.");
         return;
       }
 
@@ -375,12 +467,21 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
+        const hint = readValidationStepHint(data, "Failed to create product.");
+        if (hint) {
+          setCreateCurrentStep(hint.step);
+        }
         setStatusText(readValidationMessage(data, "Failed to create product."));
         return;
       }
 
-      setStatusText(`Created product ${data.product.name}.`);
+      setStatusText(
+        createSubmitIntent === "publish"
+          ? `Created and published product ${data.product.name}.`
+          : `Created draft product ${data.product.name}.`
+      );
       setCreateDraft(createInitialCatalogDraft(categoryFallbackId));
+      setCreateCurrentStep("BASICS");
       await loadCatalog();
     } catch {
       setStatusText("Unexpected error while creating product.");
@@ -400,6 +501,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 
     const payload = {
       ...editingProduct,
+      status: editSubmitIntent === "publish" ? "ACTIVE" : "DRAFT",
       images: editingProduct.images
         .filter((image) => image.url.trim().length > 0)
         .map((image, index) => ({
@@ -435,12 +537,24 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const draftCheckData = await draftCheck.json();
       if (!draftCheck.ok) {
+        const hint = readValidationStepHint(draftCheckData, "Failed to validate product draft.");
+        if (hint) {
+          setEditCurrentStep(hint.step);
+        }
         setStatusText(readValidationMessage(draftCheckData, "Failed to validate product draft."));
         return;
       }
       if (!draftCheckData.valid || draftCheckData.issues?.length > 0) {
-        const firstIssue = draftCheckData.issues?.[0];
-        setStatusText(firstIssue?.message ?? "Fix draft issues before saving this product.");
+        const hint = readValidationStepHint(
+          draftCheckData,
+          "Fix draft issues before saving this product."
+        );
+        if (hint) {
+          setEditCurrentStep(hint.step);
+          setStatusText(hint.message);
+          return;
+        }
+        setStatusText("Fix draft issues before saving this product.");
         return;
       }
 
@@ -451,11 +565,19 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
+        const hint = readValidationStepHint(data, "Failed to update product.");
+        if (hint) {
+          setEditCurrentStep(hint.step);
+        }
         setStatusText(readValidationMessage(data, "Failed to update product."));
         return;
       }
 
-      setStatusText(`Updated product ${data.product.name}.`);
+      setStatusText(
+        editSubmitIntent === "publish"
+          ? `Updated and published product ${data.product.name}.`
+          : `Saved draft for ${data.product.name}.`
+      );
       await loadCatalog();
       await openProduct(editingProductId);
     } catch {
@@ -785,6 +907,8 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
               <ProductFormFields
                 draft={createDraft}
                 draftIdentity="create"
+                currentStep={createCurrentStep}
+                onCurrentStepChange={setCreateCurrentStep}
                 categories={categories}
                 onCategoryCreated={onCategoryCreated}
                 onDraftChange={setCreateDraftSafe}
@@ -797,9 +921,24 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
                 onUploadImage={(file, onProgress) => uploadImage(file, "create", onProgress)}
                 mode="create"
               />
-              <button type="submit" disabled={creating} className="btn-primary disabled:opacity-60">
-                {creating ? "Creating..." : "Create Product"}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={creating}
+                  onClick={() => setCreateSubmitIntent("draft")}
+                  className="btn-secondary disabled:opacity-60"
+                >
+                  {creating && createSubmitIntent === "draft" ? "Saving Draft..." : "Save Draft"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  onClick={() => setCreateSubmitIntent("publish")}
+                  className="btn-primary disabled:opacity-60"
+                >
+                  {creating && createSubmitIntent === "publish" ? "Publishing..." : "Publish"}
+                </button>
+              </div>
             </form>
           </section>
           ) : null}
@@ -812,6 +951,8 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
                 <ProductFormFields
                   draft={editingProduct}
                   draftIdentity={editingProductId}
+                  currentStep={editCurrentStep}
+                  onCurrentStepChange={setEditCurrentStep}
                   categories={categories}
                   onCategoryCreated={onCategoryCreated}
                   onDraftChange={setEditingDraftSafe}
@@ -825,8 +966,21 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
                   mode="edit"
                 />
                 <div className="flex gap-2">
-                  <button type="submit" disabled={updating} className="btn-primary disabled:opacity-60">
-                    {updating ? "Saving..." : "Save Product"}
+                  <button
+                    type="submit"
+                    disabled={updating}
+                    onClick={() => setEditSubmitIntent("draft")}
+                    className="btn-secondary disabled:opacity-60"
+                  >
+                    {updating && editSubmitIntent === "draft" ? "Saving Draft..." : "Save Draft"}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updating}
+                    onClick={() => setEditSubmitIntent("publish")}
+                    className="btn-primary disabled:opacity-60"
+                  >
+                    {updating && editSubmitIntent === "publish" ? "Publishing..." : "Publish"}
                   </button>
                   <button
                     type="button"
@@ -910,6 +1064,8 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 function ProductFormFields({
   draft,
   draftIdentity,
+  currentStep,
+  onCurrentStepChange,
   categories,
   onCategoryCreated,
   onDraftChange,
@@ -920,6 +1076,8 @@ function ProductFormFields({
 }: {
   draft: CatalogDraft;
   draftIdentity: string;
+  currentStep: CatalogEditorStepId;
+  onCurrentStepChange: (step: CatalogEditorStepId) => void;
   categories: CategoryItem[];
   onCategoryCreated: (category: CategoryItem) => void;
   onDraftChange: DraftSetter;
@@ -956,7 +1114,6 @@ function ProductFormFields({
   const [presets, setPresets] = useState<VariantPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [presetFeedback, setPresetFeedback] = useState("");
-  const [currentStep, setCurrentStep] = useState<CatalogEditorStepId>("BASICS");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
@@ -987,8 +1144,8 @@ function ProductFormFields({
 
     draftIdentityRef.current = draftIdentity;
     initialDraftSignatureRef.current = draftSignature;
-    setCurrentStep("BASICS");
-  }, [draftIdentity, draftSignature]);
+    onCurrentStepChange("BASICS");
+  }, [draftIdentity, draftSignature, onCurrentStepChange]);
 
   useEffect(() => {
     if (mode !== "create") {
@@ -1552,7 +1709,7 @@ function ProductFormFields({
     <AdminWizardShell
       steps={catalogEditorStepRegistry.map((step) => ({ id: step.id, label: step.label }))}
       currentStep={currentStep}
-      onStepChange={setCurrentStep}
+      onStepChange={onCurrentStepChange}
       validateStep={validateStep}
       isDirty={isDirty}
     >
@@ -2393,20 +2550,52 @@ function ProductFormFields({
 
       <section className={`${currentStep === "REVIEW" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-4`}>
         <h3 className="text-lg font-semibold text-ink">Review Before Save</h3>
-        <div className="grid gap-2 text-sm text-charcoal sm:grid-cols-2">
-          <p><span className="font-semibold text-ink">Name:</span> {draft.name || "-"}</p>
-          <p>
-            <span className="font-semibold text-ink">Category:</span>{" "}
-            {categories.find((item) => item.id === draft.categoryId)?.name ?? "-"}
-          </p>
-          <p><span className="font-semibold text-ink">Base Price:</span> {draft.price || "-"} {draft.currency}</p>
-          <p><span className="font-semibold text-ink">Images:</span> {draft.images.filter((image) => image.url.trim()).length}</p>
-          <p><span className="font-semibold text-ink">Variants:</span> {draft.variants.length}</p>
-          <p><span className="font-semibold text-ink">Active Variants:</span> {draft.variants.filter((variant) => variant.isActive).length}</p>
-          <p><span className="font-semibold text-ink">New Variants:</span> {draft.variants.filter((variant) => !variant.id).length}</p>
+        <div className="grid gap-3 md:grid-cols-3">
+          <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Basic Info</p>
+              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("BASICS")}>
+                Jump to fix
+              </button>
+            </div>
+            <div className="mt-2 space-y-1 text-sm text-charcoal">
+              <p><span className="font-semibold text-ink">Name:</span> {draft.name || "-"}</p>
+              <p>
+                <span className="font-semibold text-ink">Category:</span>{" "}
+                {categories.find((item) => item.id === draft.categoryId)?.name ?? "-"}
+              </p>
+              <p><span className="font-semibold text-ink">Base Price:</span> {draft.price || "-"} {draft.currency}</p>
+            </div>
+          </section>
+          <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Media</p>
+              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("IMAGES")}>
+                Jump to fix
+              </button>
+            </div>
+            <div className="mt-2 space-y-1 text-sm text-charcoal">
+              <p><span className="font-semibold text-ink">Images:</span> {draft.images.filter((image) => image.url.trim()).length}</p>
+              <p><span className="font-semibold text-ink">Primary:</span> {draft.images[0]?.url?.trim() ? "Set" : "Missing"}</p>
+            </div>
+          </section>
+          <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Variants</p>
+              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("VARIANTS")}>
+                Jump to fix
+              </button>
+            </div>
+            <div className="mt-2 space-y-1 text-sm text-charcoal">
+              <p><span className="font-semibold text-ink">Variants:</span> {draft.variants.length}</p>
+              <p><span className="font-semibold text-ink">Active:</span> {draft.variants.filter((variant) => variant.isActive).length}</p>
+              <p><span className="font-semibold text-ink">New:</span> {draft.variants.filter((variant) => !variant.id).length}</p>
+              <p><span className="font-semibold text-ink">Needs Fix:</span> {variantBlockingCount}</p>
+            </div>
+          </section>
         </div>
         <p className="text-xs text-charcoal">
-          Use the Save/Create button below when this summary looks correct.
+          Use Save Draft to keep work-in-progress, or Publish to set product status ACTIVE.
         </p>
       </section>
 
