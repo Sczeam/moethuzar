@@ -548,7 +548,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       } else if (key === "sortOrder" && typeof value === "string") {
         target.sortOrder = toInt(value, index);
       } else if ((key === "inventory" || key === "initialInventory") && typeof value === "string") {
-        target[key] = toInt(value, 0);
+        target[key] = Math.max(0, toInt(value, 0));
       } else if (typeof value === "string") {
         (target as Record<string, string | number | boolean | undefined | null>)[key] = value;
       }
@@ -964,6 +964,19 @@ function ProductFormFields({
   const initialDraftSignatureRef = useRef("");
   const draftIdentityRef = useRef("");
   const variantDiagnostics = useMemo(() => buildVariantDiagnostics(draft.variants), [draft.variants]);
+  const variantBlockingCount = useMemo(
+    () => draft.variants.reduce((count, _, index) => count + ((variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0 ? 1 : 0), 0),
+    [draft.variants, variantDiagnostics.issuesByIndex]
+  );
+  const selectedVariantsWithStock = useMemo(() => {
+    const selected = new Set(selectedVariantIndexes);
+    return draft.variants.reduce((count, variant, index) => {
+      if (!selected.has(index)) {
+        return count;
+      }
+      return count + ((variant.inventory ?? 0) > 0 ? 1 : 0);
+    }, 0);
+  }, [draft.variants, selectedVariantIndexes]);
   const draftSignature = useMemo(() => JSON.stringify(draft), [draft]);
   const isDirty = initialDraftSignatureRef.current !== "" && draftSignature !== initialDraftSignatureRef.current;
 
@@ -1528,7 +1541,7 @@ function ProductFormFields({
 
     if (step === "VARIANTS") {
       if (variantDiagnostics.hasBlocking) {
-        return "Resolve variant warnings before moving to review.";
+        return `Resolve variant warnings before moving to review (${variantBlockingCount} variant${variantBlockingCount === 1 ? "" : "s"} affected).`;
       }
     }
 
@@ -2034,6 +2047,7 @@ function ProductFormFields({
             <button
               type="button"
               className="btn-secondary"
+              disabled={selectedVariantIndexes.length === 0}
               onClick={() => setSelectedVariantIndexes([])}
             >
               Clear
@@ -2054,7 +2068,20 @@ function ProductFormFields({
             </button>
           </div>
         </div>
-        <p className="text-xs text-charcoal">{selectedVariantIndexes.length} selected</p>
+        <div className="rounded border border-sepia-border/60 bg-paper-light/40 px-3 py-2">
+          <p className="text-xs text-charcoal">
+            {selectedVariantIndexes.length} selected
+            {selectedVariantIndexes.length > 0 && selectedVariantsWithStock > 0
+              ? ` • ${selectedVariantsWithStock} with stock`
+              : ""}
+          </p>
+          {variantDiagnostics.hasBlocking ? (
+            <p className="mt-1 text-xs text-seal-wax">
+              {variantBlockingCount} variant{variantBlockingCount === 1 ? "" : "s"} need fixes
+              before Review.
+            </p>
+          ) : null}
+        </div>
 
         <div className="space-y-2 rounded-md border border-sepia-border/70 p-3">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-charcoal">
@@ -2111,19 +2138,39 @@ function ProductFormFields({
             </select>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="btn-secondary" onClick={applyBulkVariantFields}>
+            <button
+              type="button"
+              className="btn-secondary disabled:opacity-50"
+              onClick={applyBulkVariantFields}
+              disabled={selectedVariantIndexes.length === 0}
+            >
               Apply Bulk Changes
             </button>
-            <button type="button" className="btn-secondary" onClick={autofillSelectedVariantIdentity}>
+            <button
+              type="button"
+              className="btn-secondary disabled:opacity-50"
+              onClick={autofillSelectedVariantIdentity}
+              disabled={selectedVariantIndexes.length === 0}
+            >
               Auto-fill Name/SKU
             </button>
-            <button type="button" className="btn-secondary" onClick={duplicateSelectedVariants}>
+            <button
+              type="button"
+              className="btn-secondary disabled:opacity-50"
+              onClick={duplicateSelectedVariants}
+              disabled={selectedVariantIndexes.length === 0}
+            >
               Duplicate Selected
             </button>
             <button type="button" className="btn-secondary" onClick={normalizeVariantSortOrder}>
               Normalize Sort Order
             </button>
-            <button type="button" className="btn-secondary" onClick={removeSelectedVariants}>
+            <button
+              type="button"
+              className="btn-secondary disabled:opacity-50"
+              onClick={removeSelectedVariants}
+              disabled={selectedVariantIndexes.length === 0}
+            >
               Remove Selected
             </button>
             {bulkFeedback ? <p className="text-xs text-charcoal">{bulkFeedback}</p> : null}
