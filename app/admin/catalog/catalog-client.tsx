@@ -10,10 +10,10 @@ import {
   type ProductStatus,
 } from "@/lib/admin/catalog-draft-contract";
 import {
-  catalogEditorSteps,
+  catalogEditorStepRegistry,
   type CatalogEditorStepId,
-  getCatalogEditorStepLabel,
 } from "@/lib/admin/catalog-step-registry";
+import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -762,6 +762,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
             <form onSubmit={submitCreate} className="mt-4 space-y-4">
               <ProductFormFields
                 draft={createDraft}
+                draftIdentity="create"
                 categories={categories}
                 onCategoryCreated={onCategoryCreated}
                 onDraftChange={setCreateDraftSafe}
@@ -788,6 +789,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
               <form onSubmit={submitUpdate} className="mt-4 space-y-4">
                 <ProductFormFields
                   draft={editingProduct}
+                  draftIdentity={editingProductId}
                   categories={categories}
                   onCategoryCreated={onCategoryCreated}
                   onDraftChange={setEditingDraftSafe}
@@ -885,6 +887,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 
 function ProductFormFields({
   draft,
+  draftIdentity,
   categories,
   onCategoryCreated,
   onDraftChange,
@@ -894,6 +897,7 @@ function ProductFormFields({
   mode,
 }: {
   draft: CatalogDraft;
+  draftIdentity: string;
   categories: CategoryItem[];
   onCategoryCreated: (category: CategoryItem) => void;
   onDraftChange: DraftSetter;
@@ -931,12 +935,19 @@ function ProductFormFields({
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [presetFeedback, setPresetFeedback] = useState("");
   const [currentStep, setCurrentStep] = useState<CatalogEditorStepId>("BASICS");
-  const [stepFeedback, setStepFeedback] = useState("");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [categoryFeedback, setCategoryFeedback] = useState("");
+  const initialDraftSignatureRef = useRef("");
   const variantDiagnostics = useMemo(() => buildVariantDiagnostics(draft.variants), [draft.variants]);
+  const draftSignature = useMemo(() => JSON.stringify(draft), [draft]);
+  const isDirty = initialDraftSignatureRef.current !== "" && draftSignature !== initialDraftSignatureRef.current;
+
+  useEffect(() => {
+    initialDraftSignatureRef.current = JSON.stringify(draft);
+    setCurrentStep("BASICS");
+  }, [draftIdentity]);
 
   useEffect(() => {
     if (mode !== "create") {
@@ -1485,53 +1496,14 @@ function ProductFormFields({
     return null;
   }
 
-  function goToNextStep() {
-    const error = validateStep(currentStep);
-    if (error) {
-      setStepFeedback(error);
-      return;
-    }
-
-    const currentIndex = catalogEditorSteps.indexOf(currentStep);
-    if (currentIndex < catalogEditorSteps.length - 1) {
-      setCurrentStep(catalogEditorSteps[currentIndex + 1]);
-      setStepFeedback("");
-    }
-  }
-
-  function goToPreviousStep() {
-    const currentIndex = catalogEditorSteps.indexOf(currentStep);
-    if (currentIndex > 0) {
-      setCurrentStep(catalogEditorSteps[currentIndex - 1]);
-      setStepFeedback("");
-    }
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border border-sepia-border/70 bg-paper-light/30 p-3">
-        <p className="mb-2 text-xs uppercase tracking-[0.08em] text-charcoal">Editor Steps</p>
-        <div className="flex flex-wrap gap-2">
-          {catalogEditorSteps.map((step) => (
-            <button
-              key={step}
-              type="button"
-              className={`border px-3 py-1.5 text-xs uppercase tracking-[0.08em] ${
-                currentStep === step
-                  ? "border-ink bg-ink text-paper-light"
-                  : "border-sepia-border text-charcoal"
-              }`}
-              onClick={() => {
-                setCurrentStep(step);
-                setStepFeedback("");
-              }}
-            >
-              {getCatalogEditorStepLabel(step)}
-            </button>
-          ))}
-        </div>
-        {stepFeedback ? <p className="mt-2 text-xs text-seal-wax">{stepFeedback}</p> : null}
-      </div>
+    <AdminWizardShell
+      steps={catalogEditorStepRegistry.map((step) => ({ id: step.id, label: step.label }))}
+      currentStep={currentStep}
+      onStepChange={setCurrentStep}
+      validateStep={validateStep}
+      isDirty={isDirty}
+    >
 
       <div className={currentStep === "BASICS" ? "space-y-4" : "hidden"}>
       {mode === "create" ? (
@@ -2200,27 +2172,6 @@ function ProductFormFields({
         </p>
       </section>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sepia-border/60 pt-3">
-        <button
-          type="button"
-          className="btn-secondary disabled:opacity-50"
-          onClick={goToPreviousStep}
-          disabled={currentStep === "BASICS"}
-        >
-          Back
-        </button>
-        <p className="text-xs uppercase tracking-[0.08em] text-charcoal">
-          {getCatalogEditorStepLabel(currentStep)}
-        </p>
-        <button
-          type="button"
-          className="btn-secondary disabled:opacity-50"
-          onClick={goToNextStep}
-          disabled={currentStep === "REVIEW"}
-        >
-          Next
-        </button>
-      </div>
-    </div>
+    </AdminWizardShell>
   );
 }
