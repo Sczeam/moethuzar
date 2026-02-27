@@ -250,6 +250,97 @@ function readValidationStepHint(data: unknown, fallbackMessage: string): Validat
   return null;
 }
 
+function CatalogEditorForm({
+  title,
+  subtitle,
+  draft,
+  draftIdentity,
+  currentStep,
+  onCurrentStepChange,
+  categories,
+  onCategoryCreated,
+  onDraftChange,
+  onImageChange,
+  onVariantChange,
+  onUploadImage,
+  mode,
+  onSubmit,
+  submitting,
+  submitIntent,
+  onSubmitIntentChange,
+  onClose,
+}: {
+  title: string;
+  subtitle?: string;
+  draft: CatalogDraft;
+  draftIdentity: string;
+  currentStep: CatalogEditorStepId;
+  onCurrentStepChange: (step: CatalogEditorStepId) => void;
+  categories: CategoryItem[];
+  onCategoryCreated: (category: CategoryItem) => void;
+  onDraftChange: DraftSetter;
+  onImageChange: (index: number, key: keyof ProductImageItem, value: string) => void;
+  onVariantChange: (
+    index: number,
+    key: keyof ProductVariantItem,
+    value: string | boolean
+  ) => void;
+  onUploadImage: (file: File, onProgress: (progressPct: number) => void) => Promise<void>;
+  mode: "create" | "edit";
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  submitting: boolean;
+  submitIntent: SubmitIntent;
+  onSubmitIntentChange: (intent: SubmitIntent) => void;
+  onClose?: () => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold text-ink">{title}</h2>
+        {subtitle ? <p className="mt-1 text-sm text-charcoal">{subtitle}</p> : null}
+      </div>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <ProductFormFields
+          draft={draft}
+          draftIdentity={draftIdentity}
+          currentStep={currentStep}
+          onCurrentStepChange={onCurrentStepChange}
+          categories={categories}
+          onCategoryCreated={onCategoryCreated}
+          onDraftChange={onDraftChange}
+          onImageChange={onImageChange}
+          onVariantChange={onVariantChange}
+          onUploadImage={onUploadImage}
+          mode={mode}
+        />
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={submitting}
+            onClick={() => onSubmitIntentChange("draft")}
+            className="btn-secondary disabled:opacity-60"
+          >
+            {submitting && submitIntent === "draft" ? "Saving Draft..." : "Save Draft"}
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            onClick={() => onSubmitIntentChange("publish")}
+            className="btn-primary disabled:opacity-60"
+          >
+            {submitting && submitIntent === "publish" ? "Publishing..." : "Publish"}
+          </button>
+          {onClose ? (
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Close
+            </button>
+          ) : null}
+        </div>
+      </form>
+    </section>
+  );
+}
+
 export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -885,98 +976,59 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
           ) : null}
 
           {showCreateForm ? (
-            <section className="space-y-4">
-            <form onSubmit={submitCreate} className="space-y-4">
-              <ProductFormFields
-                draft={createDraft}
-                draftIdentity="create"
-                currentStep={createCurrentStep}
-                onCurrentStepChange={setCreateCurrentStep}
-                categories={categories}
-                onCategoryCreated={onCategoryCreated}
-                onDraftChange={setCreateDraftSafe}
-                onImageChange={(index, key, value) =>
-                  updateDraftImage(setCreateDraftSafe, index, key, value)
-                }
-                onVariantChange={(index, key, value) =>
-                  updateDraftVariant(setCreateDraftSafe, index, key, value)
-                }
-                onUploadImage={(file, onProgress) => uploadImage(file, "create", onProgress)}
-                mode="create"
-              />
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="submit"
-                  disabled={creating}
-                  onClick={() => setCreateSubmitIntent("draft")}
-                  className="btn-secondary disabled:opacity-60"
-                >
-                  {creating && createSubmitIntent === "draft" ? "Saving Draft..." : "Save Draft"}
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  onClick={() => setCreateSubmitIntent("publish")}
-                  className="btn-primary disabled:opacity-60"
-                >
-                  {creating && createSubmitIntent === "publish" ? "Publishing..." : "Publish"}
-                </button>
-              </div>
-            </form>
-          </section>
+            <CatalogEditorForm
+              title="Create Product"
+              draft={createDraft}
+              draftIdentity="create"
+              currentStep={createCurrentStep}
+              onCurrentStepChange={setCreateCurrentStep}
+              categories={categories}
+              onCategoryCreated={onCategoryCreated}
+              onDraftChange={setCreateDraftSafe}
+              onImageChange={(index, key, value) =>
+                updateDraftImage(setCreateDraftSafe, index, key, value)
+              }
+              onVariantChange={(index, key, value) =>
+                updateDraftVariant(setCreateDraftSafe, index, key, value)
+              }
+              onUploadImage={(file, onProgress) => uploadImage(file, "create", onProgress)}
+              mode="create"
+              onSubmit={submitCreate}
+              submitting={creating}
+              submitIntent={createSubmitIntent}
+              onSubmitIntentChange={setCreateSubmitIntent}
+            />
           ) : null}
 
           {showProductList && editingProduct && editingProductId ? (
-            <section className="vintage-panel p-5">
-              <h2 className="text-2xl font-semibold text-ink">Edit Product</h2>
-              <p className="mt-1 text-sm text-charcoal">Product ID: {editingProductId}</p>
-              <form onSubmit={submitUpdate} className="mt-4 space-y-4">
-                <ProductFormFields
-                  draft={editingProduct}
-                  draftIdentity={editingProductId}
-                  currentStep={editCurrentStep}
-                  onCurrentStepChange={setEditCurrentStep}
-                  categories={categories}
-                  onCategoryCreated={onCategoryCreated}
-                  onDraftChange={setEditingDraftSafe}
-                  onImageChange={(index, key, value) =>
-                    updateDraftImage(setEditingDraftSafe, index, key, value)
-                  }
-                  onVariantChange={(index, key, value) =>
-                    updateDraftVariant(setEditingDraftSafe, index, key, value)
-                  }
-                  onUploadImage={(file, onProgress) => uploadImage(file, "edit", onProgress)}
-                  mode="edit"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={updating}
-                    onClick={() => setEditSubmitIntent("draft")}
-                    className="btn-secondary disabled:opacity-60"
-                  >
-                    {updating && editSubmitIntent === "draft" ? "Saving Draft..." : "Save Draft"}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={updating}
-                    onClick={() => setEditSubmitIntent("publish")}
-                    className="btn-primary disabled:opacity-60"
-                  >
-                    {updating && editSubmitIntent === "publish" ? "Publishing..." : "Publish"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingProduct(null);
-                      setEditingProductId(null);
-                    }}
-                    className="btn-secondary"
-                  >
-                    Close
-                  </button>
-                </div>
-              </form>
+            <section className="space-y-4">
+              <CatalogEditorForm
+                title="Edit Product"
+                subtitle={`Product ID: ${editingProductId}`}
+                draft={editingProduct}
+                draftIdentity={editingProductId}
+                currentStep={editCurrentStep}
+                onCurrentStepChange={setEditCurrentStep}
+                categories={categories}
+                onCategoryCreated={onCategoryCreated}
+                onDraftChange={setEditingDraftSafe}
+                onImageChange={(index, key, value) =>
+                  updateDraftImage(setEditingDraftSafe, index, key, value)
+                }
+                onVariantChange={(index, key, value) =>
+                  updateDraftVariant(setEditingDraftSafe, index, key, value)
+                }
+                onUploadImage={(file, onProgress) => uploadImage(file, "edit", onProgress)}
+                mode="edit"
+                onSubmit={submitUpdate}
+                submitting={updating}
+                submitIntent={editSubmitIntent}
+                onSubmitIntentChange={setEditSubmitIntent}
+                onClose={() => {
+                  setEditingProduct(null);
+                  setEditingProductId(null);
+                }}
+              />
               <div className="mt-8">
                 <h3 className="text-lg font-semibold text-ink">Manual Inventory Adjustment</h3>
                 <p className="mt-1 text-sm text-charcoal">
