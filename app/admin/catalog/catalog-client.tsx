@@ -2372,365 +2372,477 @@ function ProductFormFields({
       </div>
       </div>
 
-      <div className={`${currentStep === "GENERATE" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-ink">Variants</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setSelectedVariantIndexes(draft.variants.map((_, index) => index))}
-            >
-              Select All
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={selectedVariantIndexes.length === 0}
-              onClick={() => setSelectedVariantIndexes([])}
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() =>
-                onDraftChange((prev) =>
-                  ({
-                    ...prev,
-                    variants: [...prev.variants, createEmptyVariant(prev.variants.length)],
-                  })
-                )
-              }
-            >
-              Add Variant
-            </button>
-          </div>
-        </div>
-        <div className="rounded border border-sepia-border/60 bg-paper-light/40 px-3 py-2">
-          <p className="text-xs text-charcoal">
-            {selectedVariantIndexes.length} selected
-            {selectedVariantIndexes.length > 0 && selectedVariantsWithStock > 0
-              ? ` • ${selectedVariantsWithStock} with stock`
-              : ""}
-          </p>
-          {variantDiagnostics.hasBlocking ? (
-            <p className="mt-1 text-xs text-seal-wax">
-              {variantBlockingCount} variant{variantBlockingCount === 1 ? "" : "s"} need fixes
-              before Review.
-            </p>
-          ) : null}
-        </div>
+      <section className={`${currentStep === "GENERATE" ? "space-y-4" : "hidden"}`}>
+  <div className="rounded-md border border-sepia-border p-4">
+    <h3 className="text-sm font-semibold text-ink">Variant Matrix Generator</h3>
+    <p className="mt-1 text-xs text-charcoal">
+      Generate color x size combinations and append only missing variants.
+    </p>
+    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+      <select
+        value={selectedPresetId}
+        onChange={(event) => setSelectedPresetId(event.target.value)}
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      >
+        <option value="">Select preset</option>
+        {presets.map((preset) => (
+          <option key={preset.id} value={preset.id}>
+            {preset.name}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="btn-secondary" onClick={applySelectedPreset}>
+        Apply Preset
+      </button>
+    </div>
+    {presetFeedback ? <p className="mt-2 text-xs text-charcoal">{presetFeedback}</p> : null}
+    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <input
+        value={matrixNamePrefix}
+        onChange={(event) => setMatrixNamePrefix(event.target.value)}
+        placeholder="Name prefix (e.g. Core Hoodie)"
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <input
+        value={matrixSkuPrefix}
+        onChange={(event) => setMatrixSkuPrefix(event.target.value)}
+        placeholder="SKU prefix (e.g. CORE-HOODIE)"
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <textarea
+        value={matrixColors}
+        onChange={(event) => setMatrixColors(event.target.value)}
+        placeholder="Colors (comma or newline separated)"
+        className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <textarea
+        value={matrixSizes}
+        onChange={(event) => setMatrixSizes(event.target.value)}
+        placeholder="Sizes (comma or newline separated)"
+        className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <input
+        value={matrixMaterial}
+        onChange={(event) => setMatrixMaterial(event.target.value)}
+        placeholder="Material (optional)"
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <input
+        type="number"
+        value={matrixInitialInventory}
+        onChange={(event) => setMatrixInitialInventory(event.target.value)}
+        placeholder="Initial inventory"
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+    </div>
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => void generateVariantsFromMatrix()}
+        disabled={generatingMatrix}
+        className="btn-secondary disabled:opacity-60"
+      >
+        {generatingMatrix ? "Generating..." : "Generate Missing Variants"}
+      </button>
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={() =>
+          onDraftChange((prev) => ({
+            ...prev,
+            variants: [...prev.variants, createEmptyVariant(prev.variants.length)],
+          }))
+        }
+      >
+        Add Variant
+      </button>
+      {matrixFeedback ? <p className="text-xs text-charcoal">{matrixFeedback}</p> : null}
+    </div>
+  </div>
 
-        <div className="space-y-2 rounded-md border border-sepia-border/70 p-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-charcoal">
-            Bulk Apply to Selected
-          </h4>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input
-              value={bulkNamePrefix}
-              onChange={(event) => setBulkNamePrefix(event.target.value)}
-              placeholder="Name prefix for autofill"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <input
-              value={bulkSkuPrefix}
-              onChange={(event) => setBulkSkuPrefix(event.target.value)}
-              placeholder="SKU prefix for autofill"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input
-              value={bulkMaterial}
-              onChange={(event) => setBulkMaterial(event.target.value)}
-              placeholder="Material"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <input
-              value={bulkPrice}
-              onChange={(event) => setBulkPrice(event.target.value)}
-              placeholder="Price"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <input
-              value={bulkCompareAtPrice}
-              onChange={(event) => setBulkCompareAtPrice(event.target.value)}
-              placeholder="Compare-at price"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              value={bulkInventory}
-              onChange={(event) => setBulkInventory(event.target.value)}
-              placeholder="Inventory"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <select
-              value={bulkActiveState}
-              onChange={(event) => setBulkActiveState(event.target.value as "" | "true" | "false")}
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            >
-              <option value="">Leave active state unchanged</option>
-              <option value="true">Set active</option>
-              <option value="false">Set inactive</option>
-            </select>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="btn-secondary disabled:opacity-50"
-              onClick={applyBulkVariantFields}
-              disabled={selectedVariantIndexes.length === 0}
-            >
-              Apply Bulk Changes
-            </button>
-            <button
-              type="button"
-              className="btn-secondary disabled:opacity-50"
-              onClick={autofillSelectedVariantIdentity}
-              disabled={selectedVariantIndexes.length === 0}
-            >
-              Auto-fill Name/SKU
-            </button>
-            <button
-              type="button"
-              className="btn-secondary disabled:opacity-50"
-              onClick={duplicateSelectedVariants}
-              disabled={selectedVariantIndexes.length === 0}
-            >
-              Duplicate Selected
-            </button>
-            <button type="button" className="btn-secondary" onClick={normalizeVariantSortOrder}>
-              Normalize Sort Order
-            </button>
-            <button
-              type="button"
-              className="btn-secondary disabled:opacity-50"
-              onClick={removeSelectedVariants}
-              disabled={selectedVariantIndexes.length === 0}
-            >
-              Remove Selected
-            </button>
-            {bulkFeedback ? <p className="text-xs text-charcoal">{bulkFeedback}</p> : null}
-          </div>
-        </div>
+  <div className="rounded-md border border-sepia-border p-4">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h3 className="text-sm font-semibold text-ink">Generated Variants</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => setSelectedVariantIndexes(draft.variants.map((_, index) => index))}
+        >
+          Select All
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={selectedVariantIndexes.length === 0}
+          onClick={() => setSelectedVariantIndexes([])}
+        >
+          Clear
+        </button>
+      </div>
+    </div>
 
-        {draft.variants.map((variant, index) => (
-          <div
-            key={`variant-${variant.id ?? index}`}
-            className={`rounded-md border p-3 ${
-              (variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0
-                ? "border-seal-wax/70 bg-seal-wax/5"
-                : "border-sepia-border/70"
-            }`}
-          >
-            <label className="mb-2 inline-flex items-center gap-2 text-xs text-charcoal">
-              <input
-                type="checkbox"
-                checked={selectedVariantIndexes.includes(index)}
-                onChange={(event) =>
-                  setSelectedVariantIndexes((prev) => {
-                    if (event.target.checked) {
-                      return [...prev, index].sort((a, b) => a - b);
-                    }
-                    return prev.filter((item) => item !== index);
-                  })
-                }
-              />
-              Select
-            </label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <input
-                value={variant.sku}
-                onChange={(event) => onVariantChange(index, "sku", event.target.value)}
-                placeholder="SKU"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.name}
-                onChange={(event) => onVariantChange(index, "name", event.target.value)}
-                placeholder="Variant name"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.color ?? ""}
-                onChange={(event) => onVariantChange(index, "color", event.target.value)}
-                placeholder="Color"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.size ?? ""}
-                onChange={(event) => onVariantChange(index, "size", event.target.value)}
-                placeholder="Size"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.material ?? ""}
-                onChange={(event) => onVariantChange(index, "material", event.target.value)}
-                placeholder="Material"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.price ?? ""}
-                onChange={(event) => onVariantChange(index, "price", event.target.value)}
-                placeholder="Variant price (optional)"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.compareAtPrice ?? ""}
-                onChange={(event) => onVariantChange(index, "compareAtPrice", event.target.value)}
-                placeholder="Compare at price (optional)"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              {mode === "create" ? (
+    <div className="mt-3 rounded border border-sepia-border/60 bg-paper-light/40 px-3 py-2">
+      <p className="text-xs text-charcoal">
+        {selectedVariantIndexes.length} selected
+        {selectedVariantIndexes.length > 0 && selectedVariantsWithStock > 0
+          ? ` | ${selectedVariantsWithStock} with stock`
+          : ""}
+      </p>
+      {variantDiagnostics.hasBlocking ? (
+        <p className="mt-1 text-xs text-seal-wax">
+          {variantBlockingCount} variant{variantBlockingCount === 1 ? "" : "s"} need fixes
+          before Review.
+        </p>
+      ) : null}
+    </div>
+
+    <div className="mt-3 space-y-2 rounded-md border border-sepia-border/70 p-3">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-charcoal">
+        Bulk Apply to Selected
+      </h4>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <input
+          value={bulkNamePrefix}
+          onChange={(event) => setBulkNamePrefix(event.target.value)}
+          placeholder="Name prefix for autofill"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <input
+          value={bulkSkuPrefix}
+          onChange={(event) => setBulkSkuPrefix(event.target.value)}
+          placeholder="SKU prefix for autofill"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <input
+          value={bulkMaterial}
+          onChange={(event) => setBulkMaterial(event.target.value)}
+          placeholder="Material"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <input
+          value={bulkPrice}
+          onChange={(event) => setBulkPrice(event.target.value)}
+          placeholder="Price"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <input
+          value={bulkCompareAtPrice}
+          onChange={(event) => setBulkCompareAtPrice(event.target.value)}
+          placeholder="Compare-at price"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <input
+          type="number"
+          value={bulkInventory}
+          onChange={(event) => setBulkInventory(event.target.value)}
+          placeholder="Inventory"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <select
+          value={bulkActiveState}
+          onChange={(event) => setBulkActiveState(event.target.value as "" | "true" | "false")}
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        >
+          <option value="">Leave active state unchanged</option>
+          <option value="true">Set active</option>
+          <option value="false">Set inactive</option>
+        </select>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={applyBulkVariantFields}
+          disabled={selectedVariantIndexes.length === 0}
+        >
+          Apply Bulk Changes
+        </button>
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={autofillSelectedVariantIdentity}
+          disabled={selectedVariantIndexes.length === 0}
+        >
+          Auto-fill Name/SKU
+        </button>
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={duplicateSelectedVariants}
+          disabled={selectedVariantIndexes.length === 0}
+        >
+          Duplicate Selected
+        </button>
+        <button type="button" className="btn-secondary" onClick={normalizeVariantSortOrder}>
+          Normalize Sort Order
+        </button>
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={removeSelectedVariants}
+          disabled={selectedVariantIndexes.length === 0}
+        >
+          Remove Selected
+        </button>
+        {bulkFeedback ? <p className="text-xs text-charcoal">{bulkFeedback}</p> : null}
+      </div>
+    </div>
+
+    <div className="mt-3 hidden overflow-x-auto rounded-md border border-sepia-border/70 lg:block">
+      <table className="min-w-full divide-y divide-sepia-border/70 text-sm text-ink">
+        <thead className="bg-paper-light/40 text-xs uppercase tracking-[0.08em] text-charcoal">
+          <tr>
+            <th className="px-3 py-2 text-left">Sel</th>
+            <th className="px-3 py-2 text-left">SKU</th>
+            <th className="px-3 py-2 text-left">Name</th>
+            <th className="px-3 py-2 text-left">Color</th>
+            <th className="px-3 py-2 text-left">Size</th>
+            <th className="px-3 py-2 text-left">Price</th>
+            <th className="px-3 py-2 text-left">Inventory</th>
+            <th className="px-3 py-2 text-left">Active</th>
+            <th className="px-3 py-2 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-sepia-border/60">
+          {draft.variants.map((variant, index) => (
+            <tr key={`variant-row-${variant.id ?? index}`}>
+              <td className="px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={selectedVariantIndexes.includes(index)}
+                  onChange={(event) =>
+                    setSelectedVariantIndexes((prev) => {
+                      if (event.target.checked) {
+                        return [...prev, index].sort((a, b) => a - b);
+                      }
+                      return prev.filter((item) => item !== index);
+                    })
+                  }
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.sku}
+                  onChange={(event) => onVariantChange(index, "sku", event.target.value)}
+                  placeholder="SKU"
+                  className="w-44 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.name}
+                  onChange={(event) => onVariantChange(index, "name", event.target.value)}
+                  placeholder="Variant name"
+                  className="w-48 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.color ?? ""}
+                  onChange={(event) => onVariantChange(index, "color", event.target.value)}
+                  placeholder="Color"
+                  className="w-24 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.size ?? ""}
+                  onChange={(event) => onVariantChange(index, "size", event.target.value)}
+                  placeholder="Size"
+                  className="w-20 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.price ?? ""}
+                  onChange={(event) => onVariantChange(index, "price", event.target.value)}
+                  placeholder="Price"
+                  className="w-24 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
                 <input
                   type="number"
                   value={variant.inventory ?? 0}
                   onChange={(event) => onVariantChange(index, "inventory", event.target.value)}
                   placeholder="Inventory"
-                  className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+                  className="w-24 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
                 />
-              ) : (
-                <input
-                  type="number"
-                  value={variant.inventory ?? 0}
-                  onChange={(event) => onVariantChange(index, "inventory", event.target.value)}
-                  placeholder="Inventory"
-                  className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-                />
-              )}
-              <input
-                type="number"
-                value={variant.sortOrder}
-                onChange={(event) => onVariantChange(index, "sortOrder", event.target.value)}
-                placeholder="Sort order"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <label className="inline-flex items-center gap-2 text-xs text-charcoal">
+              </td>
+              <td className="px-3 py-2">
                 <input
                   type="checkbox"
                   checked={variant.isActive}
                   onChange={(event) => onVariantChange(index, "isActive", event.target.checked)}
                 />
-                Active
-              </label>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  const hasStock = (variant.inventory ?? 0) > 0;
-                  const confirmed = window.confirm(
-                    hasStock
-                      ? `This variant has stock (${variant.inventory ?? 0}). Remove it anyway?`
-                      : "Remove this variant?"
-                  );
-                  if (!confirmed) {
-                    return;
+              </td>
+              <td className="px-3 py-2 text-right align-top">
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  onClick={() => {
+                    const hasStock = (variant.inventory ?? 0) > 0;
+                    const confirmed = window.confirm(
+                      hasStock
+                        ? `This variant has stock (${variant.inventory ?? 0}). Remove it anyway?`
+                        : "Remove this variant?"
+                    );
+                    if (!confirmed) {
+                      return;
+                    }
+                    onDraftChange((prev) =>
+                      prev.variants.length > 1
+                        ? {
+                            ...prev,
+                            variants: prev.variants.filter((_, itemIndex) => itemIndex !== index),
+                          }
+                        : prev
+                    );
+                  }}
+                >
+                  Remove
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="mt-3 space-y-3 lg:hidden">
+      {draft.variants.map((variant, index) => (
+        <div
+          key={`variant-card-${variant.id ?? index}`}
+          className={`rounded-md border p-3 ${
+            (variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0
+              ? "border-seal-wax/70 bg-seal-wax/5"
+              : "border-sepia-border/70"
+          }`}
+        >
+          <label className="mb-2 inline-flex items-center gap-2 text-xs text-charcoal">
+            <input
+              type="checkbox"
+              checked={selectedVariantIndexes.includes(index)}
+              onChange={(event) =>
+                setSelectedVariantIndexes((prev) => {
+                  if (event.target.checked) {
+                    return [...prev, index].sort((a, b) => a - b);
                   }
-
-                  onDraftChange((prev) =>
-                    prev.variants.length > 1
-                      ? {
-                          ...prev,
-                          variants: prev.variants.filter((_, itemIndex) => itemIndex !== index),
-                        }
-                      : prev
-                  );
-                }}
-              >
-                Remove Variant
-              </button>
-            </div>
-            {(variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0 ? (
-              <ul className="mt-2 list-disc pl-5 text-xs text-seal-wax">
-                {variantDiagnostics.issuesByIndex[index].map((issue) => (
-                  <li key={`${index}-${issue}`}>{issue}</li>
-                ))}
-              </ul>
-            ) : null}
+                  return prev.filter((item) => item !== index);
+                })
+              }
+            />
+            Select
+          </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              value={variant.sku}
+              onChange={(event) => onVariantChange(index, "sku", event.target.value)}
+              placeholder="SKU"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.name}
+              onChange={(event) => onVariantChange(index, "name", event.target.value)}
+              placeholder="Variant name"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.color ?? ""}
+              onChange={(event) => onVariantChange(index, "color", event.target.value)}
+              placeholder="Color"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.size ?? ""}
+              onChange={(event) => onVariantChange(index, "size", event.target.value)}
+              placeholder="Size"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.material ?? ""}
+              onChange={(event) => onVariantChange(index, "material", event.target.value)}
+              placeholder="Material"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.price ?? ""}
+              onChange={(event) => onVariantChange(index, "price", event.target.value)}
+              placeholder="Variant price (optional)"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.compareAtPrice ?? ""}
+              onChange={(event) => onVariantChange(index, "compareAtPrice", event.target.value)}
+              placeholder="Compare at price (optional)"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              value={variant.inventory ?? 0}
+              onChange={(event) => onVariantChange(index, "inventory", event.target.value)}
+              placeholder="Inventory"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              value={variant.sortOrder}
+              onChange={(event) => onVariantChange(index, "sortOrder", event.target.value)}
+              placeholder="Sort order"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
           </div>
-        ))}
-      </div>
-
-      <div className={`${currentStep === "GENERATE" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-3`}>
-        <h3 className="text-sm font-semibold text-ink">Variant Matrix Generator</h3>
-        <p className="text-xs text-charcoal">
-          Generate color x size combinations and append only missing variants.
-        </p>
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <select
-            value={selectedPresetId}
-            onChange={(event) => setSelectedPresetId(event.target.value)}
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          >
-            <option value="">Select preset</option>
-            {presets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="btn-secondary" onClick={applySelectedPreset}>
-            Apply Preset
-          </button>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <label className="inline-flex items-center gap-2 text-xs text-charcoal">
+              <input
+                type="checkbox"
+                checked={variant.isActive}
+                onChange={(event) => onVariantChange(index, "isActive", event.target.checked)}
+              />
+              Active
+            </label>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const hasStock = (variant.inventory ?? 0) > 0;
+                const confirmed = window.confirm(
+                  hasStock
+                    ? `This variant has stock (${variant.inventory ?? 0}). Remove it anyway?`
+                    : "Remove this variant?"
+                );
+                if (!confirmed) {
+                  return;
+                }
+                onDraftChange((prev) =>
+                  prev.variants.length > 1
+                    ? {
+                        ...prev,
+                        variants: prev.variants.filter((_, itemIndex) => itemIndex !== index),
+                      }
+                    : prev
+                );
+              }}
+            >
+              Remove Variant
+            </button>
+          </div>
+          {(variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0 ? (
+            <ul className="mt-2 list-disc pl-5 text-xs text-seal-wax">
+              {variantDiagnostics.issuesByIndex[index].map((issue) => (
+                <li key={`${index}-${issue}`}>{issue}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
-        {presetFeedback ? <p className="text-xs text-charcoal">{presetFeedback}</p> : null}
-        <div className="grid gap-2 sm:grid-cols-2">
-          <input
-            value={matrixNamePrefix}
-            onChange={(event) => setMatrixNamePrefix(event.target.value)}
-            placeholder="Name prefix (e.g. Core Hoodie)"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <input
-            value={matrixSkuPrefix}
-            onChange={(event) => setMatrixSkuPrefix(event.target.value)}
-            placeholder="SKU prefix (e.g. CORE-HOODIE)"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <textarea
-            value={matrixColors}
-            onChange={(event) => setMatrixColors(event.target.value)}
-            placeholder="Colors (comma or newline separated)"
-            className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <textarea
-            value={matrixSizes}
-            onChange={(event) => setMatrixSizes(event.target.value)}
-            placeholder="Sizes (comma or newline separated)"
-            className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <input
-            value={matrixMaterial}
-            onChange={(event) => setMatrixMaterial(event.target.value)}
-            placeholder="Material (optional)"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <input
-            type="number"
-            value={matrixInitialInventory}
-            onChange={(event) => setMatrixInitialInventory(event.target.value)}
-            placeholder="Initial inventory"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void generateVariantsFromMatrix()}
-            disabled={generatingMatrix}
-            className="btn-secondary disabled:opacity-60"
-          >
-            {generatingMatrix ? "Generating..." : "Generate Missing Variants"}
-          </button>
-          {matrixFeedback ? <p className="text-xs text-charcoal">{matrixFeedback}</p> : null}
-        </div>
-      </div>
-
-      <section className={`${currentStep === "REVIEW" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-4`}>
+      ))}
+    </div>
+  </div>
+</section>
+<section className={`${currentStep === "REVIEW" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-4`}>
         <h3 className="text-lg font-semibold text-ink">Review Before Save</h3>
         <div className="grid gap-3 md:grid-cols-3">
           <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
