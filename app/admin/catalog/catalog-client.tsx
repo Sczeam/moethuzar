@@ -13,6 +13,8 @@ import {
   catalogEditorStepRegistry,
   type CatalogEditorStepId,
 } from "@/lib/admin/catalog-step-registry";
+import { CreateProductPreviewCard } from "@/components/admin/catalog/create-product-preview-card";
+import { CreateProductSectionCard } from "@/components/admin/catalog/create-product-section-card";
 import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import Link from "next/link";
@@ -197,10 +199,10 @@ function inferStepFromIssuePath(path: string): CatalogEditorStepId {
     return "REVIEW";
   }
   if (path.startsWith("variants")) {
-    return "VARIANTS";
+    return "GENERATE";
   }
   if (path.startsWith("images")) {
-    return "IMAGES";
+    return "COMPOSE";
   }
   if (
     path.startsWith("name") ||
@@ -211,7 +213,7 @@ function inferStepFromIssuePath(path: string): CatalogEditorStepId {
     path.startsWith("status") ||
     path.startsWith("categoryId")
   ) {
-    return "BASICS";
+    return "COMPOSE";
   }
   return "REVIEW";
 }
@@ -259,11 +261,11 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   const [openingProductId, setOpeningProductId] = useState<string | null>(null);
   const [adjustingVariantId, setAdjustingVariantId] = useState<string | null>(null);
   const [createDraft, setCreateDraft] = useState<CatalogDraft>(createInitialCatalogDraft());
-  const [createCurrentStep, setCreateCurrentStep] = useState<CatalogEditorStepId>("BASICS");
+  const [createCurrentStep, setCreateCurrentStep] = useState<CatalogEditorStepId>("COMPOSE");
   const [createSubmitIntent, setCreateSubmitIntent] = useState<SubmitIntent>("draft");
   const [editingProduct, setEditingProduct] = useState<CatalogDraft | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [editCurrentStep, setEditCurrentStep] = useState<CatalogEditorStepId>("BASICS");
+  const [editCurrentStep, setEditCurrentStep] = useState<CatalogEditorStepId>("COMPOSE");
   const [editSubmitIntent, setEditSubmitIntent] = useState<SubmitIntent>("draft");
   const [inventoryDeltaByVariant, setInventoryDeltaByVariant] = useState<Record<string, string>>(
     {}
@@ -372,7 +374,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
     if (localProduct) {
       setEditingProductId(productId);
       setEditingProduct(applyProductToDraft(localProduct));
-      setEditCurrentStep("BASICS");
+      setEditCurrentStep("COMPOSE");
       setInventoryDeltaByVariant({});
       setInventoryNoteByVariant({});
     }
@@ -387,7 +389,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 
       setEditingProductId(productId);
       setEditingProduct(applyProductToDraft(data.product));
-      setEditCurrentStep("BASICS");
+      setEditCurrentStep("COMPOSE");
       setInventoryDeltaByVariant({});
       setInventoryNoteByVariant({});
       setStatusText("");
@@ -481,7 +483,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
           : `Created draft product ${data.product.name}.`
       );
       setCreateDraft(createInitialCatalogDraft(categoryFallbackId));
-      setCreateCurrentStep("BASICS");
+      setCreateCurrentStep("COMPOSE");
       await loadCatalog();
     } catch {
       setStatusText("Unexpected error while creating product.");
@@ -791,35 +793,17 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   }
 
   return (
-    <main className="vintage-shell">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-4xl font-semibold text-ink">
-          {showCreateForm && !showProductList ? "Create Product" : "Catalog"}
-        </h1>
-        <div className="flex flex-wrap gap-2">
-          {showProductList ? (
+    <main className="w-full space-y-6">
+      {showProductList ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-4xl font-semibold text-ink">Catalog</h1>
+          <div className="flex flex-wrap gap-2">
             <Link href="/admin/catalog/new" className="btn-primary">
               Create Product
             </Link>
-          ) : (
-            <Link href="/admin/catalog" className="btn-secondary">
-              Back to Products
-            </Link>
-          )}
-          <Link href="/admin/orders" className="btn-secondary">
-            Orders
-          </Link>
-          <Link href="/admin/shipping-rules" className="btn-secondary">
-            Shipping Rules
-          </Link>
-          <Link href="/admin/payment-transfer-methods" className="btn-secondary">
-            Payment Methods
-          </Link>
-          <Link href="/" className="btn-secondary">
-            Storefront
-          </Link>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {loading ? (
         <div className="vintage-panel p-5">
@@ -901,9 +885,8 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
           ) : null}
 
           {showCreateForm ? (
-            <section className="vintage-panel p-5">
-            <h2 className="text-2xl font-semibold text-ink">Create Product</h2>
-            <form onSubmit={submitCreate} className="mt-4 space-y-4">
+            <section className="space-y-4">
+            <form onSubmit={submitCreate} className="space-y-4">
               <ProductFormFields
                 draft={createDraft}
                 draftIdentity="create"
@@ -1090,12 +1073,23 @@ function ProductFormFields({
   onUploadImage: (file: File, onProgress: (progressPct: number) => void) => Promise<void>;
   mode: "create" | "edit";
 }) {
+  const sizePresetOptions = ["XS", "S", "M", "L", "XL", "XXL"];
+  const colorPresetOptions = [
+    { label: "Black", hex: "#1f1b17" },
+    { label: "White", hex: "#f4f1eb" },
+    { label: "Blue", hex: "#3f5f8a" },
+    { label: "Red", hex: "#9f3b33" },
+    { label: "Pink", hex: "#ca8d93" },
+    { label: "Sand", hex: "#ccb08a" },
+  ];
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
   const [isQueueUploading, setIsQueueUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [matrixColors, setMatrixColors] = useState("");
   const [matrixSizes, setMatrixSizes] = useState("");
+  const [customSizeInput, setCustomSizeInput] = useState("");
+  const [customColorInput, setCustomColorInput] = useState("");
   const [matrixSkuPrefix, setMatrixSkuPrefix] = useState("");
   const [matrixNamePrefix, setMatrixNamePrefix] = useState("");
   const [matrixMaterial, setMatrixMaterial] = useState("");
@@ -1144,7 +1138,7 @@ function ProductFormFields({
 
     draftIdentityRef.current = draftIdentity;
     initialDraftSignatureRef.current = draftSignature;
-    onCurrentStepChange("BASICS");
+    onCurrentStepChange("COMPOSE");
   }, [draftIdentity, draftSignature, onCurrentStepChange]);
 
   useEffect(() => {
@@ -1670,6 +1664,51 @@ function ProductFormFields({
     setPresetFeedback(`Applied preset: ${preset.name}`);
   }
 
+  function toggleMatrixValue(
+    rawValue: string,
+    setter: (value: string) => void,
+    target: string
+  ) {
+    const list = parseListInput(rawValue);
+    const targetKey = target.toLowerCase();
+    const next = list.some((item) => item.toLowerCase() === targetKey)
+      ? list.filter((item) => item.toLowerCase() !== targetKey)
+      : [...list, target];
+    setter(next.join(", "));
+  }
+
+  function addMatrixValue(
+    rawValue: string,
+    setter: (value: string) => void,
+    target: string
+  ) {
+    const normalized = target.trim().replace(/\s+/g, " ");
+    if (!normalized) {
+      return;
+    }
+    const list = parseListInput(rawValue);
+    if (list.some((item) => item.toLowerCase() === normalized.toLowerCase())) {
+      return;
+    }
+    setter([...list, normalized].join(", "));
+  }
+
+  function resolveColorSwatchHex(colorLabel: string): string {
+    const label = colorLabel.trim();
+    const preset = colorPresetOptions.find(
+      (item) => item.label.toLowerCase() === label.toLowerCase()
+    );
+    if (preset) {
+      return preset.hex;
+    }
+
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(label)) {
+      return label;
+    }
+
+    return "#8d8070";
+  }
+
   function getBasicInfoErrors() {
     return {
       name: draft.name.trim().length === 0 ? "Product name is required." : "",
@@ -1683,20 +1722,17 @@ function ProductFormFields({
   }
 
   function validateStep(step: CatalogEditorStepId): string | null {
-    if (step === "BASICS") {
+    if (step === "COMPOSE") {
       const errors = getBasicInfoErrors();
       if (errors.name) return errors.name;
       if (errors.slug) return errors.slug;
       if (errors.price) return errors.price;
       if (errors.category) return errors.category;
-    }
-
-    if (step === "IMAGES") {
       const hasImage = draft.images.some((image) => image.url.trim().length > 0);
       if (!hasImage) return "Add at least one image URL or upload an image.";
     }
 
-    if (step === "VARIANTS") {
+    if (step === "GENERATE") {
       if (variantDiagnostics.hasBlocking) {
         return `Resolve variant warnings before moving to review (${variantBlockingCount} variant${variantBlockingCount === 1 ? "" : "s"} affected).`;
       }
@@ -1704,6 +1740,34 @@ function ProductFormFields({
 
     return null;
   }
+
+  const basicInfoErrors = getBasicInfoErrors();
+  const showBasicInfoErrors = currentStep === "COMPOSE";
+  const previewImage = draft.images.find((image) => image.url.trim().length > 0);
+  const selectedComposeSizes = parseListInput(matrixSizes);
+  const selectedComposeColors = parseListInput(matrixColors);
+  const composedSizes =
+    selectedComposeSizes.length > 0
+      ? selectedComposeSizes
+      : [...new Set(draft.variants.map((variant) => variant.size?.trim()).filter(Boolean))];
+  const composedColors =
+    selectedComposeColors.length > 0
+      ? selectedComposeColors
+      : [...new Set(draft.variants.map((variant) => variant.color?.trim()).filter(Boolean))];
+  const composeSizeOptions = [
+    ...sizePresetOptions,
+    ...selectedComposeSizes.filter(
+      (size) =>
+        !sizePresetOptions.some((preset) => preset.toLowerCase() === size.toLowerCase())
+    ),
+  ];
+  const composeColorOptions = [
+    ...colorPresetOptions.map((color) => color.label),
+    ...selectedComposeColors.filter(
+      (color) =>
+        !colorPresetOptions.some((preset) => preset.label.toLowerCase() === color.toLowerCase())
+    ),
+  ];
 
   return (
     <AdminWizardShell
@@ -1713,27 +1777,38 @@ function ProductFormFields({
       validateStep={validateStep}
       isDirty={isDirty}
     >
-      {(() => {
-        const basicInfoErrors = getBasicInfoErrors();
-        const showBasicInfoErrors = currentStep === "BASICS";
-        return (
-
-      <div className={currentStep === "BASICS" ? "space-y-4" : "hidden"}>
-      <section className="rounded-md border border-sepia-border p-4">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-charcoal">
-          Basic Information
-        </h3>
-        <p className="mt-1 text-xs text-charcoal/80">
-          Start with the essentials. Advanced settings stay hidden for now.
-        </p>
-        {mode === "create" ? (
-          <p className="mt-2 text-xs text-charcoal/80">
-            URL slug is auto-generated from product name. Variant image mapping unlocks after first
-            save.
-          </p>
-        ) : null}
-
-        <div className="mt-4 grid gap-4">
+      <div className={currentStep === "COMPOSE" ? "space-y-4" : "hidden"}>
+      <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="space-y-4">
+          <CreateProductPreviewCard
+            imageUrl={previewImage?.url}
+            imageAlt={previewImage?.alt ?? undefined}
+            name={draft.name}
+            priceLabel={`${draft.currency} ${draft.price || "0"}`}
+            sizeSummary={`Sizes: ${composedSizes.length > 0 ? composedSizes.join(", ") : "Not selected"}`}
+            colorSummary={`Colors: ${composedColors.length > 0 ? composedColors.join(", ") : "Not selected"}`}
+            footerAction={
+              <button
+                type="button"
+                className="btn-primary w-full"
+                onClick={() => onCurrentStepChange("GENERATE")}
+              >
+                Next
+              </button>
+            }
+          />
+        </aside>
+        <div className="space-y-5">
+      <CreateProductSectionCard
+        title="Basic Information"
+        subtitle="Start with essentials, then move to generated variants."
+        hint={
+          mode === "create"
+            ? "URL slug is auto-generated from product name. Variant image mapping unlocks after first save."
+            : undefined
+        }
+      >
+        <div className="grid gap-4">
           <div className="space-y-1">
             <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Product Name</label>
             <input
@@ -1768,7 +1843,7 @@ function ProductFormFields({
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-4">
             <div className="space-y-1">
               <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Base Price</label>
               <input
@@ -1849,13 +1924,121 @@ function ProductFormFields({
                 <p className="text-xs text-seal-wax">{basicInfoErrors.category}</p>
               ) : null}
             </div>
-          </div>
+                </div>
 
-          {showBasicInfoErrors && basicInfoErrors.slug ? (
-            <p className="text-xs text-seal-wax">{basicInfoErrors.slug}</p>
-          ) : null}
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Sizes</p>
+                    <div className="flex flex-wrap gap-2">
+                      {composeSizeOptions.map((sizeOption) => {
+                        const isActive = selectedComposeSizes.some(
+                          (item) => item.toLowerCase() === sizeOption.toLowerCase()
+                        );
+                        return (
+                          <button
+                            key={sizeOption}
+                            type="button"
+                            className={`rounded border px-3 py-1 text-xs ${
+                              isActive
+                                ? "border-antique-brass bg-antique-brass/15 text-ink"
+                                : "border-sepia-border bg-paper-light text-charcoal"
+                            }`}
+                            onClick={() =>
+                              toggleMatrixValue(matrixSizes, setMatrixSizes, sizeOption)
+                            }
+                          >
+                            {sizeOption}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={customSizeInput}
+                        onChange={(event) => setCustomSizeInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addMatrixValue(matrixSizes, setMatrixSizes, customSizeInput);
+                            setCustomSizeInput("");
+                          }
+                        }}
+                        placeholder="Add custom size (e.g. 3XL)"
+                        className="w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        className="btn-secondary whitespace-nowrap"
+                        onClick={() => {
+                          addMatrixValue(matrixSizes, setMatrixSizes, customSizeInput);
+                          setCustomSizeInput("");
+                        }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Colors</p>
+                    <div className="flex flex-wrap gap-2">
+                      {composeColorOptions.map((colorOption) => {
+                        const isActive = selectedComposeColors.some(
+                          (item) => item.toLowerCase() === colorOption.toLowerCase()
+                        );
+                        return (
+                          <button
+                            key={colorOption}
+                            type="button"
+                            title={colorOption}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
+                              isActive ? "border-ink" : "border-sepia-border"
+                            }`}
+                            onClick={() =>
+                              toggleMatrixValue(matrixColors, setMatrixColors, colorOption)
+                            }
+                          >
+                            <span
+                              className="h-5 w-5 rounded-full border border-ink/15"
+                              style={{ backgroundColor: resolveColorSwatchHex(colorOption) }}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={customColorInput}
+                        onChange={(event) => setCustomColorInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addMatrixValue(matrixColors, setMatrixColors, customColorInput);
+                            setCustomColorInput("");
+                          }
+                        }}
+                        placeholder="Add custom color (e.g. Mint or #98d8c8)"
+                        className="w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        className="btn-secondary whitespace-nowrap"
+                        onClick={() => {
+                          addMatrixValue(matrixColors, setMatrixColors, customColorInput);
+                          setCustomColorInput("");
+                        }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {showBasicInfoErrors && basicInfoErrors.slug ? (
+                  <p className="text-xs text-seal-wax">{basicInfoErrors.slug}</p>
+                ) : null}
         </div>
-      </section>
+      </CreateProductSectionCard>
 
       {categoryFeedback ? <p className="text-xs text-charcoal">{categoryFeedback}</p> : null}
       {isCategoryModalOpen ? (
@@ -1921,14 +2104,12 @@ function ProductFormFields({
           </div>
         </div>
       ) : null}
-      </div>
-        );
-      })()}
-
-      <div className={`${currentStep === "IMAGES" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
-          <div className="space-y-3">
+      <div
+        className={`${currentStep === "COMPOSE" ? "space-y-3 rounded-xl border border-sepia-border bg-paper-light/70 p-5 shadow-[0_1px_0_rgba(54,41,29,0.04)]" : "hidden"}`}
+      >
+          <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-ink">Images</h3>
+              <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-charcoal">Images</h3>
               <div className="flex flex-wrap items-center gap-2">
               <input
                 ref={imageFileInputRef}
@@ -1966,7 +2147,7 @@ function ProductFormFields({
           </div>
 
           <div
-            className={`rounded-md border border-dashed p-4 text-sm transition-colors ${
+            className={`rounded-lg border border-dashed p-6 text-sm transition-colors ${
               isDragOver ? "border-antique-brass bg-antique-brass/10" : "border-sepia-border bg-paper-light/40"
             }`}
             onDragOver={(event) => {
@@ -1981,12 +2162,13 @@ function ProductFormFields({
               queueFilesForUpload(files);
             }}
           >
-            <p className="font-medium text-ink">Drag and drop images here</p>
-            <p className="text-xs text-charcoal">
+            <p className="text-center font-medium text-ink">Drop your images here, or click to browse</p>
+            <p className="text-center text-xs text-charcoal">
               JPG, PNG, WEBP, AVIF up to 8 MB. Multiple files supported.
             </p>
-            <p className="mt-1 text-xs text-charcoal/80">
-              Tip: use “Make Primary” to pin the first image shown in listings and product pages.
+            <p className="mt-1 text-center text-xs text-charcoal/80">
+              Tip: use &quot;Make Primary&quot; to pin the first image shown in listings and product
+              pages.
             </p>
           </div>
 
@@ -2053,26 +2235,23 @@ function ProductFormFields({
           ) : null}
         </div>
         {draft.images.map((image, index) => (
-          <div
-            key={`image-${index}`}
-            className="grid gap-2 sm:grid-cols-[1fr_1fr_200px_110px_auto]"
-          >
+          <div key={`image-${index}`} className="grid gap-2 lg:grid-cols-12">
             <input
               value={image.url}
               onChange={(event) => onImageChange(index, "url", event.target.value)}
               placeholder="Image URL"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-4"
             />
             <input
               value={image.alt ?? ""}
               onChange={(event) => onImageChange(index, "alt", event.target.value)}
               placeholder="Alt text"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
             />
             <select
               value={image.variantId ?? ""}
               onChange={(event) => onImageChange(index, "variantId", event.target.value)}
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
             >
               <option value="">Unassigned (all variants)</option>
               {draft.variants
@@ -2089,11 +2268,11 @@ function ProductFormFields({
               type="number"
               value={image.sortOrder}
               onChange={(event) => onImageChange(index, "sortOrder", event.target.value)}
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-1"
             />
             <button
               type="button"
-              className="btn-secondary"
+              className="btn-secondary w-full lg:col-span-1"
               disabled={isQueueUploading || draft.images.length <= 1}
               onClick={() =>
                 onDraftChange((prev) =>
@@ -2105,7 +2284,7 @@ function ProductFormFields({
             >
               Remove
             </button>
-            <div className="sm:col-span-full flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 lg:col-span-12">
               <button
                 type="button"
                 className="btn-secondary"
@@ -2189,8 +2368,11 @@ function ProductFormFields({
           </div>
         ))}
       </div>
+        </div>
+      </div>
+      </div>
 
-      <div className={`${currentStep === "VARIANTS" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
+      <div className={`${currentStep === "GENERATE" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-ink">Variants</h3>
           <div className="flex flex-wrap items-center gap-2">
@@ -2473,7 +2655,7 @@ function ProductFormFields({
         ))}
       </div>
 
-      <div className={`${currentStep === "VARIANTS" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-3`}>
+      <div className={`${currentStep === "GENERATE" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-3`}>
         <h3 className="text-sm font-semibold text-ink">Variant Matrix Generator</h3>
         <p className="text-xs text-charcoal">
           Generate color x size combinations and append only missing variants.
@@ -2554,7 +2736,7 @@ function ProductFormFields({
           <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Basic Info</p>
-              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("BASICS")}>
+              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("COMPOSE")}>
                 Jump to fix
               </button>
             </div>
@@ -2570,7 +2752,7 @@ function ProductFormFields({
           <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Media</p>
-              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("IMAGES")}>
+              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("COMPOSE")}>
                 Jump to fix
               </button>
             </div>
@@ -2582,7 +2764,7 @@ function ProductFormFields({
           <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Variants</p>
-              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("VARIANTS")}>
+              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("GENERATE")}>
                 Jump to fix
               </button>
             </div>
@@ -2602,3 +2784,4 @@ function ProductFormFields({
     </AdminWizardShell>
   );
 }
+

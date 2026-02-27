@@ -1,6 +1,6 @@
 export default function AdminCatalogLoadingPage() {
   return (
-    <main className="vintage-shell">
+    <main className="w-full space-y-6">
       <div className="h-11 w-44 animate-pulse rounded bg-sepia-border/45" />
       <div className="mt-6 vintage-panel p-5">
         <div className="space-y-3">

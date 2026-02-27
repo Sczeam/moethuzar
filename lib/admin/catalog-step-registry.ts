@@ -1,4 +1,4 @@
-export const catalogEditorSteps = ["BASICS", "IMAGES", "VARIANTS", "REVIEW"] as const;
+export const catalogEditorSteps = ["COMPOSE", "GENERATE", "REVIEW"] as const;
 
 export type CatalogEditorStepId = (typeof catalogEditorSteps)[number];
 
@@ -9,10 +9,9 @@ export type CatalogEditorStepMeta = {
 };
 
 export const catalogEditorStepRegistry: readonly CatalogEditorStepMeta[] = [
-  { id: "BASICS", label: "Basics", order: 0 },
-  { id: "IMAGES", label: "Images", order: 1 },
-  { id: "VARIANTS", label: "Variants", order: 2 },
-  { id: "REVIEW", label: "Review", order: 3 },
+  { id: "COMPOSE", label: "Compose", order: 0 },
+  { id: "GENERATE", label: "Generate Variants", order: 1 },
+  { id: "REVIEW", label: "Review", order: 2 },
 ] as const;
 
 export function getCatalogEditorStepLabel(step: CatalogEditorStepId): string {
