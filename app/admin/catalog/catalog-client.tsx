@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   type CatalogDraft,
@@ -314,7 +314,7 @@ function SortableImageRow({
             onClick={() => onRemove(index)}
             aria-label={`Remove image ${index + 1}`}
           >
-            �
+            ×
           </button>
         </div>
       </div>
@@ -2540,8 +2540,8 @@ function ProductFormFields({
                   Uploads: {completedUploadCount}/{uploadQueue.length}
                 </span>
                 <span>
-                  {isQueueUploading ? "Uploading..." : "Idle"} • {queueSummary.uploading} uploading
-                  • {queueSummary.failed} failed
+                  {isQueueUploading ? "Uploading..." : "Idle"} â€¢ {queueSummary.uploading} uploading
+                  â€¢ {queueSummary.failed} failed
                 </span>
               </div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -3172,5 +3172,6 @@ function ProductFormFields({
     </AdminWizardShell>
   );
 }
+
 
 
