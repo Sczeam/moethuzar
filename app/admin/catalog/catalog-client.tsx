@@ -221,9 +221,6 @@ type SortableImageRowProps = {
   variantOptions: Array<{ id: string; label: string }>;
   onImageChange: (index: number, key: keyof ProductImageItem, value: string) => void;
   onRemove: (index: number) => void;
-  onMoveUp: (index: number) => void;
-  onMoveDown: (index: number) => void;
-  onMakePrimary: (index: number) => void;
 };
 
 function SortableImageRow({
@@ -235,9 +232,6 @@ function SortableImageRow({
   variantOptions,
   onImageChange,
   onRemove,
-  onMoveUp,
-  onMoveDown,
-  onMakePrimary,
 }: SortableImageRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: dndId,
@@ -260,21 +254,16 @@ function SortableImageRow({
       }`}
     >
       <div className="flex items-center gap-2 lg:col-span-12">
-        <button
-          type="button"
-          className="btn-secondary px-2 py-1 text-xs disabled:opacity-60"
-          aria-label={`Reorder image ${index + 1}`}
-          disabled={isQueueUploading || totalImages <= 1}
-          {...attributes}
-          {...listeners}
-        >
-          Drag
-        </button>
         <span className="text-xs text-charcoal">Image {index + 1}</span>
       </div>
 
       <div className="overflow-hidden rounded-md border border-sepia-border bg-parchment/60 lg:col-span-2">
-        <div className="relative aspect-[4/5] w-full">
+        <div
+          className="relative aspect-[4/5] w-full cursor-grab active:cursor-grabbing"
+          aria-label={`Reorder image ${index + 1}`}
+          {...attributes}
+          {...listeners}
+        >
           {hasPreview ? (
             <Image
               src={imageUrl}
@@ -288,16 +277,21 @@ function SortableImageRow({
               No Preview
             </div>
           )}
+          <button
+            type="button"
+            className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-sepia-border bg-parchment/95 text-sm leading-none text-ink shadow-sm"
+            disabled={isQueueUploading || totalImages <= 1}
+            onPointerDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onClick={() => onRemove(index)}
+            aria-label={`Remove image ${index + 1}`}
+          >
+            ×
+          </button>
         </div>
       </div>
       <div className="space-y-2 lg:col-span-10">
-        <div className="grid gap-2 lg:grid-cols-11">
-          <input
-            value={image.url}
-            onChange={(event) => onImageChange(index, "url", event.target.value)}
-            placeholder="Image URL"
-            className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-4"
-          />
+        <div className="grid gap-2 lg:grid-cols-7">
           <input
             value={image.alt ?? ""}
             onChange={(event) => onImageChange(index, "alt", event.target.value)}
@@ -316,55 +310,13 @@ function SortableImageRow({
               </option>
             ))}
           </select>
-          <input
-            type="number"
-            value={image.sortOrder}
-            onChange={(event) => onImageChange(index, "sortOrder", event.target.value)}
-            className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-1"
-          />
-          <button
-            type="button"
-            className="btn-secondary w-full lg:col-span-1"
-            disabled={isQueueUploading || totalImages <= 1}
-            onClick={() => onRemove(index)}
-          >
-            Remove
-          </button>
+          <div className="flex items-center justify-end rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-xs uppercase tracking-[0.08em] text-charcoal lg:col-span-2">
+            {index === 0 ? "Primary" : "Drag to reorder"}
+          </div>
         </div>
         <p className="text-xs text-charcoal/80">
-          {hasPreview ? imageUrl : "Add a URL or upload a file to preview this image."}
+          {hasPreview ? "Drag image cards to reorder. First image is used as primary." : "Upload a file to preview this image."}
         </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 lg:col-span-12">
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={isQueueUploading || index === 0}
-          onClick={() => onMoveUp(index)}
-        >
-          Move Up
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={isQueueUploading || index >= totalImages - 1}
-          onClick={() => onMoveDown(index)}
-        >
-          Move Down
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={isQueueUploading || index === 0}
-          onClick={() => onMakePrimary(index)}
-        >
-          Make Primary
-        </button>
-        {index === 0 ? (
-          <span className="rounded border border-sepia-border px-2 py-1 text-xs uppercase tracking-[0.08em] text-charcoal">
-            Primary
-          </span>
-        ) : null}
       </div>
     </div>
   );
@@ -2462,22 +2414,6 @@ function ProductFormFields({
               >
                 Select Files
               </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={isQueueUploading}
-                onClick={() =>
-                  onDraftChange((prev) => ({
-                    ...prev,
-                    images: [
-                      ...prev.images,
-                      { url: "", alt: "", variantId: null, sortOrder: prev.images.length },
-                    ],
-                  }))
-                }
-              >
-                Add URL Row
-              </button>
             </div>
           </div>
 
@@ -2587,9 +2523,6 @@ function ProductFormFields({
                   variantOptions={assignableVariantOptions}
                   onImageChange={onImageChange}
                   onRemove={removeImageRow}
-                  onMoveUp={(imageIndex) => reorderImageDraft(imageIndex, imageIndex - 1)}
-                  onMoveDown={(imageIndex) => reorderImageDraft(imageIndex, imageIndex + 1)}
-                  onMakePrimary={(imageIndex) => reorderImageDraft(imageIndex, 0)}
                 />
               ))}
             </div>
