@@ -24,7 +24,7 @@ const cooperBlack = localFont({
 
 export const metadata: Metadata = {
   title: "Moethuzar",
-  description: "Vintage streetwear storefront from Myanmar",
+  description: "Local clothing brand from Myanmar",
 };
 
 export default function RootLayout({
