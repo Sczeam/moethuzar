@@ -166,6 +166,16 @@ function iconByLabel(label: string): ReactNode {
   );
 }
 
+function isRouteActive(pathname: string, href: string): boolean {
+  if (pathname === href) {
+    return true;
+  }
+  if (href === "/admin") {
+    return false;
+  }
+  return pathname.startsWith(`${href}/`);
+}
+
 export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId }: AdminSidebarProps) {
   const sections = buildSidebarSections(groups);
 
@@ -209,11 +219,39 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                   {section.label}
                 </h2>
                 <ul className="mt-2 space-y-1.5">
-                  {section.groups.map((group) => {
+                  {(() => {
+                    const activeGroupId = section.groups.find((group) => {
+                      if (group.disabled) {
+                        return false;
+                      }
+
+                      const activeChild = group.children?.find((item) => {
+                        if (item.disabled || !item.href) {
+                          return false;
+                        }
+                        return isRouteActive(pathname, item.href);
+                      });
+                      if (activeChild) {
+                        return true;
+                      }
+
+                      const groupHref = group.href;
+                      if (!groupHref) {
+                        return false;
+                      }
+                      return isRouteActive(pathname, groupHref);
+                    })?.id;
+
+                    return section.groups.map((group) => {
                     const href = group.href;
-                    const isGroupActive =
-                      Boolean(href) && (pathname === href || pathname.startsWith(`${href}/`));
                     const groupDisabled = group.disabled || !href;
+                    const activeChildId = group.children?.find((item) => {
+                      if (item.disabled || !item.href) {
+                        return false;
+                      }
+                      return isRouteActive(pathname, item.href);
+                    })?.id;
+                    const isGroupActive = group.id === activeGroupId;
 
                     return (
                       <li key={group.id} className="space-y-1">
@@ -250,9 +288,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                           <ul className="space-y-0.5 pl-8">
                             {group.children.map((item) => {
                               const childHref = item.href;
-                              const isChildActive =
-                                Boolean(childHref) &&
-                                (pathname === childHref || pathname.startsWith(`${childHref}/`));
+                              const isChildActive = item.id === activeChildId;
                               const childDisabled = item.disabled || !childHref;
 
                               if (childDisabled) {
@@ -286,7 +322,8 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                         ) : null}
                       </li>
                     );
-                  })}
+                  });
+                  })()}
                 </ul>
               </section>
             ))}
