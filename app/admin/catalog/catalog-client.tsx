@@ -35,6 +35,7 @@ import { CreateProductSectionCard } from "@/components/admin/catalog/create-prod
 import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
 import { CSS } from "@dnd-kit/utilities";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -242,6 +243,8 @@ function SortableImageRow({
     id: dndId,
     disabled: isQueueUploading || totalImages <= 1,
   });
+  const imageUrl = image.url.trim();
+  const hasPreview = imageUrl.length > 0;
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -257,87 +260,102 @@ function SortableImageRow({
       }`}
     >
       <div className="flex items-center gap-2 lg:col-span-12">
-        <button
-          type="button"
-          className="btn-secondary px-2 py-1 text-xs disabled:opacity-60"
-          aria-label={`Reorder image ${index + 1}`}
-          disabled={isQueueUploading || totalImages <= 1}
-          {...attributes}
-          {...listeners}
-        >
-          Drag
-        </button>
         <span className="text-xs text-charcoal">Image {index + 1}</span>
       </div>
 
-      <input
-        value={image.url}
-        onChange={(event) => onImageChange(index, "url", event.target.value)}
-        placeholder="Image URL"
-        className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-4"
-      />
-      <input
-        value={image.alt ?? ""}
-        onChange={(event) => onImageChange(index, "alt", event.target.value)}
-        placeholder="Alt text"
-        className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
-      />
-      <select
-        value={image.variantId ?? ""}
-        onChange={(event) => onImageChange(index, "variantId", event.target.value)}
-        className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
-      >
-        <option value="">Unassigned (all variants)</option>
-        {variantOptions.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <input
-        type="number"
-        value={image.sortOrder}
-        onChange={(event) => onImageChange(index, "sortOrder", event.target.value)}
-        className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-1"
-      />
-      <button
-        type="button"
-        className="btn-secondary w-full lg:col-span-1"
-        disabled={isQueueUploading || totalImages <= 1}
-        onClick={() => onRemove(index)}
-      >
-        Remove
-      </button>
-      <div className="flex flex-wrap items-center gap-2 lg:col-span-12">
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={isQueueUploading || index === 0}
-          onClick={() => onMoveUp(index)}
+      <div className="overflow-hidden rounded-md border border-sepia-border bg-parchment/60 lg:col-span-2">
+        <div
+          className="relative aspect-[4/5] w-full"
         >
-          Move Up
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={isQueueUploading || index >= totalImages - 1}
-          onClick={() => onMoveDown(index)}
-        >
-          Move Down
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={isQueueUploading || index === 0}
-          onClick={() => onMakePrimary(index)}
-        >
-          Make Primary
-        </button>
-        {index === 0 ? (
-          <span className="rounded border border-sepia-border px-2 py-1 text-xs uppercase tracking-[0.08em] text-charcoal">
-            Primary
-          </span>
-        ) : null}
+          {hasPreview ? (
+            <Image
+              src={imageUrl}
+              alt={image.alt?.trim() || `Product image ${index + 1}`}
+              fill
+              sizes="(max-width: 1024px) 100vw, 240px"
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.08em] text-charcoal/70">
+              No Preview
+            </div>
+          )}
+          <button
+            type="button"
+            className="absolute left-2 top-2 inline-flex h-6 items-center justify-center rounded-full border border-sepia-border bg-parchment/95 px-2 text-[10px] uppercase tracking-[0.08em] text-charcoal shadow-sm touch-none"
+            aria-label={`Reorder image ${index + 1}`}
+            disabled={isQueueUploading || totalImages <= 1}
+            {...attributes}
+            {...listeners}
+          >
+            Drag
+          </button>
+          <button
+            type="button"
+            className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-sepia-border bg-parchment/95 text-sm leading-none text-ink shadow-sm"
+            disabled={isQueueUploading || totalImages <= 1}
+            onPointerDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onClick={() => onRemove(index)}
+            aria-label={`Remove image ${index + 1}`}
+          >
+            ×
+          </button>
+        </div>
+      </div>
+      <div className="space-y-2 lg:col-span-10">
+        <div className="grid gap-2 lg:grid-cols-7">
+          <input
+            value={image.alt ?? ""}
+            onChange={(event) => onImageChange(index, "alt", event.target.value)}
+            placeholder="Alt text"
+            className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
+          />
+          <select
+            value={image.variantId ?? ""}
+            onChange={(event) => onImageChange(index, "variantId", event.target.value)}
+            className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-2"
+          >
+            <option value="">Unassigned</option>
+            {variantOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <div className="flex items-center justify-end rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-xs uppercase tracking-[0.08em] text-charcoal lg:col-span-2">
+            {index === 0 ? "Primary" : "Drag to reorder"}
+          </div>
+        </div>
+        <p className="text-xs text-charcoal/80">
+          {hasPreview ? "Drag image cards to reorder. First image is used as primary." : "Upload a file to preview this image."}
+        </p>
+        <div className="flex flex-wrap items-center gap-2 lg:hidden">
+          <button
+            type="button"
+            className="btn-secondary px-2 py-1 text-xs"
+            disabled={isQueueUploading || index === 0}
+            onClick={() => onMoveUp(index)}
+          >
+            Move Up
+          </button>
+          <button
+            type="button"
+            className="btn-secondary px-2 py-1 text-xs"
+            disabled={isQueueUploading || index >= totalImages - 1}
+            onClick={() => onMoveDown(index)}
+          >
+            Move Down
+          </button>
+          <button
+            type="button"
+            className="btn-secondary px-2 py-1 text-xs"
+            disabled={isQueueUploading || index === 0}
+            onClick={() => onMakePrimary(index)}
+          >
+            Set Primary
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2434,22 +2452,6 @@ function ProductFormFields({
                 onClick={() => imageFileInputRef.current?.click()}
               >
                 Select Files
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={isQueueUploading}
-                onClick={() =>
-                  onDraftChange((prev) => ({
-                    ...prev,
-                    images: [
-                      ...prev.images,
-                      { url: "", alt: "", variantId: null, sortOrder: prev.images.length },
-                    ],
-                  }))
-                }
-              >
-                Add URL Row
               </button>
             </div>
           </div>
