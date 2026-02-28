@@ -82,6 +82,14 @@ type UploadQueueItem = {
   error?: string;
 };
 
+type UploadQueueSummary = {
+  total: number;
+  uploading: number;
+  queued: number;
+  done: number;
+  failed: number;
+};
+
 type ProductItem = {
   id: string;
   name: string;
@@ -188,6 +196,20 @@ function mapUploadErrorMessage(error: unknown): string {
   }
 
   return "Upload failed. Try again.";
+}
+
+function summarizeUploadQueue(items: UploadQueueItem[]): UploadQueueSummary {
+  return items.reduce<UploadQueueSummary>(
+    (summary, item) => {
+      summary.total += 1;
+      if (item.status === "uploading") summary.uploading += 1;
+      if (item.status === "queued") summary.queued += 1;
+      if (item.status === "done") summary.done += 1;
+      if (item.status === "failed") summary.failed += 1;
+      return summary;
+    },
+    { total: 0, uploading: 0, queued: 0, done: 0, failed: 0 }
+  );
 }
 
 function normalizeImageSortOrder(images: ProductImageItem[]): ProductImageItem[] {
@@ -1582,6 +1604,10 @@ function ProductFormFields({
   }
 
   function retryUploadItem(itemId: string) {
+    if (isQueueUploading) {
+      return;
+    }
+
     const item = uploadQueue.find((entry) => entry.id === itemId);
     if (!item) {
       return;
@@ -1595,6 +1621,28 @@ function ProductFormFields({
     void processUploadQueue([{ ...item, status: "queued", progressPct: 0, error: undefined }]);
   }
 
+  function retryAllFailedUploads() {
+    if (isQueueUploading) {
+      return;
+    }
+
+    const failedItems = uploadQueue.filter((item) => item.status === "failed");
+    if (failedItems.length === 0) {
+      return;
+    }
+
+    setUploadQueue((prev) =>
+      prev.map((entry) =>
+        entry.status === "failed"
+          ? { ...entry, status: "queued", progressPct: 0, error: undefined }
+          : entry
+      )
+    );
+    void processUploadQueue(
+      failedItems.map((item) => ({ ...item, status: "queued", progressPct: 0, error: undefined }))
+    );
+  }
+
   function handleImageInputChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = event.target.files ? Array.from(event.target.files) : [];
     queueFilesForUpload(files);
@@ -1602,7 +1650,18 @@ function ProductFormFields({
   }
 
   function removeUploadQueueItem(itemId: string) {
+    const target = uploadQueue.find((item) => item.id === itemId);
+    if (target?.status === "uploading") {
+      return;
+    }
+
     setUploadQueue((prev) => prev.filter((item) => item.id !== itemId));
+  }
+
+  function clearCompletedUploads() {
+    setUploadQueue((prev) =>
+      prev.filter((item) => item.status !== "done" && item.status !== "failed")
+    );
   }
 
   const dndSensors = useSensors(
@@ -1689,9 +1748,8 @@ function ProductFormFields({
     [draft.variants]
   );
 
-  const completedUploadCount = uploadQueue.filter(
-    (item) => item.status === "done" || item.status === "failed"
-  ).length;
+  const queueSummary = useMemo(() => summarizeUploadQueue(uploadQueue), [uploadQueue]);
+  const completedUploadCount = queueSummary.done + queueSummary.failed;
   const overallUploadProgress =
     uploadQueue.length > 0
       ? Math.round((completedUploadCount / uploadQueue.length) * 100)
@@ -2484,11 +2542,32 @@ function ProductFormFields({
 
           {uploadQueue.length > 0 ? (
             <div className="rounded-md border border-sepia-border/70 bg-paper-light/30 p-3">
-              <div className="mb-2 flex items-center justify-between text-xs text-charcoal">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-charcoal">
                 <span>
                   Uploads: {completedUploadCount}/{uploadQueue.length}
                 </span>
-                <span>{isQueueUploading ? "Uploading..." : "Idle"}</span>
+                <span>
+                  {isQueueUploading ? "Uploading..." : "Idle"} • {queueSummary.uploading} uploading
+                  • {queueSummary.failed} failed
+                </span>
+              </div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-secondary disabled:opacity-60"
+                  disabled={isQueueUploading || queueSummary.failed === 0}
+                  onClick={retryAllFailedUploads}
+                >
+                  Retry All Failed
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary disabled:opacity-60"
+                  disabled={isQueueUploading || completedUploadCount === 0}
+                  onClick={clearCompletedUploads}
+                >
+                  Clear Completed
+                </button>
               </div>
               <div className="h-2 w-full overflow-hidden rounded bg-sepia-border/40">
                 <div
@@ -2521,7 +2600,8 @@ function ProductFormFields({
                         {item.status === "failed" ? (
                           <button
                             type="button"
-                            className="btn-secondary"
+                            className="btn-secondary disabled:opacity-60"
+                            disabled={isQueueUploading}
                             onClick={() => retryUploadItem(item.id)}
                           >
                             Retry
