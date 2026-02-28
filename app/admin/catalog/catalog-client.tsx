@@ -82,6 +82,10 @@ type UploadQueueItem = {
   error?: string;
 };
 
+type FileValidationResult =
+  | { ok: true }
+  | { ok: false; code: "INVALID_FILE_TYPE" | "FILE_TOO_LARGE"; message: string };
+
 type UploadQueueSummary = {
   total: number;
   uploading: number;
@@ -196,6 +200,29 @@ function mapUploadErrorMessage(error: unknown): string {
   }
 
   return "Upload failed. Try again.";
+}
+
+function validateUploadFile(file: File): FileValidationResult {
+  const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
+  const maxBytes = 8 * 1024 * 1024;
+
+  if (!allowedTypes.has(file.type)) {
+    return {
+      ok: false,
+      code: "INVALID_FILE_TYPE",
+      message: `${file.name}: unsupported file type. Use JPG, PNG, WEBP, or AVIF.`,
+    };
+  }
+
+  if (file.size > maxBytes) {
+    return {
+      ok: false,
+      code: "FILE_TOO_LARGE",
+      message: `${file.name}: ${formatFileSize(file.size)} exceeds 8.0 MB max.`,
+    };
+  }
+
+  return { ok: true };
 }
 
 function summarizeUploadQueue(items: UploadQueueItem[]): UploadQueueSummary {
@@ -1537,15 +1564,38 @@ function ProductFormFields({
       return;
     }
 
-    const queuedItems: UploadQueueItem[] = files.map((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      status: "queued",
-      progressPct: 0,
-    }));
+    const queuedItems: UploadQueueItem[] = [];
+    const failedValidationItems: UploadQueueItem[] = [];
 
-    setUploadQueue((prev) => [...queuedItems, ...prev].slice(0, 20));
-    void processUploadQueue(queuedItems);
+    files.forEach((file) => {
+      const validation = validateUploadFile(file);
+      if (validation.ok) {
+        queuedItems.push({
+          id: crypto.randomUUID(),
+          file,
+          status: "queued",
+          progressPct: 0,
+        });
+        return;
+      }
+
+      failedValidationItems.push({
+        id: crypto.randomUUID(),
+        file,
+        status: "failed",
+        progressPct: 0,
+        error: validation.message,
+      });
+    });
+
+    if (queuedItems.length === 0 && failedValidationItems.length === 0) {
+      return;
+    }
+
+    setUploadQueue((prev) => [...queuedItems, ...failedValidationItems, ...prev].slice(0, 20));
+    if (queuedItems.length > 0) {
+      void processUploadQueue(queuedItems);
+    }
   }
 
   async function processUploadQueue(items: UploadQueueItem[]) {
