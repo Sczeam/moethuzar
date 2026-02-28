@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FALLBACK_SHIPPING_ZONE_KEY, SHIPPING_ZONE_KEYS } from "@/lib/constants/shipping-zones";
 import { MM_STATES_AND_DIVISIONS, CHECKOUT_TOWNSHIP_CITY_OPTIONS } from "@/lib/constants/mm-locations";
+import { ADMIN_SETTINGS_NAV_LINKS, SHIPPING_RULES_COPY } from "@/lib/admin/settings-copy";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 
 type ShippingRule = {
@@ -150,13 +151,13 @@ export default function ShippingRulesClient() {
       const response = await fetch("/api/admin/shipping-rules");
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, "Failed to load shipping rules."));
+        setStatusText(apiErrorText(data, SHIPPING_RULES_COPY.loadFailed));
         return;
       }
 
       setRules(data.rules as ShippingRule[]);
     } catch {
-      setStatusText("Unexpected error while loading shipping rules.");
+      setStatusText(SHIPPING_RULES_COPY.loadUnexpected);
     } finally {
       setLoading(false);
     }
@@ -180,15 +181,15 @@ export default function ShippingRulesClient() {
 
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, "Failed to create shipping rule."));
+        setStatusText(apiErrorText(data, SHIPPING_RULES_COPY.createFailed));
         return;
       }
 
-      setStatusText(`Created rule ${data.rule.name}.`);
+      setStatusText(SHIPPING_RULES_COPY.createSuccess(data.rule.name));
       setCreateDraft(createInitialDraft());
       await loadRules();
     } catch {
-      setStatusText("Unexpected error while creating shipping rule.");
+      setStatusText(SHIPPING_RULES_COPY.createUnexpected);
     } finally {
       setCreating(false);
     }
@@ -212,14 +213,14 @@ export default function ShippingRulesClient() {
 
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, "Failed to update shipping rule."));
+        setStatusText(apiErrorText(data, SHIPPING_RULES_COPY.updateFailed));
         return;
       }
 
-      setStatusText(`Updated rule ${data.rule.name}.`);
+      setStatusText(SHIPPING_RULES_COPY.updateSuccess(data.rule.name));
       await loadRules();
     } catch {
-      setStatusText("Unexpected error while updating shipping rule.");
+      setStatusText(SHIPPING_RULES_COPY.updateUnexpected);
     } finally {
       setSaving(false);
     }
@@ -235,7 +236,7 @@ export default function ShippingRulesClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, "Failed to delete shipping rule."));
+        setStatusText(apiErrorText(data, SHIPPING_RULES_COPY.deleteFailed));
         return;
       }
 
@@ -244,10 +245,10 @@ export default function ShippingRulesClient() {
         setEditingDraft(null);
       }
 
-      setStatusText("Shipping rule deleted.");
+      setStatusText(SHIPPING_RULES_COPY.deleteSuccess);
       await loadRules();
     } catch {
-      setStatusText("Unexpected error while deleting shipping rule.");
+      setStatusText(SHIPPING_RULES_COPY.deleteUnexpected);
     } finally {
       setDeletingId(null);
     }
@@ -256,29 +257,25 @@ export default function ShippingRulesClient() {
   return (
     <main className="vintage-shell">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-4xl font-semibold text-ink">Shipping Rules</h1>
+        <h1 className="text-4xl font-semibold text-ink">{SHIPPING_RULES_COPY.pageTitle}</h1>
         <div className="flex gap-2">
-          <Link href="/admin/orders" className="btn-secondary">
-            Orders
-          </Link>
-          <Link href="/admin/payment-transfer-methods" className="btn-secondary">
-            Payment Methods
-          </Link>
-          <Link href="/admin/catalog" className="btn-secondary">
-            Catalog
-          </Link>
+          {ADMIN_SETTINGS_NAV_LINKS.map((item) => (
+            <Link key={item.href} href={item.href} className="btn-secondary">
+              {item.label}
+            </Link>
+          ))}
         </div>
       </div>
 
       {!hasActiveFallback ? (
         <div className="mb-4 border border-seal-wax/40 bg-seal-wax/10 p-3 text-sm text-seal-wax">
-          No active fallback rule found. Checkout will be blocked until fallback is active.
+          {SHIPPING_RULES_COPY.fallbackMissingWarning}
         </div>
       ) : null}
 
       <section className="vintage-panel p-5">
-        <h2 className="text-xl font-semibold text-ink">Current Rules</h2>
-        {loading ? <p className="mt-3 text-sm text-charcoal">Loading...</p> : null}
+        <h2 className="text-xl font-semibold text-ink">{SHIPPING_RULES_COPY.currentSectionTitle}</h2>
+        {loading ? <p className="mt-3 text-sm text-charcoal">{SHIPPING_RULES_COPY.loadingText}</p> : null}
 
         {!loading ? (
           <div className="mt-3 overflow-x-auto">
@@ -333,7 +330,7 @@ export default function ShippingRulesClient() {
                 {rules.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-3 py-6 text-center text-charcoal">
-                      No shipping rules yet.
+                      {SHIPPING_RULES_COPY.emptyStateText}
                     </td>
                   </tr>
                 ) : null}
@@ -344,19 +341,21 @@ export default function ShippingRulesClient() {
       </section>
 
       <section className="vintage-panel mt-6 p-5">
-        <h2 className="text-xl font-semibold text-ink">Create Rule</h2>
+        <h2 className="text-xl font-semibold text-ink">{SHIPPING_RULES_COPY.createSectionTitle}</h2>
         <ShippingRuleForm
           draft={createDraft}
           onChange={setCreateDraft}
           onSubmit={createRule}
-          submitLabel={creating ? "Creating..." : "Create Rule"}
+          submitLabel={
+            creating ? SHIPPING_RULES_COPY.form.createSubmitting : SHIPPING_RULES_COPY.form.createSubmit
+          }
           disabled={creating}
         />
       </section>
 
       {editingDraft && editingId ? (
         <section className="vintage-panel mt-6 p-5">
-          <h2 className="text-xl font-semibold text-ink">Edit Rule</h2>
+          <h2 className="text-xl font-semibold text-ink">{SHIPPING_RULES_COPY.editSectionTitle}</h2>
           <p className="mt-1 text-xs text-charcoal">Rule ID: {editingId}</p>
           <ShippingRuleForm
             draft={editingDraft}
@@ -369,7 +368,9 @@ export default function ShippingRulesClient() {
               })
             }
             onSubmit={updateRule}
-            submitLabel={saving ? "Saving..." : "Save Rule"}
+            submitLabel={
+              saving ? SHIPPING_RULES_COPY.form.editSubmitting : SHIPPING_RULES_COPY.form.editSubmit
+            }
             disabled={saving}
           />
           <button
@@ -380,7 +381,7 @@ export default function ShippingRulesClient() {
               setEditingDraft(null);
             }}
           >
-            Close Editor
+            {SHIPPING_RULES_COPY.closeEditorLabel}
           </button>
         </section>
       ) : null}

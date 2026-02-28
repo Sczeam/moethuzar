@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import {
+  ADMIN_SETTINGS_NAV_LINKS,
+  PAYMENT_TRANSFER_METHODS_COPY,
+} from "@/lib/admin/settings-copy";
+import {
   type Dispatch,
   type FormEvent,
   type SetStateAction,
@@ -121,13 +125,13 @@ export default function PaymentTransferMethodsClient() {
       const response = await fetch("/api/admin/payment-transfer-methods");
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, "Failed to load payment transfer methods."));
+        setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.loadFailed));
         return;
       }
 
       setMethods(data.methods as PaymentTransferMethod[]);
     } catch {
-      setStatusText("Unexpected error while loading payment transfer methods.");
+      setStatusText(PAYMENT_TRANSFER_METHODS_COPY.loadUnexpected);
     } finally {
       setLoading(false);
     }
@@ -149,14 +153,14 @@ export default function PaymentTransferMethodsClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, "Failed to create payment transfer method."));
+        setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.createFailed));
         return;
       }
       setCreateDraft(createInitialDraft());
-      setStatusText(`Created ${data.method.label}.`);
+      setStatusText(PAYMENT_TRANSFER_METHODS_COPY.createSuccess(data.method.label));
       await loadMethods();
     } catch {
-      setStatusText("Unexpected error while creating payment transfer method.");
+      setStatusText(PAYMENT_TRANSFER_METHODS_COPY.createUnexpected);
     } finally {
       setCreating(false);
     }
@@ -178,14 +182,14 @@ export default function PaymentTransferMethodsClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, "Failed to update payment transfer method."));
+        setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.updateFailed));
         return;
       }
 
-      setStatusText(`Updated ${data.method.label}.`);
+      setStatusText(PAYMENT_TRANSFER_METHODS_COPY.updateSuccess(data.method.label));
       await loadMethods();
     } catch {
-      setStatusText("Unexpected error while updating payment transfer method.");
+      setStatusText(PAYMENT_TRANSFER_METHODS_COPY.updateUnexpected);
     } finally {
       setSaving(false);
     }
@@ -200,7 +204,7 @@ export default function PaymentTransferMethodsClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, "Failed to delete payment transfer method."));
+        setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.deleteFailed));
         return;
       }
 
@@ -209,10 +213,10 @@ export default function PaymentTransferMethodsClient() {
         setEditingDraft(null);
       }
 
-      setStatusText("Payment transfer method deleted.");
+      setStatusText(PAYMENT_TRANSFER_METHODS_COPY.deleteSuccess);
       await loadMethods();
     } catch {
-      setStatusText("Unexpected error while deleting payment transfer method.");
+      setStatusText(PAYMENT_TRANSFER_METHODS_COPY.deleteUnexpected);
     } finally {
       setDeletingId(null);
     }
@@ -221,25 +225,27 @@ export default function PaymentTransferMethodsClient() {
   return (
     <main className="vintage-shell">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-4xl font-semibold text-ink">Payment Transfer Methods</h1>
+        <h1 className="text-4xl font-semibold text-ink">{PAYMENT_TRANSFER_METHODS_COPY.pageTitle}</h1>
         <div className="flex gap-2">
-          <Link href="/admin/orders" className="btn-secondary">
-            Orders
-          </Link>
-          <Link href="/admin/shipping-rules" className="btn-secondary">
-            Shipping Rules
-          </Link>
-          <Link href="/admin/catalog" className="btn-secondary">
-            Catalog
-          </Link>
+          {ADMIN_SETTINGS_NAV_LINKS.map((item) => (
+            <Link key={item.href} href={item.href} className="btn-secondary">
+              {item.label}
+            </Link>
+          ))}
         </div>
       </div>
 
-      <p className="mb-4 text-sm text-charcoal">Active methods in checkout: {activeCount}</p>
+      <p className="mb-4 text-sm text-charcoal">
+        {PAYMENT_TRANSFER_METHODS_COPY.activeCountLabel(activeCount)}
+      </p>
 
       <section className="vintage-panel p-5">
-        <h2 className="text-xl font-semibold text-ink">Current Methods</h2>
-        {loading ? <p className="mt-3 text-sm text-charcoal">Loading...</p> : null}
+        <h2 className="text-xl font-semibold text-ink">
+          {PAYMENT_TRANSFER_METHODS_COPY.currentSectionTitle}
+        </h2>
+        {loading ? (
+          <p className="mt-3 text-sm text-charcoal">{PAYMENT_TRANSFER_METHODS_COPY.loadingText}</p>
+        ) : null}
         {!loading ? (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -292,7 +298,7 @@ export default function PaymentTransferMethodsClient() {
                 {methods.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-3 py-6 text-center text-charcoal">
-                      No payment transfer methods yet.
+                      {PAYMENT_TRANSFER_METHODS_COPY.emptyStateText}
                     </td>
                   </tr>
                 ) : null}
@@ -303,19 +309,27 @@ export default function PaymentTransferMethodsClient() {
       </section>
 
       <section className="vintage-panel mt-6 p-5">
-        <h2 className="text-xl font-semibold text-ink">Create Method</h2>
+        <h2 className="text-xl font-semibold text-ink">
+          {PAYMENT_TRANSFER_METHODS_COPY.createSectionTitle}
+        </h2>
         <MethodForm
           draft={createDraft}
           onChange={setCreateDraft}
           onSubmit={createMethod}
-          submitLabel={creating ? "Creating..." : "Create Method"}
+          submitLabel={
+            creating
+              ? PAYMENT_TRANSFER_METHODS_COPY.form.createSubmitting
+              : PAYMENT_TRANSFER_METHODS_COPY.form.createSubmit
+          }
           disabled={creating}
         />
       </section>
 
       {editingDraft && editingId ? (
         <section className="vintage-panel mt-6 p-5">
-          <h2 className="text-xl font-semibold text-ink">Edit Method</h2>
+          <h2 className="text-xl font-semibold text-ink">
+            {PAYMENT_TRANSFER_METHODS_COPY.editSectionTitle}
+          </h2>
           <p className="mt-1 text-xs text-charcoal">Method ID: {editingId}</p>
           <MethodForm
             draft={editingDraft}
@@ -328,7 +342,11 @@ export default function PaymentTransferMethodsClient() {
               })
             }
             onSubmit={updateMethod}
-            submitLabel={saving ? "Saving..." : "Save Method"}
+            submitLabel={
+              saving
+                ? PAYMENT_TRANSFER_METHODS_COPY.form.editSubmitting
+                : PAYMENT_TRANSFER_METHODS_COPY.form.editSubmit
+            }
             disabled={saving}
           />
           <button
@@ -339,7 +357,7 @@ export default function PaymentTransferMethodsClient() {
               setEditingDraft(null);
             }}
           >
-            Close Editor
+            {PAYMENT_TRANSFER_METHODS_COPY.closeEditorLabel}
           </button>
         </section>
       ) : null}

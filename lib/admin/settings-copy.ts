@@ -1,0 +1,63 @@
+export const ADMIN_SETTINGS_NAV_LINKS = [
+  { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/shipping-rules", label: "Shipping Rules" },
+  { href: "/admin/payment-transfer-methods", label: "Payment Methods" },
+  { href: "/admin/catalog", label: "Catalog" },
+] as const;
+
+export const SHIPPING_RULES_COPY = {
+  pageTitle: "Shipping Rules",
+  fallbackMissingWarning:
+    "No active fallback rule found. Checkout will be blocked until fallback is active.",
+  currentSectionTitle: "Current Rules",
+  createSectionTitle: "Create Rule",
+  editSectionTitle: "Edit Rule",
+  loadingText: "Loading...",
+  emptyStateText: "No shipping rules yet.",
+  closeEditorLabel: "Close Editor",
+  createSuccess: (name: string) => `Created rule ${name}.`,
+  updateSuccess: (name: string) => `Updated rule ${name}.`,
+  deleteSuccess: "Shipping rule deleted.",
+  loadFailed: "Failed to load shipping rules.",
+  createFailed: "Failed to create shipping rule.",
+  updateFailed: "Failed to update shipping rule.",
+  deleteFailed: "Failed to delete shipping rule.",
+  loadUnexpected: "Unexpected error while loading shipping rules.",
+  createUnexpected: "Unexpected error while creating shipping rule.",
+  updateUnexpected: "Unexpected error while updating shipping rule.",
+  deleteUnexpected: "Unexpected error while deleting shipping rule.",
+  form: {
+    createSubmit: "Create Rule",
+    createSubmitting: "Creating...",
+    editSubmit: "Save Rule",
+    editSubmitting: "Saving...",
+  },
+} as const;
+
+export const PAYMENT_TRANSFER_METHODS_COPY = {
+  pageTitle: "Payment Transfer Methods",
+  activeCountLabel: (count: number) => `Active methods in checkout: ${count}`,
+  currentSectionTitle: "Current Methods",
+  createSectionTitle: "Create Method",
+  editSectionTitle: "Edit Method",
+  loadingText: "Loading...",
+  emptyStateText: "No payment transfer methods yet.",
+  closeEditorLabel: "Close Editor",
+  createSuccess: (label: string) => `Created ${label}.`,
+  updateSuccess: (label: string) => `Updated ${label}.`,
+  deleteSuccess: "Payment transfer method deleted.",
+  loadFailed: "Failed to load payment transfer methods.",
+  createFailed: "Failed to create payment transfer method.",
+  updateFailed: "Failed to update payment transfer method.",
+  deleteFailed: "Failed to delete payment transfer method.",
+  loadUnexpected: "Unexpected error while loading payment transfer methods.",
+  createUnexpected: "Unexpected error while creating payment transfer method.",
+  updateUnexpected: "Unexpected error while updating payment transfer method.",
+  deleteUnexpected: "Unexpected error while deleting payment transfer method.",
+  form: {
+    createSubmit: "Create Method",
+    createSubmitting: "Creating...",
+    editSubmit: "Save Method",
+    editSubmitting: "Saving...",
+  },
+} as const;
