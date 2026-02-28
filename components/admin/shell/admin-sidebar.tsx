@@ -225,23 +225,32 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                         return false;
                       }
 
-                      const activeChild = group.children?.find(
-                        (item) => !item.disabled && Boolean(item.href) && isRouteActive(pathname, item.href!)
-                      );
+                      const activeChild = group.children?.find((item) => {
+                        if (item.disabled || !item.href) {
+                          return false;
+                        }
+                        return isRouteActive(pathname, item.href);
+                      });
                       if (activeChild) {
                         return true;
                       }
 
                       const groupHref = group.href;
-                      return Boolean(groupHref) && isRouteActive(pathname, groupHref);
+                      if (!groupHref) {
+                        return false;
+                      }
+                      return isRouteActive(pathname, groupHref);
                     })?.id;
 
                     return section.groups.map((group) => {
                     const href = group.href;
                     const groupDisabled = group.disabled || !href;
-                    const activeChildId = group.children?.find(
-                      (item) => !item.disabled && Boolean(item.href) && isRouteActive(pathname, item.href!)
-                    )?.id;
+                    const activeChildId = group.children?.find((item) => {
+                      if (item.disabled || !item.href) {
+                        return false;
+                      }
+                      return isRouteActive(pathname, item.href);
+                    })?.id;
                     const isGroupActive = group.id === activeGroupId;
 
                     return (
