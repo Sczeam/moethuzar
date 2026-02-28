@@ -13,9 +13,27 @@ import {
   catalogEditorStepRegistry,
   type CatalogEditorStepId,
 } from "@/lib/admin/catalog-step-registry";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CreateProductPreviewCard } from "@/components/admin/catalog/create-product-preview-card";
 import { CreateProductSectionCard } from "@/components/admin/catalog/create-product-section-card";
 import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
+import { CSS } from "@dnd-kit/utilities";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -169,6 +187,160 @@ function mapUploadErrorMessage(error: unknown): string {
   }
 
   return "Upload failed. Try again.";
+}
+
+function normalizeImageSortOrder(images: ProductImageItem[]): ProductImageItem[] {
+  return images.map((image, imageIndex) => ({ ...image, sortOrder: imageIndex }));
+}
+
+function reorderImages(
+  images: ProductImageItem[],
+  fromIndex: number,
+  toIndex: number
+): ProductImageItem[] {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= images.length ||
+    toIndex >= images.length ||
+    fromIndex === toIndex
+  ) {
+    return images;
+  }
+
+  return normalizeImageSortOrder(arrayMove(images, fromIndex, toIndex));
+}
+
+type SortableImageRowProps = {
+  dndId: string;
+  index: number;
+  image: ProductImageItem;
+  totalImages: number;
+  isQueueUploading: boolean;
+  variantOptions: Array<{ id: string; label: string }>;
+  onImageChange: (index: number, key: keyof ProductImageItem, value: string) => void;
+  onRemove: (index: number) => void;
+  onMoveUp: (index: number) => void;
+  onMoveDown: (index: number) => void;
+  onMakePrimary: (index: number) => void;
+};
+
+function SortableImageRow({
+  dndId,
+  index,
+  image,
+  totalImages,
+  isQueueUploading,
+  variantOptions,
+  onImageChange,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+  onMakePrimary,
+}: SortableImageRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: dndId,
+    disabled: isQueueUploading || totalImages <= 1,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`grid gap-2 rounded-md border border-sepia-border/60 p-2 lg:grid-cols-12 ${
+        isDragging ? "bg-paper-light/50 shadow-sm" : "bg-transparent"
+      }`}
+    >
+      <div className="flex items-center gap-2 lg:col-span-12">
+        <button
+          type="button"
+          className="btn-secondary px-2 py-1 text-xs disabled:opacity-60"
+          aria-label={`Reorder image ${index + 1}`}
+          disabled={isQueueUploading || totalImages <= 1}
+          {...attributes}
+          {...listeners}
+        >
+          Drag
+        </button>
+        <span className="text-xs text-charcoal">Image {index + 1}</span>
+      </div>
+
+      <input
+        value={image.url}
+        onChange={(event) => onImageChange(index, "url", event.target.value)}
+        placeholder="Image URL"
+        className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-4"
+      />
+      <input
+        value={image.alt ?? ""}
+        onChange={(event) => onImageChange(index, "alt", event.target.value)}
+        placeholder="Alt text"
+        className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
+      />
+      <select
+        value={image.variantId ?? ""}
+        onChange={(event) => onImageChange(index, "variantId", event.target.value)}
+        className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
+      >
+        <option value="">Unassigned (all variants)</option>
+        {variantOptions.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <input
+        type="number"
+        value={image.sortOrder}
+        onChange={(event) => onImageChange(index, "sortOrder", event.target.value)}
+        className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-1"
+      />
+      <button
+        type="button"
+        className="btn-secondary w-full lg:col-span-1"
+        disabled={isQueueUploading || totalImages <= 1}
+        onClick={() => onRemove(index)}
+      >
+        Remove
+      </button>
+      <div className="flex flex-wrap items-center gap-2 lg:col-span-12">
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={isQueueUploading || index === 0}
+          onClick={() => onMoveUp(index)}
+        >
+          Move Up
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={isQueueUploading || index >= totalImages - 1}
+          onClick={() => onMoveDown(index)}
+        >
+          Move Down
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={isQueueUploading || index === 0}
+          onClick={() => onMakePrimary(index)}
+        >
+          Make Primary
+        </button>
+        {index === 0 ? (
+          <span className="rounded border border-sepia-border px-2 py-1 text-xs uppercase tracking-[0.08em] text-charcoal">
+            Primary
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 type CatalogClientView = "all" | "list" | "create";
@@ -1415,6 +1587,90 @@ function ProductFormFields({
     setUploadQueue((prev) => prev.filter((item) => item.id !== itemId));
   }
 
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 180,
+        tolerance: 6,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const imageDndIds = useMemo(
+    () => draft.images.map((_, imageIndex) => `image-row-${imageIndex}`),
+    [draft.images]
+  );
+
+  const reorderImageDraft = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      onDraftChange((prev) => ({
+        ...prev,
+        images: reorderImages(prev.images, fromIndex, toIndex),
+      }));
+    },
+    [onDraftChange]
+  );
+
+  const handleImageDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      if (isQueueUploading) {
+        return;
+      }
+
+      const { active, over } = event;
+      if (!over || active.id === over.id) {
+        return;
+      }
+
+      const fromIndex = imageDndIds.indexOf(String(active.id));
+      const toIndex = imageDndIds.indexOf(String(over.id));
+      if (fromIndex < 0 || toIndex < 0) {
+        return;
+      }
+
+      reorderImageDraft(fromIndex, toIndex);
+    },
+    [imageDndIds, isQueueUploading, reorderImageDraft]
+  );
+
+  const removeImageRow = useCallback(
+    (imageIndex: number) => {
+      onDraftChange((prev) =>
+        prev.images.length > 1
+          ? {
+              ...prev,
+              images: normalizeImageSortOrder(
+                prev.images.filter((_, itemIndex) => itemIndex !== imageIndex)
+              ),
+            }
+          : prev
+      );
+    },
+    [onDraftChange]
+  );
+
+  const assignableVariantOptions = useMemo(
+    () =>
+      draft.variants
+        .filter((variant): variant is ProductVariantItem & { id: string } => Boolean(variant.id))
+        .map((variant) => ({
+          id: variant.id,
+          label:
+            `${variant.sku} ${variant.color ? `(${variant.color}` : ""} ` +
+            `${variant.size ? `${variant.color ? "/" : "("}${variant.size}` : ""}` +
+            `${variant.color || variant.size ? ")" : ""}`,
+        })),
+    [draft.variants]
+  );
+
   const completedUploadCount = uploadQueue.filter(
     (item) => item.status === "done" || item.status === "failed"
   ).length;
@@ -2286,139 +2542,32 @@ function ProductFormFields({
             </div>
           ) : null}
         </div>
-        {draft.images.map((image, index) => (
-          <div key={`image-${index}`} className="grid gap-2 lg:grid-cols-12">
-            <input
-              value={image.url}
-              onChange={(event) => onImageChange(index, "url", event.target.value)}
-              placeholder="Image URL"
-              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-4"
-            />
-            <input
-              value={image.alt ?? ""}
-              onChange={(event) => onImageChange(index, "alt", event.target.value)}
-              placeholder="Alt text"
-              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
-            />
-            <select
-              value={image.variantId ?? ""}
-              onChange={(event) => onImageChange(index, "variantId", event.target.value)}
-              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
-            >
-              <option value="">Unassigned (all variants)</option>
-              {draft.variants
-                .filter((variant): variant is ProductVariantItem & { id: string } => Boolean(variant.id))
-                .map((variant) => (
-                  <option key={variant.id} value={variant.id}>
-                    {variant.sku} {variant.color ? `(${variant.color}` : ""}{" "}
-                    {variant.size ? `${variant.color ? "/" : "("}${variant.size}` : ""}
-                    {variant.color || variant.size ? ")" : ""}
-                  </option>
-                ))}
-            </select>
-            <input
-              type="number"
-              value={image.sortOrder}
-              onChange={(event) => onImageChange(index, "sortOrder", event.target.value)}
-              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-1"
-            />
-            <button
-              type="button"
-              className="btn-secondary w-full lg:col-span-1"
-              disabled={isQueueUploading || draft.images.length <= 1}
-              onClick={() =>
-                onDraftChange((prev) =>
-                  prev.images.length > 1
-                    ? { ...prev, images: prev.images.filter((_, itemIndex) => itemIndex !== index) }
-                    : prev
-                )
-              }
-            >
-              Remove
-            </button>
-            <div className="flex flex-wrap items-center gap-2 lg:col-span-12">
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={isQueueUploading || index === 0}
-                onClick={() =>
-                  onDraftChange((prev) => {
-                    if (index <= 0) {
-                      return prev;
-                    }
-                    const nextImages = [...prev.images];
-                    const current = nextImages[index];
-                    nextImages[index] = nextImages[index - 1];
-                    nextImages[index - 1] = current;
-                    return {
-                      ...prev,
-                      images: nextImages.map((item, imageIndex) => ({
-                        ...item,
-                        sortOrder: imageIndex,
-                      })),
-                    };
-                  })
-                }
-              >
-                Move Up
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={isQueueUploading || index >= draft.images.length - 1}
-                onClick={() =>
-                  onDraftChange((prev) => {
-                    if (index >= prev.images.length - 1) {
-                      return prev;
-                    }
-                    const nextImages = [...prev.images];
-                    const current = nextImages[index];
-                    nextImages[index] = nextImages[index + 1];
-                    nextImages[index + 1] = current;
-                    return {
-                      ...prev,
-                      images: nextImages.map((item, imageIndex) => ({
-                        ...item,
-                        sortOrder: imageIndex,
-                      })),
-                    };
-                  })
-                }
-              >
-                Move Down
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={isQueueUploading || index === 0}
-                onClick={() =>
-                  onDraftChange((prev) => {
-                    if (index === 0) {
-                      return prev;
-                    }
-                    const nextImages = [...prev.images];
-                    const [selected] = nextImages.splice(index, 1);
-                    nextImages.unshift(selected);
-                    return {
-                      ...prev,
-                      images: nextImages.map((item, imageIndex) => ({
-                        ...item,
-                        sortOrder: imageIndex,
-                      })),
-                    };
-                  })
-                }
-              >
-                Make Primary
-              </button>
-              {index === 0 ? (
-                <span className="rounded border border-sepia-border px-2 py-1 text-xs uppercase tracking-[0.08em] text-charcoal">
-                  Primary
-                </span>
-              ) : null}
+        <DndContext
+          sensors={dndSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleImageDragEnd}
+        >
+          <SortableContext items={imageDndIds} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {draft.images.map((image, index) => (
+                <SortableImageRow
+                  key={imageDndIds[index]}
+                  dndId={imageDndIds[index]}
+                  index={index}
+                  image={image}
+                  totalImages={draft.images.length}
+                  isQueueUploading={isQueueUploading}
+                  variantOptions={assignableVariantOptions}
+                  onImageChange={onImageChange}
+                  onRemove={removeImageRow}
+                  onMoveUp={(imageIndex) => reorderImageDraft(imageIndex, imageIndex - 1)}
+                  onMoveDown={(imageIndex) => reorderImageDraft(imageIndex, imageIndex + 1)}
+                  onMakePrimary={(imageIndex) => reorderImageDraft(imageIndex, 0)}
+                />
+              ))}
             </div>
-          </div>
-        ))}
+          </SortableContext>
+        </DndContext>
       </div>
         </div>
       </div>
