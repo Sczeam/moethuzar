@@ -13,6 +13,8 @@ import {
   catalogEditorStepRegistry,
   type CatalogEditorStepId,
 } from "@/lib/admin/catalog-step-registry";
+import { CreateProductPreviewCard } from "@/components/admin/catalog/create-product-preview-card";
+import { CreateProductSectionCard } from "@/components/admin/catalog/create-product-section-card";
 import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import Link from "next/link";
@@ -197,10 +199,10 @@ function inferStepFromIssuePath(path: string): CatalogEditorStepId {
     return "REVIEW";
   }
   if (path.startsWith("variants")) {
-    return "VARIANTS";
+    return "GENERATE";
   }
   if (path.startsWith("images")) {
-    return "IMAGES";
+    return "COMPOSE";
   }
   if (
     path.startsWith("name") ||
@@ -211,7 +213,7 @@ function inferStepFromIssuePath(path: string): CatalogEditorStepId {
     path.startsWith("status") ||
     path.startsWith("categoryId")
   ) {
-    return "BASICS";
+    return "COMPOSE";
   }
   return "REVIEW";
 }
@@ -248,6 +250,97 @@ function readValidationStepHint(data: unknown, fallbackMessage: string): Validat
   return null;
 }
 
+function CatalogEditorForm({
+  title,
+  subtitle,
+  draft,
+  draftIdentity,
+  currentStep,
+  onCurrentStepChange,
+  categories,
+  onCategoryCreated,
+  onDraftChange,
+  onImageChange,
+  onVariantChange,
+  onUploadImage,
+  mode,
+  onSubmit,
+  submitting,
+  submitIntent,
+  onSubmitIntentChange,
+  onClose,
+}: {
+  title: string;
+  subtitle?: string;
+  draft: CatalogDraft;
+  draftIdentity: string;
+  currentStep: CatalogEditorStepId;
+  onCurrentStepChange: (step: CatalogEditorStepId) => void;
+  categories: CategoryItem[];
+  onCategoryCreated: (category: CategoryItem) => void;
+  onDraftChange: DraftSetter;
+  onImageChange: (index: number, key: keyof ProductImageItem, value: string) => void;
+  onVariantChange: (
+    index: number,
+    key: keyof ProductVariantItem,
+    value: string | boolean
+  ) => void;
+  onUploadImage: (file: File, onProgress: (progressPct: number) => void) => Promise<void>;
+  mode: "create" | "edit";
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  submitting: boolean;
+  submitIntent: SubmitIntent;
+  onSubmitIntentChange: (intent: SubmitIntent) => void;
+  onClose?: () => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold text-ink">{title}</h2>
+        {subtitle ? <p className="mt-1 text-sm text-charcoal">{subtitle}</p> : null}
+      </div>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <ProductFormFields
+          draft={draft}
+          draftIdentity={draftIdentity}
+          currentStep={currentStep}
+          onCurrentStepChange={onCurrentStepChange}
+          categories={categories}
+          onCategoryCreated={onCategoryCreated}
+          onDraftChange={onDraftChange}
+          onImageChange={onImageChange}
+          onVariantChange={onVariantChange}
+          onUploadImage={onUploadImage}
+          mode={mode}
+        />
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={submitting}
+            onClick={() => onSubmitIntentChange("draft")}
+            className="btn-secondary disabled:opacity-60"
+          >
+            {submitting && submitIntent === "draft" ? "Saving Draft..." : "Save Draft"}
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            onClick={() => onSubmitIntentChange("publish")}
+            className="btn-primary disabled:opacity-60"
+          >
+            {submitting && submitIntent === "publish" ? "Publishing..." : "Publish"}
+          </button>
+          {onClose ? (
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Close
+            </button>
+          ) : null}
+        </div>
+      </form>
+    </section>
+  );
+}
+
 export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -259,11 +352,11 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   const [openingProductId, setOpeningProductId] = useState<string | null>(null);
   const [adjustingVariantId, setAdjustingVariantId] = useState<string | null>(null);
   const [createDraft, setCreateDraft] = useState<CatalogDraft>(createInitialCatalogDraft());
-  const [createCurrentStep, setCreateCurrentStep] = useState<CatalogEditorStepId>("BASICS");
+  const [createCurrentStep, setCreateCurrentStep] = useState<CatalogEditorStepId>("COMPOSE");
   const [createSubmitIntent, setCreateSubmitIntent] = useState<SubmitIntent>("draft");
   const [editingProduct, setEditingProduct] = useState<CatalogDraft | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [editCurrentStep, setEditCurrentStep] = useState<CatalogEditorStepId>("BASICS");
+  const [editCurrentStep, setEditCurrentStep] = useState<CatalogEditorStepId>("COMPOSE");
   const [editSubmitIntent, setEditSubmitIntent] = useState<SubmitIntent>("draft");
   const [inventoryDeltaByVariant, setInventoryDeltaByVariant] = useState<Record<string, string>>(
     {}
@@ -372,7 +465,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
     if (localProduct) {
       setEditingProductId(productId);
       setEditingProduct(applyProductToDraft(localProduct));
-      setEditCurrentStep("BASICS");
+      setEditCurrentStep("COMPOSE");
       setInventoryDeltaByVariant({});
       setInventoryNoteByVariant({});
     }
@@ -387,7 +480,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 
       setEditingProductId(productId);
       setEditingProduct(applyProductToDraft(data.product));
-      setEditCurrentStep("BASICS");
+      setEditCurrentStep("COMPOSE");
       setInventoryDeltaByVariant({});
       setInventoryNoteByVariant({});
       setStatusText("");
@@ -481,7 +574,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
           : `Created draft product ${data.product.name}.`
       );
       setCreateDraft(createInitialCatalogDraft(categoryFallbackId));
-      setCreateCurrentStep("BASICS");
+      setCreateCurrentStep("COMPOSE");
       await loadCatalog();
     } catch {
       setStatusText("Unexpected error while creating product.");
@@ -791,35 +884,17 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
   }
 
   return (
-    <main className="vintage-shell">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-4xl font-semibold text-ink">
-          {showCreateForm && !showProductList ? "Create Product" : "Catalog"}
-        </h1>
-        <div className="flex flex-wrap gap-2">
-          {showProductList ? (
+    <main className="w-full space-y-6">
+      {showProductList ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-4xl font-semibold text-ink">Catalog</h1>
+          <div className="flex flex-wrap gap-2">
             <Link href="/admin/catalog/new" className="btn-primary">
               Create Product
             </Link>
-          ) : (
-            <Link href="/admin/catalog" className="btn-secondary">
-              Back to Products
-            </Link>
-          )}
-          <Link href="/admin/orders" className="btn-secondary">
-            Orders
-          </Link>
-          <Link href="/admin/shipping-rules" className="btn-secondary">
-            Shipping Rules
-          </Link>
-          <Link href="/admin/payment-transfer-methods" className="btn-secondary">
-            Payment Methods
-          </Link>
-          <Link href="/" className="btn-secondary">
-            Storefront
-          </Link>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {loading ? (
         <div className="vintage-panel p-5">
@@ -901,99 +976,59 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
           ) : null}
 
           {showCreateForm ? (
-            <section className="vintage-panel p-5">
-            <h2 className="text-2xl font-semibold text-ink">Create Product</h2>
-            <form onSubmit={submitCreate} className="mt-4 space-y-4">
-              <ProductFormFields
-                draft={createDraft}
-                draftIdentity="create"
-                currentStep={createCurrentStep}
-                onCurrentStepChange={setCreateCurrentStep}
-                categories={categories}
-                onCategoryCreated={onCategoryCreated}
-                onDraftChange={setCreateDraftSafe}
-                onImageChange={(index, key, value) =>
-                  updateDraftImage(setCreateDraftSafe, index, key, value)
-                }
-                onVariantChange={(index, key, value) =>
-                  updateDraftVariant(setCreateDraftSafe, index, key, value)
-                }
-                onUploadImage={(file, onProgress) => uploadImage(file, "create", onProgress)}
-                mode="create"
-              />
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="submit"
-                  disabled={creating}
-                  onClick={() => setCreateSubmitIntent("draft")}
-                  className="btn-secondary disabled:opacity-60"
-                >
-                  {creating && createSubmitIntent === "draft" ? "Saving Draft..." : "Save Draft"}
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  onClick={() => setCreateSubmitIntent("publish")}
-                  className="btn-primary disabled:opacity-60"
-                >
-                  {creating && createSubmitIntent === "publish" ? "Publishing..." : "Publish"}
-                </button>
-              </div>
-            </form>
-          </section>
+            <CatalogEditorForm
+              title="Create Product"
+              draft={createDraft}
+              draftIdentity="create"
+              currentStep={createCurrentStep}
+              onCurrentStepChange={setCreateCurrentStep}
+              categories={categories}
+              onCategoryCreated={onCategoryCreated}
+              onDraftChange={setCreateDraftSafe}
+              onImageChange={(index, key, value) =>
+                updateDraftImage(setCreateDraftSafe, index, key, value)
+              }
+              onVariantChange={(index, key, value) =>
+                updateDraftVariant(setCreateDraftSafe, index, key, value)
+              }
+              onUploadImage={(file, onProgress) => uploadImage(file, "create", onProgress)}
+              mode="create"
+              onSubmit={submitCreate}
+              submitting={creating}
+              submitIntent={createSubmitIntent}
+              onSubmitIntentChange={setCreateSubmitIntent}
+            />
           ) : null}
 
           {showProductList && editingProduct && editingProductId ? (
-            <section className="vintage-panel p-5">
-              <h2 className="text-2xl font-semibold text-ink">Edit Product</h2>
-              <p className="mt-1 text-sm text-charcoal">Product ID: {editingProductId}</p>
-              <form onSubmit={submitUpdate} className="mt-4 space-y-4">
-                <ProductFormFields
-                  draft={editingProduct}
-                  draftIdentity={editingProductId}
-                  currentStep={editCurrentStep}
-                  onCurrentStepChange={setEditCurrentStep}
-                  categories={categories}
-                  onCategoryCreated={onCategoryCreated}
-                  onDraftChange={setEditingDraftSafe}
-                  onImageChange={(index, key, value) =>
-                    updateDraftImage(setEditingDraftSafe, index, key, value)
-                  }
-                  onVariantChange={(index, key, value) =>
-                    updateDraftVariant(setEditingDraftSafe, index, key, value)
-                  }
-                  onUploadImage={(file, onProgress) => uploadImage(file, "edit", onProgress)}
-                  mode="edit"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={updating}
-                    onClick={() => setEditSubmitIntent("draft")}
-                    className="btn-secondary disabled:opacity-60"
-                  >
-                    {updating && editSubmitIntent === "draft" ? "Saving Draft..." : "Save Draft"}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={updating}
-                    onClick={() => setEditSubmitIntent("publish")}
-                    className="btn-primary disabled:opacity-60"
-                  >
-                    {updating && editSubmitIntent === "publish" ? "Publishing..." : "Publish"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingProduct(null);
-                      setEditingProductId(null);
-                    }}
-                    className="btn-secondary"
-                  >
-                    Close
-                  </button>
-                </div>
-              </form>
+            <section className="space-y-4">
+              <CatalogEditorForm
+                title="Edit Product"
+                subtitle={`Product ID: ${editingProductId}`}
+                draft={editingProduct}
+                draftIdentity={editingProductId}
+                currentStep={editCurrentStep}
+                onCurrentStepChange={setEditCurrentStep}
+                categories={categories}
+                onCategoryCreated={onCategoryCreated}
+                onDraftChange={setEditingDraftSafe}
+                onImageChange={(index, key, value) =>
+                  updateDraftImage(setEditingDraftSafe, index, key, value)
+                }
+                onVariantChange={(index, key, value) =>
+                  updateDraftVariant(setEditingDraftSafe, index, key, value)
+                }
+                onUploadImage={(file, onProgress) => uploadImage(file, "edit", onProgress)}
+                mode="edit"
+                onSubmit={submitUpdate}
+                submitting={updating}
+                submitIntent={editSubmitIntent}
+                onSubmitIntentChange={setEditSubmitIntent}
+                onClose={() => {
+                  setEditingProduct(null);
+                  setEditingProductId(null);
+                }}
+              />
               <div className="mt-8">
                 <h3 className="text-lg font-semibold text-ink">Manual Inventory Adjustment</h3>
                 <p className="mt-1 text-sm text-charcoal">
@@ -1090,12 +1125,23 @@ function ProductFormFields({
   onUploadImage: (file: File, onProgress: (progressPct: number) => void) => Promise<void>;
   mode: "create" | "edit";
 }) {
+  const sizePresetOptions = ["XS", "S", "M", "L", "XL", "XXL"];
+  const colorPresetOptions = [
+    { label: "Black", hex: "#1f1b17" },
+    { label: "White", hex: "#f4f1eb" },
+    { label: "Blue", hex: "#3f5f8a" },
+    { label: "Red", hex: "#9f3b33" },
+    { label: "Pink", hex: "#ca8d93" },
+    { label: "Sand", hex: "#ccb08a" },
+  ];
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
   const [isQueueUploading, setIsQueueUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [matrixColors, setMatrixColors] = useState("");
   const [matrixSizes, setMatrixSizes] = useState("");
+  const [customSizeInput, setCustomSizeInput] = useState("");
+  const [customColorInput, setCustomColorInput] = useState("");
   const [matrixSkuPrefix, setMatrixSkuPrefix] = useState("");
   const [matrixNamePrefix, setMatrixNamePrefix] = useState("");
   const [matrixMaterial, setMatrixMaterial] = useState("");
@@ -1144,7 +1190,7 @@ function ProductFormFields({
 
     draftIdentityRef.current = draftIdentity;
     initialDraftSignatureRef.current = draftSignature;
-    onCurrentStepChange("BASICS");
+    onCurrentStepChange("COMPOSE");
   }, [draftIdentity, draftSignature, onCurrentStepChange]);
 
   useEffect(() => {
@@ -1670,6 +1716,51 @@ function ProductFormFields({
     setPresetFeedback(`Applied preset: ${preset.name}`);
   }
 
+  function toggleMatrixValue(
+    rawValue: string,
+    setter: (value: string) => void,
+    target: string
+  ) {
+    const list = parseListInput(rawValue);
+    const targetKey = target.toLowerCase();
+    const next = list.some((item) => item.toLowerCase() === targetKey)
+      ? list.filter((item) => item.toLowerCase() !== targetKey)
+      : [...list, target];
+    setter(next.join(", "));
+  }
+
+  function addMatrixValue(
+    rawValue: string,
+    setter: (value: string) => void,
+    target: string
+  ) {
+    const normalized = target.trim().replace(/\s+/g, " ");
+    if (!normalized) {
+      return;
+    }
+    const list = parseListInput(rawValue);
+    if (list.some((item) => item.toLowerCase() === normalized.toLowerCase())) {
+      return;
+    }
+    setter([...list, normalized].join(", "));
+  }
+
+  function resolveColorSwatchHex(colorLabel: string): string {
+    const label = colorLabel.trim();
+    const preset = colorPresetOptions.find(
+      (item) => item.label.toLowerCase() === label.toLowerCase()
+    );
+    if (preset) {
+      return preset.hex;
+    }
+
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(label)) {
+      return label;
+    }
+
+    return "#8d8070";
+  }
+
   function getBasicInfoErrors() {
     return {
       name: draft.name.trim().length === 0 ? "Product name is required." : "",
@@ -1683,20 +1774,17 @@ function ProductFormFields({
   }
 
   function validateStep(step: CatalogEditorStepId): string | null {
-    if (step === "BASICS") {
+    if (step === "COMPOSE") {
       const errors = getBasicInfoErrors();
       if (errors.name) return errors.name;
       if (errors.slug) return errors.slug;
       if (errors.price) return errors.price;
       if (errors.category) return errors.category;
-    }
-
-    if (step === "IMAGES") {
       const hasImage = draft.images.some((image) => image.url.trim().length > 0);
       if (!hasImage) return "Add at least one image URL or upload an image.";
     }
 
-    if (step === "VARIANTS") {
+    if (step === "GENERATE") {
       if (variantDiagnostics.hasBlocking) {
         return `Resolve variant warnings before moving to review (${variantBlockingCount} variant${variantBlockingCount === 1 ? "" : "s"} affected).`;
       }
@@ -1704,6 +1792,34 @@ function ProductFormFields({
 
     return null;
   }
+
+  const basicInfoErrors = getBasicInfoErrors();
+  const showBasicInfoErrors = currentStep === "COMPOSE";
+  const previewImage = draft.images.find((image) => image.url.trim().length > 0);
+  const selectedComposeSizes = parseListInput(matrixSizes);
+  const selectedComposeColors = parseListInput(matrixColors);
+  const composedSizes =
+    selectedComposeSizes.length > 0
+      ? selectedComposeSizes
+      : [...new Set(draft.variants.map((variant) => variant.size?.trim()).filter(Boolean))];
+  const composedColors =
+    selectedComposeColors.length > 0
+      ? selectedComposeColors
+      : [...new Set(draft.variants.map((variant) => variant.color?.trim()).filter(Boolean))];
+  const composeSizeOptions = [
+    ...sizePresetOptions,
+    ...selectedComposeSizes.filter(
+      (size) =>
+        !sizePresetOptions.some((preset) => preset.toLowerCase() === size.toLowerCase())
+    ),
+  ];
+  const composeColorOptions = [
+    ...colorPresetOptions.map((color) => color.label),
+    ...selectedComposeColors.filter(
+      (color) =>
+        !colorPresetOptions.some((preset) => preset.label.toLowerCase() === color.toLowerCase())
+    ),
+  ];
 
   return (
     <AdminWizardShell
@@ -1713,27 +1829,38 @@ function ProductFormFields({
       validateStep={validateStep}
       isDirty={isDirty}
     >
-      {(() => {
-        const basicInfoErrors = getBasicInfoErrors();
-        const showBasicInfoErrors = currentStep === "BASICS";
-        return (
-
-      <div className={currentStep === "BASICS" ? "space-y-4" : "hidden"}>
-      <section className="rounded-md border border-sepia-border p-4">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-charcoal">
-          Basic Information
-        </h3>
-        <p className="mt-1 text-xs text-charcoal/80">
-          Start with the essentials. Advanced settings stay hidden for now.
-        </p>
-        {mode === "create" ? (
-          <p className="mt-2 text-xs text-charcoal/80">
-            URL slug is auto-generated from product name. Variant image mapping unlocks after first
-            save.
-          </p>
-        ) : null}
-
-        <div className="mt-4 grid gap-4">
+      <div className={currentStep === "COMPOSE" ? "space-y-4" : "hidden"}>
+      <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="space-y-4">
+          <CreateProductPreviewCard
+            imageUrl={previewImage?.url}
+            imageAlt={previewImage?.alt ?? undefined}
+            name={draft.name}
+            priceLabel={`${draft.currency} ${draft.price || "0"}`}
+            sizeSummary={`Sizes: ${composedSizes.length > 0 ? composedSizes.join(", ") : "Not selected"}`}
+            colorSummary={`Colors: ${composedColors.length > 0 ? composedColors.join(", ") : "Not selected"}`}
+            footerAction={
+              <button
+                type="button"
+                className="btn-primary w-full"
+                onClick={() => onCurrentStepChange("GENERATE")}
+              >
+                Next
+              </button>
+            }
+          />
+        </aside>
+        <div className="space-y-5">
+      <CreateProductSectionCard
+        title="Basic Information"
+        subtitle="Start with essentials, then move to generated variants."
+        hint={
+          mode === "create"
+            ? "URL slug is auto-generated from product name. Variant image mapping unlocks after first save."
+            : undefined
+        }
+      >
+        <div className="grid gap-4">
           <div className="space-y-1">
             <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Product Name</label>
             <input
@@ -1768,7 +1895,7 @@ function ProductFormFields({
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-4">
             <div className="space-y-1">
               <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Base Price</label>
               <input
@@ -1849,13 +1976,121 @@ function ProductFormFields({
                 <p className="text-xs text-seal-wax">{basicInfoErrors.category}</p>
               ) : null}
             </div>
-          </div>
+                </div>
 
-          {showBasicInfoErrors && basicInfoErrors.slug ? (
-            <p className="text-xs text-seal-wax">{basicInfoErrors.slug}</p>
-          ) : null}
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Sizes</p>
+                    <div className="flex flex-wrap gap-2">
+                      {composeSizeOptions.map((sizeOption) => {
+                        const isActive = selectedComposeSizes.some(
+                          (item) => item.toLowerCase() === sizeOption.toLowerCase()
+                        );
+                        return (
+                          <button
+                            key={sizeOption}
+                            type="button"
+                            className={`rounded border px-3 py-1 text-xs ${
+                              isActive
+                                ? "border-antique-brass bg-antique-brass/15 text-ink"
+                                : "border-sepia-border bg-paper-light text-charcoal"
+                            }`}
+                            onClick={() =>
+                              toggleMatrixValue(matrixSizes, setMatrixSizes, sizeOption)
+                            }
+                          >
+                            {sizeOption}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={customSizeInput}
+                        onChange={(event) => setCustomSizeInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addMatrixValue(matrixSizes, setMatrixSizes, customSizeInput);
+                            setCustomSizeInput("");
+                          }
+                        }}
+                        placeholder="Add custom size (e.g. 3XL)"
+                        className="w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        className="btn-secondary whitespace-nowrap"
+                        onClick={() => {
+                          addMatrixValue(matrixSizes, setMatrixSizes, customSizeInput);
+                          setCustomSizeInput("");
+                        }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Colors</p>
+                    <div className="flex flex-wrap gap-2">
+                      {composeColorOptions.map((colorOption) => {
+                        const isActive = selectedComposeColors.some(
+                          (item) => item.toLowerCase() === colorOption.toLowerCase()
+                        );
+                        return (
+                          <button
+                            key={colorOption}
+                            type="button"
+                            title={colorOption}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
+                              isActive ? "border-ink" : "border-sepia-border"
+                            }`}
+                            onClick={() =>
+                              toggleMatrixValue(matrixColors, setMatrixColors, colorOption)
+                            }
+                          >
+                            <span
+                              className="h-5 w-5 rounded-full border border-ink/15"
+                              style={{ backgroundColor: resolveColorSwatchHex(colorOption) }}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={customColorInput}
+                        onChange={(event) => setCustomColorInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addMatrixValue(matrixColors, setMatrixColors, customColorInput);
+                            setCustomColorInput("");
+                          }
+                        }}
+                        placeholder="Add custom color (e.g. Mint or #98d8c8)"
+                        className="w-full rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        className="btn-secondary whitespace-nowrap"
+                        onClick={() => {
+                          addMatrixValue(matrixColors, setMatrixColors, customColorInput);
+                          setCustomColorInput("");
+                        }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {showBasicInfoErrors && basicInfoErrors.slug ? (
+                  <p className="text-xs text-seal-wax">{basicInfoErrors.slug}</p>
+                ) : null}
         </div>
-      </section>
+      </CreateProductSectionCard>
 
       {categoryFeedback ? <p className="text-xs text-charcoal">{categoryFeedback}</p> : null}
       {isCategoryModalOpen ? (
@@ -1921,14 +2156,12 @@ function ProductFormFields({
           </div>
         </div>
       ) : null}
-      </div>
-        );
-      })()}
-
-      <div className={`${currentStep === "IMAGES" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
-          <div className="space-y-3">
+      <div
+        className={`${currentStep === "COMPOSE" ? "space-y-3 rounded-xl border border-sepia-border bg-paper-light/70 p-5 shadow-[0_1px_0_rgba(54,41,29,0.04)]" : "hidden"}`}
+      >
+          <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-ink">Images</h3>
+              <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-charcoal">Images</h3>
               <div className="flex flex-wrap items-center gap-2">
               <input
                 ref={imageFileInputRef}
@@ -1966,7 +2199,7 @@ function ProductFormFields({
           </div>
 
           <div
-            className={`rounded-md border border-dashed p-4 text-sm transition-colors ${
+            className={`rounded-lg border border-dashed p-6 text-sm transition-colors ${
               isDragOver ? "border-antique-brass bg-antique-brass/10" : "border-sepia-border bg-paper-light/40"
             }`}
             onDragOver={(event) => {
@@ -1981,12 +2214,13 @@ function ProductFormFields({
               queueFilesForUpload(files);
             }}
           >
-            <p className="font-medium text-ink">Drag and drop images here</p>
-            <p className="text-xs text-charcoal">
+            <p className="text-center font-medium text-ink">Drop your images here, or click to browse</p>
+            <p className="text-center text-xs text-charcoal">
               JPG, PNG, WEBP, AVIF up to 8 MB. Multiple files supported.
             </p>
-            <p className="mt-1 text-xs text-charcoal/80">
-              Tip: use “Make Primary” to pin the first image shown in listings and product pages.
+            <p className="mt-1 text-center text-xs text-charcoal/80">
+              Tip: use &quot;Make Primary&quot; to pin the first image shown in listings and product
+              pages.
             </p>
           </div>
 
@@ -2053,26 +2287,23 @@ function ProductFormFields({
           ) : null}
         </div>
         {draft.images.map((image, index) => (
-          <div
-            key={`image-${index}`}
-            className="grid gap-2 sm:grid-cols-[1fr_1fr_200px_110px_auto]"
-          >
+          <div key={`image-${index}`} className="grid gap-2 lg:grid-cols-12">
             <input
               value={image.url}
               onChange={(event) => onImageChange(index, "url", event.target.value)}
               placeholder="Image URL"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-4"
             />
             <input
               value={image.alt ?? ""}
               onChange={(event) => onImageChange(index, "alt", event.target.value)}
               placeholder="Alt text"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
             />
             <select
               value={image.variantId ?? ""}
               onChange={(event) => onImageChange(index, "variantId", event.target.value)}
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-3"
             >
               <option value="">Unassigned (all variants)</option>
               {draft.variants
@@ -2089,11 +2320,11 @@ function ProductFormFields({
               type="number"
               value={image.sortOrder}
               onChange={(event) => onImageChange(index, "sortOrder", event.target.value)}
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+              className="min-w-0 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm lg:col-span-1"
             />
             <button
               type="button"
-              className="btn-secondary"
+              className="btn-secondary w-full lg:col-span-1"
               disabled={isQueueUploading || draft.images.length <= 1}
               onClick={() =>
                 onDraftChange((prev) =>
@@ -2105,7 +2336,7 @@ function ProductFormFields({
             >
               Remove
             </button>
-            <div className="sm:col-span-full flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 lg:col-span-12">
               <button
                 type="button"
                 className="btn-secondary"
@@ -2189,372 +2420,487 @@ function ProductFormFields({
           </div>
         ))}
       </div>
-
-      <div className={`${currentStep === "VARIANTS" ? "space-y-2" : "hidden"} rounded-md border border-sepia-border p-3`}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-ink">Variants</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setSelectedVariantIndexes(draft.variants.map((_, index) => index))}
-            >
-              Select All
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={selectedVariantIndexes.length === 0}
-              onClick={() => setSelectedVariantIndexes([])}
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() =>
-                onDraftChange((prev) =>
-                  ({
-                    ...prev,
-                    variants: [...prev.variants, createEmptyVariant(prev.variants.length)],
-                  })
-                )
-              }
-            >
-              Add Variant
-            </button>
-          </div>
         </div>
-        <div className="rounded border border-sepia-border/60 bg-paper-light/40 px-3 py-2">
-          <p className="text-xs text-charcoal">
-            {selectedVariantIndexes.length} selected
-            {selectedVariantIndexes.length > 0 && selectedVariantsWithStock > 0
-              ? ` • ${selectedVariantsWithStock} with stock`
-              : ""}
-          </p>
-          {variantDiagnostics.hasBlocking ? (
-            <p className="mt-1 text-xs text-seal-wax">
-              {variantBlockingCount} variant{variantBlockingCount === 1 ? "" : "s"} need fixes
-              before Review.
-            </p>
-          ) : null}
-        </div>
+      </div>
+      </div>
 
-        <div className="space-y-2 rounded-md border border-sepia-border/70 p-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-charcoal">
-            Bulk Apply to Selected
-          </h4>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input
-              value={bulkNamePrefix}
-              onChange={(event) => setBulkNamePrefix(event.target.value)}
-              placeholder="Name prefix for autofill"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <input
-              value={bulkSkuPrefix}
-              onChange={(event) => setBulkSkuPrefix(event.target.value)}
-              placeholder="SKU prefix for autofill"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <input
-              value={bulkMaterial}
-              onChange={(event) => setBulkMaterial(event.target.value)}
-              placeholder="Material"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <input
-              value={bulkPrice}
-              onChange={(event) => setBulkPrice(event.target.value)}
-              placeholder="Price"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <input
-              value={bulkCompareAtPrice}
-              onChange={(event) => setBulkCompareAtPrice(event.target.value)}
-              placeholder="Compare-at price"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              value={bulkInventory}
-              onChange={(event) => setBulkInventory(event.target.value)}
-              placeholder="Inventory"
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            />
-            <select
-              value={bulkActiveState}
-              onChange={(event) => setBulkActiveState(event.target.value as "" | "true" | "false")}
-              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-            >
-              <option value="">Leave active state unchanged</option>
-              <option value="true">Set active</option>
-              <option value="false">Set inactive</option>
-            </select>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="btn-secondary disabled:opacity-50"
-              onClick={applyBulkVariantFields}
-              disabled={selectedVariantIndexes.length === 0}
-            >
-              Apply Bulk Changes
-            </button>
-            <button
-              type="button"
-              className="btn-secondary disabled:opacity-50"
-              onClick={autofillSelectedVariantIdentity}
-              disabled={selectedVariantIndexes.length === 0}
-            >
-              Auto-fill Name/SKU
-            </button>
-            <button
-              type="button"
-              className="btn-secondary disabled:opacity-50"
-              onClick={duplicateSelectedVariants}
-              disabled={selectedVariantIndexes.length === 0}
-            >
-              Duplicate Selected
-            </button>
-            <button type="button" className="btn-secondary" onClick={normalizeVariantSortOrder}>
-              Normalize Sort Order
-            </button>
-            <button
-              type="button"
-              className="btn-secondary disabled:opacity-50"
-              onClick={removeSelectedVariants}
-              disabled={selectedVariantIndexes.length === 0}
-            >
-              Remove Selected
-            </button>
-            {bulkFeedback ? <p className="text-xs text-charcoal">{bulkFeedback}</p> : null}
-          </div>
-        </div>
+      <section className={`${currentStep === "GENERATE" ? "space-y-4" : "hidden"}`}>
+  <div className="rounded-md border border-sepia-border p-4">
+    <h3 className="text-sm font-semibold text-ink">Variant Matrix Generator</h3>
+    <p className="mt-1 text-xs text-charcoal">
+      Generate color x size combinations and append only missing variants.
+    </p>
+    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+      <select
+        value={selectedPresetId}
+        onChange={(event) => setSelectedPresetId(event.target.value)}
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      >
+        <option value="">Select preset</option>
+        {presets.map((preset) => (
+          <option key={preset.id} value={preset.id}>
+            {preset.name}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="btn-secondary" onClick={applySelectedPreset}>
+        Apply Preset
+      </button>
+    </div>
+    {presetFeedback ? <p className="mt-2 text-xs text-charcoal">{presetFeedback}</p> : null}
+    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <input
+        value={matrixNamePrefix}
+        onChange={(event) => setMatrixNamePrefix(event.target.value)}
+        placeholder="Name prefix (e.g. Core Hoodie)"
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <input
+        value={matrixSkuPrefix}
+        onChange={(event) => setMatrixSkuPrefix(event.target.value)}
+        placeholder="SKU prefix (e.g. CORE-HOODIE)"
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <textarea
+        value={matrixColors}
+        onChange={(event) => setMatrixColors(event.target.value)}
+        placeholder="Colors (comma or newline separated)"
+        className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <textarea
+        value={matrixSizes}
+        onChange={(event) => setMatrixSizes(event.target.value)}
+        placeholder="Sizes (comma or newline separated)"
+        className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <input
+        value={matrixMaterial}
+        onChange={(event) => setMatrixMaterial(event.target.value)}
+        placeholder="Material (optional)"
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+      <input
+        type="number"
+        value={matrixInitialInventory}
+        onChange={(event) => setMatrixInitialInventory(event.target.value)}
+        placeholder="Initial inventory"
+        className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+      />
+    </div>
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => void generateVariantsFromMatrix()}
+        disabled={generatingMatrix}
+        className="btn-secondary disabled:opacity-60"
+      >
+        {generatingMatrix ? "Generating..." : "Generate Missing Variants"}
+      </button>
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={() =>
+          onDraftChange((prev) => ({
+            ...prev,
+            variants: [...prev.variants, createEmptyVariant(prev.variants.length)],
+          }))
+        }
+      >
+        Add Variant
+      </button>
+      {matrixFeedback ? <p className="text-xs text-charcoal">{matrixFeedback}</p> : null}
+    </div>
+  </div>
 
-        {draft.variants.map((variant, index) => (
-          <div
-            key={`variant-${variant.id ?? index}`}
-            className={`rounded-md border p-3 ${
-              (variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0
-                ? "border-seal-wax/70 bg-seal-wax/5"
-                : "border-sepia-border/70"
-            }`}
-          >
-            <label className="mb-2 inline-flex items-center gap-2 text-xs text-charcoal">
-              <input
-                type="checkbox"
-                checked={selectedVariantIndexes.includes(index)}
-                onChange={(event) =>
-                  setSelectedVariantIndexes((prev) => {
-                    if (event.target.checked) {
-                      return [...prev, index].sort((a, b) => a - b);
-                    }
-                    return prev.filter((item) => item !== index);
-                  })
-                }
-              />
-              Select
-            </label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <input
-                value={variant.sku}
-                onChange={(event) => onVariantChange(index, "sku", event.target.value)}
-                placeholder="SKU"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.name}
-                onChange={(event) => onVariantChange(index, "name", event.target.value)}
-                placeholder="Variant name"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.color ?? ""}
-                onChange={(event) => onVariantChange(index, "color", event.target.value)}
-                placeholder="Color"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.size ?? ""}
-                onChange={(event) => onVariantChange(index, "size", event.target.value)}
-                placeholder="Size"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.material ?? ""}
-                onChange={(event) => onVariantChange(index, "material", event.target.value)}
-                placeholder="Material"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.price ?? ""}
-                onChange={(event) => onVariantChange(index, "price", event.target.value)}
-                placeholder="Variant price (optional)"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              <input
-                value={variant.compareAtPrice ?? ""}
-                onChange={(event) => onVariantChange(index, "compareAtPrice", event.target.value)}
-                placeholder="Compare at price (optional)"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-              {mode === "create" ? (
+  <div className="rounded-md border border-sepia-border p-4">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h3 className="text-sm font-semibold text-ink">Generated Variants</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => setSelectedVariantIndexes(draft.variants.map((_, index) => index))}
+        >
+          Select All
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={selectedVariantIndexes.length === 0}
+          onClick={() => setSelectedVariantIndexes([])}
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <div className="mt-3 rounded border border-sepia-border/60 bg-paper-light/40 px-3 py-2">
+      <p className="text-xs text-charcoal">
+        {selectedVariantIndexes.length} selected
+        {selectedVariantIndexes.length > 0 && selectedVariantsWithStock > 0
+          ? ` | ${selectedVariantsWithStock} with stock`
+          : ""}
+      </p>
+      {variantDiagnostics.hasBlocking ? (
+        <p className="mt-1 text-xs text-seal-wax">
+          {variantBlockingCount} variant{variantBlockingCount === 1 ? "" : "s"} need fixes
+          before Review.
+        </p>
+      ) : null}
+    </div>
+
+    <div className="mt-3 space-y-2 rounded-md border border-sepia-border/70 p-3">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-charcoal">
+        Bulk Apply to Selected
+      </h4>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <input
+          value={bulkNamePrefix}
+          onChange={(event) => setBulkNamePrefix(event.target.value)}
+          placeholder="Name prefix for autofill"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <input
+          value={bulkSkuPrefix}
+          onChange={(event) => setBulkSkuPrefix(event.target.value)}
+          placeholder="SKU prefix for autofill"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <input
+          value={bulkMaterial}
+          onChange={(event) => setBulkMaterial(event.target.value)}
+          placeholder="Material"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <input
+          value={bulkPrice}
+          onChange={(event) => setBulkPrice(event.target.value)}
+          placeholder="Price"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <input
+          value={bulkCompareAtPrice}
+          onChange={(event) => setBulkCompareAtPrice(event.target.value)}
+          placeholder="Compare-at price"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <input
+          type="number"
+          value={bulkInventory}
+          onChange={(event) => setBulkInventory(event.target.value)}
+          placeholder="Inventory"
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        />
+        <select
+          value={bulkActiveState}
+          onChange={(event) => setBulkActiveState(event.target.value as "" | "true" | "false")}
+          className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+        >
+          <option value="">Leave active state unchanged</option>
+          <option value="true">Set active</option>
+          <option value="false">Set inactive</option>
+        </select>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={applyBulkVariantFields}
+          disabled={selectedVariantIndexes.length === 0}
+        >
+          Apply Bulk Changes
+        </button>
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={autofillSelectedVariantIdentity}
+          disabled={selectedVariantIndexes.length === 0}
+        >
+          Auto-fill Name/SKU
+        </button>
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={duplicateSelectedVariants}
+          disabled={selectedVariantIndexes.length === 0}
+        >
+          Duplicate Selected
+        </button>
+        <button type="button" className="btn-secondary" onClick={normalizeVariantSortOrder}>
+          Normalize Sort Order
+        </button>
+        <button
+          type="button"
+          className="btn-secondary disabled:opacity-50"
+          onClick={removeSelectedVariants}
+          disabled={selectedVariantIndexes.length === 0}
+        >
+          Remove Selected
+        </button>
+        {bulkFeedback ? <p className="text-xs text-charcoal">{bulkFeedback}</p> : null}
+      </div>
+    </div>
+
+    <div className="mt-3 hidden overflow-x-auto rounded-md border border-sepia-border/70 lg:block">
+      <table className="min-w-full divide-y divide-sepia-border/70 text-sm text-ink">
+        <thead className="bg-paper-light/40 text-xs uppercase tracking-[0.08em] text-charcoal">
+          <tr>
+            <th className="px-3 py-2 text-left">Sel</th>
+            <th className="px-3 py-2 text-left">SKU</th>
+            <th className="px-3 py-2 text-left">Name</th>
+            <th className="px-3 py-2 text-left">Color</th>
+            <th className="px-3 py-2 text-left">Size</th>
+            <th className="px-3 py-2 text-left">Price</th>
+            <th className="px-3 py-2 text-left">Inventory</th>
+            <th className="px-3 py-2 text-left">Active</th>
+            <th className="px-3 py-2 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-sepia-border/60">
+          {draft.variants.map((variant, index) => (
+            <tr key={`variant-row-${variant.id ?? index}`}>
+              <td className="px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={selectedVariantIndexes.includes(index)}
+                  onChange={(event) =>
+                    setSelectedVariantIndexes((prev) => {
+                      if (event.target.checked) {
+                        return [...prev, index].sort((a, b) => a - b);
+                      }
+                      return prev.filter((item) => item !== index);
+                    })
+                  }
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.sku}
+                  onChange={(event) => onVariantChange(index, "sku", event.target.value)}
+                  placeholder="SKU"
+                  className="w-44 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.name}
+                  onChange={(event) => onVariantChange(index, "name", event.target.value)}
+                  placeholder="Variant name"
+                  className="w-48 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.color ?? ""}
+                  onChange={(event) => onVariantChange(index, "color", event.target.value)}
+                  placeholder="Color"
+                  className="w-24 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.size ?? ""}
+                  onChange={(event) => onVariantChange(index, "size", event.target.value)}
+                  placeholder="Size"
+                  className="w-20 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
+                <input
+                  value={variant.price ?? ""}
+                  onChange={(event) => onVariantChange(index, "price", event.target.value)}
+                  placeholder="Price"
+                  className="w-24 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
+                />
+              </td>
+              <td className="px-3 py-2 align-top">
                 <input
                   type="number"
                   value={variant.inventory ?? 0}
                   onChange={(event) => onVariantChange(index, "inventory", event.target.value)}
                   placeholder="Inventory"
-                  className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+                  className="w-24 rounded-md border border-sepia-border bg-paper-light px-2 py-1 text-xs"
                 />
-              ) : (
-                <input
-                  type="number"
-                  value={variant.inventory ?? 0}
-                  onChange={(event) => onVariantChange(index, "inventory", event.target.value)}
-                  placeholder="Inventory"
-                  className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-                />
-              )}
-              <input
-                type="number"
-                value={variant.sortOrder}
-                onChange={(event) => onVariantChange(index, "sortOrder", event.target.value)}
-                placeholder="Sort order"
-                className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <label className="inline-flex items-center gap-2 text-xs text-charcoal">
+              </td>
+              <td className="px-3 py-2">
                 <input
                   type="checkbox"
                   checked={variant.isActive}
                   onChange={(event) => onVariantChange(index, "isActive", event.target.checked)}
                 />
-                Active
-              </label>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  const hasStock = (variant.inventory ?? 0) > 0;
-                  const confirmed = window.confirm(
-                    hasStock
-                      ? `This variant has stock (${variant.inventory ?? 0}). Remove it anyway?`
-                      : "Remove this variant?"
-                  );
-                  if (!confirmed) {
-                    return;
+              </td>
+              <td className="px-3 py-2 text-right align-top">
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  onClick={() => {
+                    const hasStock = (variant.inventory ?? 0) > 0;
+                    const confirmed = window.confirm(
+                      hasStock
+                        ? `This variant has stock (${variant.inventory ?? 0}). Remove it anyway?`
+                        : "Remove this variant?"
+                    );
+                    if (!confirmed) {
+                      return;
+                    }
+                    onDraftChange((prev) =>
+                      prev.variants.length > 1
+                        ? {
+                            ...prev,
+                            variants: prev.variants.filter((_, itemIndex) => itemIndex !== index),
+                          }
+                        : prev
+                    );
+                  }}
+                >
+                  Remove
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="mt-3 space-y-3 lg:hidden">
+      {draft.variants.map((variant, index) => (
+        <div
+          key={`variant-card-${variant.id ?? index}`}
+          className={`rounded-md border p-3 ${
+            (variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0
+              ? "border-seal-wax/70 bg-seal-wax/5"
+              : "border-sepia-border/70"
+          }`}
+        >
+          <label className="mb-2 inline-flex items-center gap-2 text-xs text-charcoal">
+            <input
+              type="checkbox"
+              checked={selectedVariantIndexes.includes(index)}
+              onChange={(event) =>
+                setSelectedVariantIndexes((prev) => {
+                  if (event.target.checked) {
+                    return [...prev, index].sort((a, b) => a - b);
                   }
-
-                  onDraftChange((prev) =>
-                    prev.variants.length > 1
-                      ? {
-                          ...prev,
-                          variants: prev.variants.filter((_, itemIndex) => itemIndex !== index),
-                        }
-                      : prev
-                  );
-                }}
-              >
-                Remove Variant
-              </button>
-            </div>
-            {(variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0 ? (
-              <ul className="mt-2 list-disc pl-5 text-xs text-seal-wax">
-                {variantDiagnostics.issuesByIndex[index].map((issue) => (
-                  <li key={`${index}-${issue}`}>{issue}</li>
-                ))}
-              </ul>
-            ) : null}
+                  return prev.filter((item) => item !== index);
+                })
+              }
+            />
+            Select
+          </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              value={variant.sku}
+              onChange={(event) => onVariantChange(index, "sku", event.target.value)}
+              placeholder="SKU"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.name}
+              onChange={(event) => onVariantChange(index, "name", event.target.value)}
+              placeholder="Variant name"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.color ?? ""}
+              onChange={(event) => onVariantChange(index, "color", event.target.value)}
+              placeholder="Color"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.size ?? ""}
+              onChange={(event) => onVariantChange(index, "size", event.target.value)}
+              placeholder="Size"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.material ?? ""}
+              onChange={(event) => onVariantChange(index, "material", event.target.value)}
+              placeholder="Material"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.price ?? ""}
+              onChange={(event) => onVariantChange(index, "price", event.target.value)}
+              placeholder="Variant price (optional)"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              value={variant.compareAtPrice ?? ""}
+              onChange={(event) => onVariantChange(index, "compareAtPrice", event.target.value)}
+              placeholder="Compare at price (optional)"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              value={variant.inventory ?? 0}
+              onChange={(event) => onVariantChange(index, "inventory", event.target.value)}
+              placeholder="Inventory"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              value={variant.sortOrder}
+              onChange={(event) => onVariantChange(index, "sortOrder", event.target.value)}
+              placeholder="Sort order"
+              className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
+            />
           </div>
-        ))}
-      </div>
-
-      <div className={`${currentStep === "VARIANTS" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-3`}>
-        <h3 className="text-sm font-semibold text-ink">Variant Matrix Generator</h3>
-        <p className="text-xs text-charcoal">
-          Generate color x size combinations and append only missing variants.
-        </p>
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <select
-            value={selectedPresetId}
-            onChange={(event) => setSelectedPresetId(event.target.value)}
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          >
-            <option value="">Select preset</option>
-            {presets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="btn-secondary" onClick={applySelectedPreset}>
-            Apply Preset
-          </button>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <label className="inline-flex items-center gap-2 text-xs text-charcoal">
+              <input
+                type="checkbox"
+                checked={variant.isActive}
+                onChange={(event) => onVariantChange(index, "isActive", event.target.checked)}
+              />
+              Active
+            </label>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const hasStock = (variant.inventory ?? 0) > 0;
+                const confirmed = window.confirm(
+                  hasStock
+                    ? `This variant has stock (${variant.inventory ?? 0}). Remove it anyway?`
+                    : "Remove this variant?"
+                );
+                if (!confirmed) {
+                  return;
+                }
+                onDraftChange((prev) =>
+                  prev.variants.length > 1
+                    ? {
+                        ...prev,
+                        variants: prev.variants.filter((_, itemIndex) => itemIndex !== index),
+                      }
+                    : prev
+                );
+              }}
+            >
+              Remove Variant
+            </button>
+          </div>
+          {(variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0 ? (
+            <ul className="mt-2 list-disc pl-5 text-xs text-seal-wax">
+              {variantDiagnostics.issuesByIndex[index].map((issue) => (
+                <li key={`${index}-${issue}`}>{issue}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
-        {presetFeedback ? <p className="text-xs text-charcoal">{presetFeedback}</p> : null}
-        <div className="grid gap-2 sm:grid-cols-2">
-          <input
-            value={matrixNamePrefix}
-            onChange={(event) => setMatrixNamePrefix(event.target.value)}
-            placeholder="Name prefix (e.g. Core Hoodie)"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <input
-            value={matrixSkuPrefix}
-            onChange={(event) => setMatrixSkuPrefix(event.target.value)}
-            placeholder="SKU prefix (e.g. CORE-HOODIE)"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <textarea
-            value={matrixColors}
-            onChange={(event) => setMatrixColors(event.target.value)}
-            placeholder="Colors (comma or newline separated)"
-            className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <textarea
-            value={matrixSizes}
-            onChange={(event) => setMatrixSizes(event.target.value)}
-            placeholder="Sizes (comma or newline separated)"
-            className="min-h-20 rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <input
-            value={matrixMaterial}
-            onChange={(event) => setMatrixMaterial(event.target.value)}
-            placeholder="Material (optional)"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-          <input
-            type="number"
-            value={matrixInitialInventory}
-            onChange={(event) => setMatrixInitialInventory(event.target.value)}
-            placeholder="Initial inventory"
-            className="rounded-md border border-sepia-border bg-paper-light px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void generateVariantsFromMatrix()}
-            disabled={generatingMatrix}
-            className="btn-secondary disabled:opacity-60"
-          >
-            {generatingMatrix ? "Generating..." : "Generate Missing Variants"}
-          </button>
-          {matrixFeedback ? <p className="text-xs text-charcoal">{matrixFeedback}</p> : null}
-        </div>
-      </div>
-
-      <section className={`${currentStep === "REVIEW" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-4`}>
+      ))}
+    </div>
+  </div>
+</section>
+<section className={`${currentStep === "REVIEW" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-4`}>
         <h3 className="text-lg font-semibold text-ink">Review Before Save</h3>
         <div className="grid gap-3 md:grid-cols-3">
           <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Basic Info</p>
-              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("BASICS")}>
+              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("COMPOSE")}>
                 Jump to fix
               </button>
             </div>
@@ -2570,7 +2916,7 @@ function ProductFormFields({
           <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Media</p>
-              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("IMAGES")}>
+              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("COMPOSE")}>
                 Jump to fix
               </button>
             </div>
@@ -2582,7 +2928,7 @@ function ProductFormFields({
           <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Variants</p>
-              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("VARIANTS")}>
+              <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("GENERATE")}>
                 Jump to fix
               </button>
             </div>
@@ -2602,3 +2948,4 @@ function ProductFormFields({
     </AdminWizardShell>
   );
 }
+
