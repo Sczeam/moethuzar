@@ -287,7 +287,10 @@ function SortableImageRow({
 
       <div className="overflow-hidden rounded-md border border-sepia-border bg-parchment/60 lg:col-span-2">
         <div
-          className="relative aspect-[4/5] w-full"
+          className="relative aspect-[4/5] w-full cursor-grab touch-none active:cursor-grabbing"
+          aria-label={`Reorder image ${index + 1}`}
+          {...attributes}
+          {...listeners}
         >
           {hasPreview ? (
             <Image
@@ -304,16 +307,6 @@ function SortableImageRow({
           )}
           <button
             type="button"
-            className="absolute left-2 top-2 inline-flex h-6 items-center justify-center rounded-full border border-sepia-border bg-parchment/95 px-2 text-[10px] uppercase tracking-[0.08em] text-charcoal shadow-sm touch-none"
-            aria-label={`Reorder image ${index + 1}`}
-            disabled={isQueueUploading || totalImages <= 1}
-            {...attributes}
-            {...listeners}
-          >
-            Drag
-          </button>
-          <button
-            type="button"
             className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-sepia-border bg-parchment/95 text-sm leading-none text-ink shadow-sm"
             disabled={isQueueUploading || totalImages <= 1}
             onPointerDown={(event) => event.stopPropagation()}
@@ -321,7 +314,7 @@ function SortableImageRow({
             onClick={() => onRemove(index)}
             aria-label={`Remove image ${index + 1}`}
           >
-            Ã—
+            ×
           </button>
         </div>
       </div>
@@ -3179,4 +3172,5 @@ function ProductFormFields({
     </AdminWizardShell>
   );
 }
+
 
