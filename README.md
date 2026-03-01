@@ -8,6 +8,9 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
 - Frontend architecture: `docs/frontend-architecture.md`
 - Admin architecture (OCP): `docs/admin-architecture-ocp.md`
 - Admin A2 plan: `docs/admin-a2-order-ops-plan.md`
+- Admin settings copy contract (A6.1): `docs/admin-settings-copy-contract-a6-1.md`
+- Admin settings QA matrix (A6.5): `docs/admin-settings-qa-matrix-a6-5.md`
+- Admin settings rollout checklist (A6.5): `docs/admin-settings-rollout-checklist-a6-5.md`
 - Launch operations runbook: `docs/launch-ops-runbook.md`
 - Manual QA checklist: `docs/mvp-qa-checklist.md`
 
