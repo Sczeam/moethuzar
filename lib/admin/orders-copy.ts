@@ -1,0 +1,66 @@
+export const ADMIN_ORDERS_COPY = {
+  nav: {
+    backToOrders: "Back to Orders",
+    shippingRules: "Shipping Rules",
+    paymentMethods: "Payment Methods",
+    refresh: "Refresh",
+  },
+  load: {
+    loading: "Loading order...",
+    loadFailedTitle: "Unable to load order",
+    loadFailedFallback: "Failed to load order.",
+    retry: "Retry",
+  },
+  feedback: {
+    retrying: "Retrying...",
+    retry: "Retry",
+    dismiss: "Dismiss",
+    genericRetryable: "Failed to load order. Please retry.",
+    unableToCopy: "Unable to copy.",
+    orderCodeCopied: "Order code copied.",
+    customerPhoneCopied: "Customer phone copied to clipboard.",
+  },
+  actions: {
+    copyOrderCode: "Copy Order Code",
+  },
+  customer: {
+    title: "Customer",
+    callCustomer: "Call Customer",
+    copyPhone: "Copy Phone",
+    customerNotePrefix: "Customer note:",
+  },
+  payment: {
+    title: "Payment",
+    prepaidTransfer: "Prepaid Transfer",
+    cashOnDelivery: "Cash on Delivery",
+    transferReference: "Transfer reference:",
+    submittedAt: "Submitted:",
+    reviewedAt: "Reviewed at:",
+    openPaymentProof: "Open Payment Proof",
+    noPaymentReviewRequired: "No payment review required for COD orders.",
+  },
+  items: {
+    title: "Items",
+  },
+  actionCenter: {
+    title: "Action Center",
+    recommended: "Recommended Next Action",
+    otherAllowed: "Other Allowed Actions",
+    blocked: "Blocked Actions",
+    noFurtherActions: "No further actions available for this order.",
+  },
+  timeline: {
+    title: "Status Timeline",
+    noHistory: "No status history yet.",
+  },
+  modal: {
+    ariaLabel: "Confirm order action",
+    noteRequired: "Note (Required)",
+    noteOptional: "Note (Optional)",
+    requiredPlaceholder: "Explain why this action is needed",
+    optionalPlaceholder: "Add internal context (optional)",
+    saving: "Saving...",
+    cancel: "Cancel",
+    requiredNoteError: "Please add a note with at least 4 characters.",
+  },
+} as const;
