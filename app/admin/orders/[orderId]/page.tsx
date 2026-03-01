@@ -10,6 +10,7 @@ import {
 import { buildOrderActionRequest } from "./order-action-adapter";
 import { mapOrderActionError, type ActionFeedbackSeverity } from "./action-feedback";
 import { presentAdminApiError } from "@/lib/admin/error-presenter";
+import { ADMIN_ORDERS_COPY } from "@/lib/admin/orders-copy";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -124,7 +125,7 @@ export default function AdminOrderDetailPage() {
     const data = await response.json();
     if (!response.ok || !data.ok) {
       const presented = presentAdminApiError(data, {
-        fallback: "Failed to load order.",
+        fallback: ADMIN_ORDERS_COPY.load.loadFailedFallback,
         includeRequestId: true,
         includeFirstIssue: true,
       });
@@ -223,10 +224,9 @@ export default function AdminOrderDetailPage() {
   }, [order]);
 
   const recommendedAction = actionState?.recommendedAction ?? null;
-  const allowedActions = actionState?.allowedActions ?? [];
   const secondaryAllowedActions = useMemo(
-    () => allowedActions.filter((actionId) => actionId !== recommendedAction),
-    [allowedActions, recommendedAction]
+    () => (actionState?.allowedActions ?? []).filter((actionId) => actionId !== recommendedAction),
+    [actionState?.allowedActions, recommendedAction]
   );
   const blockedActionReasons = useMemo(() => {
     const map = new Map<OrderActionId, CopyKey>();
@@ -251,7 +251,7 @@ export default function AdminOrderDetailPage() {
 
     const descriptor = ACTION_DESCRIPTORS[actionId];
     if (descriptor.requiresNote && note.trim().length < 4) {
-      setNoteError("Please add a note with at least 4 characters.");
+      setNoteError(ADMIN_ORDERS_COPY.modal.requiredNoteError);
       return;
     }
     setNoteError("");
@@ -316,11 +316,11 @@ export default function AdminOrderDetailPage() {
         retryable: false,
       });
     } catch {
-      setFeedback({
-        severity: "error",
-        message: "Unable to copy.",
-        retryable: false,
-      });
+        setFeedback({
+          severity: "error",
+          message: ADMIN_ORDERS_COPY.feedback.unableToCopy,
+          retryable: false,
+        });
     }
   }
 
@@ -329,13 +329,13 @@ export default function AdminOrderDetailPage() {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/orders" className="btn-secondary">
-            Back to Orders
+            {ADMIN_ORDERS_COPY.nav.backToOrders}
           </Link>
           <Link href="/admin/shipping-rules" className="btn-secondary">
-            Shipping Rules
+            {ADMIN_ORDERS_COPY.nav.shippingRules}
           </Link>
           <Link href="/admin/payment-transfer-methods" className="btn-secondary">
-            Payment Methods
+            {ADMIN_ORDERS_COPY.nav.paymentMethods}
           </Link>
         </div>
         <button
@@ -350,7 +350,7 @@ export default function AdminOrderDetailPage() {
           }}
           className="btn-secondary"
         >
-          Refresh
+          {ADMIN_ORDERS_COPY.nav.refresh}
         </button>
       </div>
 
@@ -368,7 +368,7 @@ export default function AdminOrderDetailPage() {
                 disabled={actionPending}
                 onClick={() => void runAction(retryIntent)}
               >
-                {actionPending ? "Retrying..." : "Retry"}
+                {actionPending ? ADMIN_ORDERS_COPY.feedback.retrying : ADMIN_ORDERS_COPY.feedback.retry}
               </button>
             ) : null}
             <button
@@ -376,17 +376,17 @@ export default function AdminOrderDetailPage() {
               className="btn-secondary text-xs"
               onClick={() => setFeedback(null)}
             >
-              Dismiss
+              {ADMIN_ORDERS_COPY.feedback.dismiss}
             </button>
           </div>
         </section>
       ) : null}
 
-      {loading ? <p className="text-charcoal">Loading order...</p> : null}
+      {loading ? <p className="text-charcoal">{ADMIN_ORDERS_COPY.load.loading}</p> : null}
 
       {!loading && loadError ? (
         <section className="vintage-panel border-seal-wax/40 p-5">
-          <h2 className="text-xl font-semibold text-ink">Unable to load order</h2>
+          <h2 className="text-xl font-semibold text-ink">{ADMIN_ORDERS_COPY.load.loadFailedTitle}</h2>
           <p className="mt-2 text-sm text-charcoal">{loadError}</p>
           <button
             type="button"
@@ -396,7 +396,7 @@ export default function AdminOrderDetailPage() {
             }}
             className="btn-primary mt-4"
           >
-            Retry
+            {ADMIN_ORDERS_COPY.load.retry}
           </button>
         </section>
       ) : null}
@@ -422,16 +422,18 @@ export default function AdminOrderDetailPage() {
               </div>
               <button
                 type="button"
-                onClick={() => void copyText(order.orderCode, "Order code copied.")}
+                onClick={() =>
+                  void copyText(order.orderCode, ADMIN_ORDERS_COPY.feedback.orderCodeCopied)
+                }
                 className="btn-secondary text-xs"
               >
-                Copy Order Code
+                {ADMIN_ORDERS_COPY.actions.copyOrderCode}
               </button>
             </div>
           </section>
 
           <section className="vintage-panel p-5">
-            <h2 className="text-lg font-semibold">Customer</h2>
+            <h2 className="text-lg font-semibold">{ADMIN_ORDERS_COPY.customer.title}</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <p className="font-medium">{order.customerName}</p>
@@ -443,16 +445,16 @@ export default function AdminOrderDetailPage() {
                   href={`tel:${order.customerPhone}`}
                   className="btn-primary text-xs"
                 >
-                  Call Customer
+                  {ADMIN_ORDERS_COPY.customer.callCustomer}
                 </a>
                 <button
                   type="button"
                   onClick={() =>
-                    void copyText(order.customerPhone, "Customer phone copied to clipboard.")
+                    void copyText(order.customerPhone, ADMIN_ORDERS_COPY.feedback.customerPhoneCopied)
                   }
                   className="btn-secondary text-xs"
                 >
-                  Copy Phone
+                  {ADMIN_ORDERS_COPY.customer.copyPhone}
                 </button>
               </div>
             </div>
@@ -465,7 +467,7 @@ export default function AdminOrderDetailPage() {
             ) : null}
             {order.customerNote ? (
               <p className="mt-3 rounded-md bg-parchment p-3 text-sm text-charcoal">
-                Customer note: {order.customerNote}
+                {ADMIN_ORDERS_COPY.customer.customerNotePrefix} {order.customerNote}
               </p>
             ) : null}
             <div className="mt-3 grid gap-1 text-sm text-charcoal">
@@ -476,14 +478,14 @@ export default function AdminOrderDetailPage() {
           </section>
 
           <section className="vintage-panel p-5">
-            <h2 className="text-lg font-semibold">Payment</h2>
+            <h2 className="text-lg font-semibold">{ADMIN_ORDERS_COPY.payment.title}</h2>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
               <p>
                 Method:{" "}
                 <span className="font-semibold">
                   {order.paymentMethod === "PREPAID_TRANSFER"
-                    ? "Prepaid Transfer"
-                    : "Cash on Delivery"}
+                    ? ADMIN_ORDERS_COPY.payment.prepaidTransfer
+                    : ADMIN_ORDERS_COPY.payment.cashOnDelivery}
                 </span>
               </p>
               <span
@@ -499,14 +501,21 @@ export default function AdminOrderDetailPage() {
               <div className="mt-3 space-y-2 text-sm text-charcoal">
                 {order.paymentReference ? (
                   <p>
-                    Transfer reference: <span className="font-medium">{order.paymentReference}</span>
+                    {ADMIN_ORDERS_COPY.payment.transferReference}{" "}
+                    <span className="font-medium">{order.paymentReference}</span>
                   </p>
                 ) : null}
                 {order.paymentSubmittedAt ? (
-                  <p>Submitted: {new Date(order.paymentSubmittedAt).toLocaleString()}</p>
+                  <p>
+                    {ADMIN_ORDERS_COPY.payment.submittedAt}{" "}
+                    {new Date(order.paymentSubmittedAt).toLocaleString()}
+                  </p>
                 ) : null}
                 {order.paymentVerifiedAt ? (
-                  <p>Reviewed at: {new Date(order.paymentVerifiedAt).toLocaleString()}</p>
+                  <p>
+                    {ADMIN_ORDERS_COPY.payment.reviewedAt}{" "}
+                    {new Date(order.paymentVerifiedAt).toLocaleString()}
+                  </p>
                 ) : null}
                 {order.paymentProofUrl ? (
                   <a
@@ -515,7 +524,7 @@ export default function AdminOrderDetailPage() {
                     rel="noreferrer"
                     className="btn-secondary inline-flex text-xs"
                   >
-                    Open Payment Proof
+                    {ADMIN_ORDERS_COPY.payment.openPaymentProof}
                   </a>
                 ) : (
                   <p className="text-seal-wax">Payment proof missing.</p>
@@ -523,13 +532,13 @@ export default function AdminOrderDetailPage() {
               </div>
             ) : (
               <p className="mt-3 text-sm text-charcoal">
-                No payment review required for COD orders.
+                {ADMIN_ORDERS_COPY.payment.noPaymentReviewRequired}
               </p>
             )}
           </section>
 
           <section className="vintage-panel p-5">
-            <h2 className="text-lg font-semibold">Items</h2>
+            <h2 className="text-lg font-semibold">{ADMIN_ORDERS_COPY.items.title}</h2>
             <div className="mt-3 space-y-2">
               {order.items.map((item) => (
                 <div key={item.id} className="flex justify-between text-sm">
@@ -544,11 +553,11 @@ export default function AdminOrderDetailPage() {
           </section>
 
           <section className="vintage-panel p-5">
-            <h2 className="text-lg font-semibold">Action Center</h2>
+            <h2 className="text-lg font-semibold">{ADMIN_ORDERS_COPY.actionCenter.title}</h2>
             {recommendedAction ? (
               <div className="mt-3 rounded-lg border border-antique-brass/60 bg-parchment p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-charcoal/80">
-                  Recommended Next Action
+                  {ADMIN_ORDERS_COPY.actionCenter.recommended}
                 </p>
                 <button
                   type="button"
@@ -564,13 +573,15 @@ export default function AdminOrderDetailPage() {
                 </button>
               </div>
             ) : (
-              <p className="mt-3 text-sm text-charcoal">No further actions available for this order.</p>
+              <p className="mt-3 text-sm text-charcoal">
+                {ADMIN_ORDERS_COPY.actionCenter.noFurtherActions}
+              </p>
             )}
 
             {secondaryAllowedActions.length > 0 ? (
               <div className="mt-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-charcoal/80">
-                  Other Allowed Actions
+                  {ADMIN_ORDERS_COPY.actionCenter.otherAllowed}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {secondaryAllowedActions.map((actionId) => (
@@ -595,7 +606,7 @@ export default function AdminOrderDetailPage() {
             {blockedActionReasons.size > 0 ? (
               <div className="mt-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-charcoal/80">
-                  Blocked Actions
+                  {ADMIN_ORDERS_COPY.actionCenter.blocked}
                 </p>
                 <div className="mt-2 space-y-2">
                   {Array.from(blockedActionReasons.entries()).map(([actionId, reasonKey]) => (
@@ -615,7 +626,7 @@ export default function AdminOrderDetailPage() {
           </section>
 
           <section className="vintage-panel p-5">
-            <h2 className="text-lg font-semibold">Status Timeline</h2>
+            <h2 className="text-lg font-semibold">{ADMIN_ORDERS_COPY.timeline.title}</h2>
             <div className="mt-3 space-y-3">
               {order.history.map((entry) => (
                 <div
@@ -630,7 +641,7 @@ export default function AdminOrderDetailPage() {
                 </div>
               ))}
               {order.history.length === 0 ? (
-                <p className="text-sm text-charcoal">No status history yet.</p>
+                <p className="text-sm text-charcoal">{ADMIN_ORDERS_COPY.timeline.noHistory}</p>
               ) : null}
             </div>
           </section>
@@ -650,7 +661,7 @@ export default function AdminOrderDetailPage() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Confirm order action"
+            aria-label={ADMIN_ORDERS_COPY.modal.ariaLabel}
             aria-describedby="order-action-confirm-body"
             ref={modalRef}
             className="mx-auto mt-20 w-full max-w-lg rounded-none border border-sepia-border bg-paper-light p-5"
@@ -664,7 +675,9 @@ export default function AdminOrderDetailPage() {
             </p>
 
             <label className="mt-4 block text-xs font-medium text-charcoal">
-              Note {ACTION_DESCRIPTORS[selectedActionId].requiresNote ? "(Required)" : "(Optional)"}
+              {ACTION_DESCRIPTORS[selectedActionId].requiresNote
+                ? ADMIN_ORDERS_COPY.modal.noteRequired
+                : ADMIN_ORDERS_COPY.modal.noteOptional}
             </label>
             <textarea
               value={actionNote}
@@ -679,8 +692,8 @@ export default function AdminOrderDetailPage() {
               className="mt-1 min-h-24 w-full rounded-none border border-sepia-border bg-parchment px-3 py-2 text-sm"
               placeholder={
                 ACTION_DESCRIPTORS[selectedActionId].requiresNote
-                  ? "Explain why this action is needed"
-                  : "Add internal context (optional)"
+                  ? ADMIN_ORDERS_COPY.modal.requiredPlaceholder
+                  : ADMIN_ORDERS_COPY.modal.optionalPlaceholder
               }
             />
             {noteError ? (
@@ -696,7 +709,9 @@ export default function AdminOrderDetailPage() {
                 onClick={() => void runAction()}
                 className="btn-primary disabled:opacity-60"
               >
-                {actionPending ? "Saving..." : COPY_TEXT[ACTION_DESCRIPTORS[selectedActionId].labelKey]}
+                {actionPending
+                  ? ADMIN_ORDERS_COPY.modal.saving
+                  : COPY_TEXT[ACTION_DESCRIPTORS[selectedActionId].labelKey]}
               </button>
               <button
                 type="button"
@@ -708,7 +723,7 @@ export default function AdminOrderDetailPage() {
                 }}
                 className="btn-secondary"
               >
-                Cancel
+                {ADMIN_ORDERS_COPY.modal.cancel}
               </button>
             </div>
           </div>

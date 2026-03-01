@@ -33,6 +33,7 @@ import {
 import { CreateProductPreviewCard } from "@/components/admin/catalog/create-product-preview-card";
 import { CreateProductSectionCard } from "@/components/admin/catalog/create-product-section-card";
 import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
+import { ADMIN_CATALOG_COPY } from "@/lib/admin/catalog-copy";
 import { CSS } from "@dnd-kit/utilities";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import { presentAdminApiError } from "@/lib/admin/error-presenter";
@@ -160,22 +161,22 @@ function mapUploadErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
 
   if (message.includes("SIGN_UPLOAD_FAILED")) {
-    return "Could not prepare upload. Please retry.";
+    return ADMIN_CATALOG_COPY.upload.signUploadFailed;
   }
   if (message.includes("UPLOAD_FAILED_")) {
-    return "Direct upload failed. Trying fallback upload failed too.";
+    return ADMIN_CATALOG_COPY.upload.uploadFailedFallback;
   }
   if (message.includes("UPLOAD_NETWORK_ERROR")) {
-    return "Network error while uploading. Check your connection and retry.";
+    return ADMIN_CATALOG_COPY.upload.uploadNetworkError;
   }
   if (message.includes("INVALID_FILE_TYPE")) {
-    return "Unsupported file type. Use JPG, PNG, WEBP, or AVIF.";
+    return ADMIN_CATALOG_COPY.upload.invalidFileType;
   }
   if (message.includes("FILE_TOO_LARGE")) {
-    return "File is too large. Maximum is 8MB.";
+    return ADMIN_CATALOG_COPY.upload.fileTooLarge;
   }
 
-  return "Upload failed. Try again.";
+  return ADMIN_CATALOG_COPY.upload.genericUploadFailed;
 }
 
 function validateUploadFile(file: File): FileValidationResult {
@@ -305,7 +306,7 @@ function SortableImageRow({
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.08em] text-charcoal/70">
-              No Preview
+              {ADMIN_CATALOG_COPY.upload.noPreview}
             </div>
           )}
           <button
@@ -346,7 +347,9 @@ function SortableImageRow({
           </div>
         </div>
         <p className="text-xs text-charcoal/80">
-          {hasPreview ? "Drag image cards to reorder. First image is used as primary." : "Upload a file to preview this image."}
+          {hasPreview
+            ? ADMIN_CATALOG_COPY.upload.dragToReorder
+            : ADMIN_CATALOG_COPY.upload.uploadToPreview}
         </p>
         <div className="flex flex-wrap items-center gap-2 lg:hidden">
           <button
@@ -606,12 +609,12 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 
     if (!response.ok || !data.ok) {
       const presented = presentAdminApiError(data, {
-        fallback: "Failed to load catalog.",
+        fallback: ADMIN_CATALOG_COPY.load.loadCatalogFailed,
         includeRequestId: true,
         includeFirstIssue: true,
       });
       setLoadError(presented);
-      setStatusText("Please retry.");
+      setStatusText(ADMIN_CATALOG_COPY.load.loadCatalogFailed);
       setLoading(false);
       return;
     }
@@ -687,7 +690,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       if (!response.ok || !data.ok) {
         setStatusText(
           presentAdminApiError(data, {
-            fallback: "Failed to load product details.",
+            fallback: ADMIN_CATALOG_COPY.load.loadProductDetailsFailed,
             includeRequestId: true,
             includeFirstIssue: true,
           }),
@@ -702,7 +705,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       setInventoryNoteByVariant({});
       setStatusText("");
     } catch {
-      setStatusText("Unexpected error while loading product details.");
+      setStatusText(ADMIN_CATALOG_COPY.load.unexpectedLoadProductDetails);
     } finally {
       setOpeningProductId(null);
     }
@@ -749,24 +752,32 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const draftCheckData = await draftCheck.json();
       if (!draftCheck.ok) {
-        const hint = readValidationStepHint(draftCheckData, "Failed to validate product draft.");
+        const hint = readValidationStepHint(
+          draftCheckData,
+          ADMIN_CATALOG_COPY.draftValidation.failedValidateDraft
+        );
         if (hint) {
           setCreateCurrentStep(hint.step);
         }
-        setStatusText(readValidationMessage(draftCheckData, "Failed to validate product draft."));
+        setStatusText(
+          readValidationMessage(
+            draftCheckData,
+            ADMIN_CATALOG_COPY.draftValidation.failedValidateDraft
+          )
+        );
         return;
       }
       if (!draftCheckData.valid || draftCheckData.issues?.length > 0) {
         const hint = readValidationStepHint(
           draftCheckData,
-          "Fix draft issues before creating this product."
+          ADMIN_CATALOG_COPY.draftValidation.fixBeforeCreate
         );
         if (hint) {
           setCreateCurrentStep(hint.step);
           setStatusText(hint.message);
           return;
         }
-        setStatusText("Fix draft issues before creating this product.");
+        setStatusText(ADMIN_CATALOG_COPY.draftValidation.fixBeforeCreate);
         return;
       }
 
@@ -777,24 +788,24 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        const hint = readValidationStepHint(data, "Failed to create product.");
+        const hint = readValidationStepHint(data, ADMIN_CATALOG_COPY.create.failedCreate);
         if (hint) {
           setCreateCurrentStep(hint.step);
         }
-        setStatusText(readValidationMessage(data, "Failed to create product."));
+        setStatusText(readValidationMessage(data, ADMIN_CATALOG_COPY.create.failedCreate));
         return;
       }
 
       setStatusText(
         createSubmitIntent === "publish"
-          ? `Created and published product ${data.product.name}.`
-          : `Created draft product ${data.product.name}.`
+          ? ADMIN_CATALOG_COPY.create.createdAndPublished(data.product.name)
+          : ADMIN_CATALOG_COPY.create.createdDraft(data.product.name)
       );
       setCreateDraft(createInitialCatalogDraft(categoryFallbackId));
       setCreateCurrentStep("COMPOSE");
       await loadCatalog();
     } catch {
-      setStatusText("Unexpected error while creating product.");
+      setStatusText(ADMIN_CATALOG_COPY.create.unexpectedCreate);
     } finally {
       setCreating(false);
     }
@@ -847,24 +858,32 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const draftCheckData = await draftCheck.json();
       if (!draftCheck.ok) {
-        const hint = readValidationStepHint(draftCheckData, "Failed to validate product draft.");
+        const hint = readValidationStepHint(
+          draftCheckData,
+          ADMIN_CATALOG_COPY.draftValidation.failedValidateDraft
+        );
         if (hint) {
           setEditCurrentStep(hint.step);
         }
-        setStatusText(readValidationMessage(draftCheckData, "Failed to validate product draft."));
+        setStatusText(
+          readValidationMessage(
+            draftCheckData,
+            ADMIN_CATALOG_COPY.draftValidation.failedValidateDraft
+          )
+        );
         return;
       }
       if (!draftCheckData.valid || draftCheckData.issues?.length > 0) {
         const hint = readValidationStepHint(
           draftCheckData,
-          "Fix draft issues before saving this product."
+          ADMIN_CATALOG_COPY.draftValidation.fixBeforeSave
         );
         if (hint) {
           setEditCurrentStep(hint.step);
           setStatusText(hint.message);
           return;
         }
-        setStatusText("Fix draft issues before saving this product.");
+        setStatusText(ADMIN_CATALOG_COPY.draftValidation.fixBeforeSave);
         return;
       }
 
@@ -875,23 +894,23 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        const hint = readValidationStepHint(data, "Failed to update product.");
+        const hint = readValidationStepHint(data, ADMIN_CATALOG_COPY.update.failedUpdate);
         if (hint) {
           setEditCurrentStep(hint.step);
         }
-        setStatusText(readValidationMessage(data, "Failed to update product."));
+        setStatusText(readValidationMessage(data, ADMIN_CATALOG_COPY.update.failedUpdate));
         return;
       }
 
       setStatusText(
         editSubmitIntent === "publish"
-          ? `Updated and published product ${data.product.name}.`
-          : `Saved draft for ${data.product.name}.`
+          ? ADMIN_CATALOG_COPY.update.updatedAndPublished(data.product.name)
+          : ADMIN_CATALOG_COPY.update.savedDraft(data.product.name)
       );
       await loadCatalog();
       await openProduct(editingProductId);
     } catch {
-      setStatusText("Unexpected error while updating product.");
+      setStatusText(ADMIN_CATALOG_COPY.update.unexpectedUpdate);
     } finally {
       setUpdating(false);
     }
@@ -905,11 +924,11 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
     const quantityDelta = toInt(inventoryDeltaByVariant[variantId] ?? "0", 0);
     const note = inventoryNoteByVariant[variantId] ?? "";
     if (!quantityDelta) {
-      setStatusText("Quantity delta must not be zero.");
+      setStatusText(ADMIN_CATALOG_COPY.inventory.quantityDeltaZero);
       return;
     }
     if (note.trim().length < 4) {
-      setStatusText("Please add an inventory adjustment note (at least 4 characters).");
+      setStatusText(ADMIN_CATALOG_COPY.inventory.noteRequired);
       return;
     }
 
@@ -925,7 +944,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       if (!response.ok || !data.ok) {
         setStatusText(
           presentAdminApiError(data, {
-            fallback: "Failed to adjust inventory.",
+            fallback: ADMIN_CATALOG_COPY.inventory.failedAdjustInventory,
             includeRequestId: true,
             includeFirstIssue: true,
           }),
@@ -933,13 +952,13 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
         return;
       }
 
-      setStatusText(`Inventory updated for ${data.variant.sku}.`);
+      setStatusText(ADMIN_CATALOG_COPY.inventory.inventoryUpdated(data.variant.sku));
       setInventoryDeltaByVariant((prev) => ({ ...prev, [variantId]: "" }));
       setInventoryNoteByVariant((prev) => ({ ...prev, [variantId]: "" }));
       await loadCatalog();
       await openProduct(editingProductId);
     } catch {
-      setStatusText("Unexpected error while adjusting inventory.");
+      setStatusText(ADMIN_CATALOG_COPY.inventory.unexpectedAdjustInventory);
     } finally {
       setAdjustingVariantId(null);
     }
@@ -1018,7 +1037,9 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const signData = await signResponse.json();
       if (!signResponse.ok || !signData.ok) {
-        setStatusText(readValidationMessage(signData, "Failed to prepare upload."));
+        setStatusText(
+          readValidationMessage(signData, ADMIN_CATALOG_COPY.upload.failedToPrepareUpload)
+        );
         throw new Error("SIGN_UPLOAD_FAILED");
       }
 
@@ -1067,7 +1088,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
         ],
       }));
 
-      setStatusText("Image uploaded to R2.");
+      setStatusText(ADMIN_CATALOG_COPY.upload.uploadedToR2);
     } catch (error) {
       try {
         // Fallback path for environments where direct browser upload is blocked (usually CORS).
@@ -1079,7 +1100,9 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
         });
         const fallbackData = await fallbackResponse.json();
         if (!fallbackResponse.ok || !fallbackData.ok) {
-          setStatusText(readValidationMessage(fallbackData, "Failed to upload image."));
+          setStatusText(
+            readValidationMessage(fallbackData, ADMIN_CATALOG_COPY.upload.failedToUploadImage)
+          );
           throw error;
         }
 
@@ -1098,9 +1121,9 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
         }));
 
         onProgress(100);
-        setStatusText("Image uploaded to R2.");
+        setStatusText(ADMIN_CATALOG_COPY.upload.uploadedToR2);
       } catch {
-        setStatusText("Unexpected error while uploading image.");
+        setStatusText(ADMIN_CATALOG_COPY.upload.unexpectedUploadingImage);
         throw error;
       }
     }
@@ -1131,11 +1154,13 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 
       {!loading && loadError ? (
         <section className="vintage-panel border-seal-wax/40 p-5">
-          <h2 className="text-xl font-semibold text-ink">Unable to load catalog</h2>
+          <h2 className="text-xl font-semibold text-ink">
+            {ADMIN_CATALOG_COPY.load.loadCatalogFailed}
+          </h2>
           <p className="mt-2 text-sm text-charcoal">{loadError}</p>
           {statusText ? <p className="mt-1 text-xs text-charcoal/80">{statusText}</p> : null}
           <button type="button" onClick={() => void loadCatalog()} className="btn-primary mt-4">
-            Retry
+            {ADMIN_CATALOG_COPY.load.retryLabel ?? "Retry"}
           </button>
         </section>
       ) : null}
@@ -1200,7 +1225,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
 
           {showCreateForm ? (
             <CatalogEditorForm
-              title="Create Product"
+              title={ADMIN_CATALOG_COPY.wizard.createProductTitle}
               draft={createDraft}
               draftIdentity="create"
               currentStep={createCurrentStep}
@@ -1526,7 +1551,9 @@ function ProductFormFields({
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        setCategoryFeedback(readValidationMessage(data, "Failed to create category."));
+        setCategoryFeedback(
+          readValidationMessage(data, ADMIN_CATALOG_COPY.category.failedCreate)
+        );
         return;
       }
 
@@ -1537,7 +1564,7 @@ function ProductFormFields({
       setIsCategoryModalOpen(false);
       setCategoryFeedback(`Created category "${category.name}".`);
     } catch {
-      setCategoryFeedback("Unexpected error while creating category.");
+      setCategoryFeedback(ADMIN_CATALOG_COPY.category.unexpectedCreate);
     } finally {
       setCreatingCategory(false);
     }
@@ -1826,7 +1853,7 @@ function ProductFormFields({
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        setMatrixFeedback(readValidationMessage(data, "Failed to generate variant matrix."));
+        setMatrixFeedback(readValidationMessage(data, ADMIN_CATALOG_COPY.matrix.failedGenerate));
         return;
       }
 
@@ -1864,7 +1891,7 @@ function ProductFormFields({
         `Generated ${data.summary.newRows} new variants (${data.summary.existing} already existed).`
       );
     } catch {
-      setMatrixFeedback("Unexpected error while generating variants.");
+      setMatrixFeedback(ADMIN_CATALOG_COPY.matrix.unexpectedGenerate);
     } finally {
       setGeneratingMatrix(false);
     }
@@ -2581,8 +2608,8 @@ function ProductFormFields({
                   Uploads: {completedUploadCount}/{uploadQueue.length}
                 </span>
                 <span>
-                  {isQueueUploading ? "Uploading..." : "Idle"} â€¢ {queueSummary.uploading} uploading
-                  â€¢ {queueSummary.failed} failed
+                  {isQueueUploading ? "Uploading..." : "Idle"} | {queueSummary.uploading} uploading
+                  | {queueSummary.failed} failed
                 </span>
               </div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -3160,13 +3187,13 @@ function ProductFormFields({
   </div>
 </section>
 <section className={`${currentStep === "REVIEW" ? "space-y-3" : "hidden"} rounded-md border border-sepia-border p-4`}>
-        <h3 className="text-lg font-semibold text-ink">Review Before Save</h3>
+        <h3 className="text-lg font-semibold text-ink">{ADMIN_CATALOG_COPY.wizard.reviewTitle}</h3>
         <div className="grid gap-3 md:grid-cols-3">
           <section className="rounded border border-sepia-border/70 bg-paper-light/30 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Basic Info</p>
               <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("COMPOSE")}>
-                Jump to fix
+                {ADMIN_CATALOG_COPY.wizard.jumpToFix}
               </button>
             </div>
             <div className="mt-2 space-y-1 text-sm text-charcoal">
@@ -3182,7 +3209,7 @@ function ProductFormFields({
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Media</p>
               <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("COMPOSE")}>
-                Jump to fix
+                {ADMIN_CATALOG_COPY.wizard.jumpToFix}
               </button>
             </div>
             <div className="mt-2 space-y-1 text-sm text-charcoal">
@@ -3194,7 +3221,7 @@ function ProductFormFields({
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-[0.08em] text-charcoal">Variants</p>
               <button type="button" className="btn-secondary" onClick={() => onCurrentStepChange("GENERATE")}>
-                Jump to fix
+                {ADMIN_CATALOG_COPY.wizard.jumpToFix}
               </button>
             </div>
             <div className="mt-2 space-y-1 text-sm text-charcoal">
@@ -3206,7 +3233,7 @@ function ProductFormFields({
           </section>
         </div>
         <p className="text-xs text-charcoal">
-          Use Save Draft to keep work-in-progress, or Publish to set product status ACTIVE.
+          {ADMIN_CATALOG_COPY.wizard.reviewHint}
         </p>
       </section>
 
