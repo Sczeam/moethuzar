@@ -9,6 +9,11 @@ export const SHIPPING_RULES_COPY = {
   pageTitle: "Shipping Rules",
   fallbackMissingWarning:
     "No active fallback rule found. Checkout will be blocked until fallback is active.",
+  healthTitle: "Coverage Health",
+  healthActiveRulesLabel: "Active rules",
+  healthFallbackLabel: "Fallback",
+  healthFallbackActive: "Active",
+  healthFallbackMissing: "Missing",
   currentSectionTitle: "Current Rules",
   createSectionTitle: "Create Rule",
   editSectionTitle: "Edit Rule",
@@ -39,6 +44,10 @@ export const PAYMENT_TRANSFER_METHODS_COPY = {
   activeCountLabel: (count: number) => `Active methods in checkout: ${count}`,
   activeCountWarning:
     "At least one active method is recommended so prepaid checkout remains available.",
+  healthTitle: "Checkout Availability",
+  healthActiveLabel: "Active methods",
+  healthBankLabel: "Bank",
+  healthWalletLabel: "Wallet",
   currentSectionTitle: "Current Methods",
   createSectionTitle: "Create Method",
   editSectionTitle: "Edit Method",

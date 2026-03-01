@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ADMIN_SETTINGS_NAV_LINKS, PAYMENT_TRANSFER_METHODS_COPY } from "@/lib/admin/settings-copy";
+import { getPaymentDeleteWarning, getPaymentHealth } from "@/lib/admin/settings-guardrails";
 import {
   createPaymentTransferMethodFormDraft,
   maskPaymentDestination,
@@ -44,6 +45,7 @@ export default function PaymentTransferMethodsClient() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const activeCount = useMemo(() => methods.filter((method) => method.isActive).length, [methods]);
+  const paymentHealth = useMemo(() => getPaymentHealth(methods), [methods]);
 
   const loadMethods = useCallback(async () => {
     setLoading(true);
@@ -140,12 +142,13 @@ export default function PaymentTransferMethodsClient() {
   }
 
   async function deleteMethod(method: PaymentTransferMethod) {
-    if (method.isActive && activeCount <= 1) {
-      setStatusText("Cannot delete the last active method.");
+    const warning = getPaymentDeleteWarning(method, activeCount);
+    if (warning.startsWith("Cannot delete")) {
+      setStatusText(warning);
       return;
     }
 
-    const confirmed = window.confirm(`Delete payment method "${method.label}"?`);
+    const confirmed = window.confirm(warning);
     if (!confirmed) return;
 
     setDeletingId(method.id);
@@ -193,6 +196,33 @@ export default function PaymentTransferMethodsClient() {
       {activeCount === 0 ? (
         <p className="mb-4 text-xs text-seal-wax">{PAYMENT_TRANSFER_METHODS_COPY.activeCountWarning}</p>
       ) : null}
+
+      <section className="vintage-panel mb-6 p-5">
+        <h2 className="text-xl font-semibold text-ink">{PAYMENT_TRANSFER_METHODS_COPY.healthTitle}</h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="rounded border border-sepia-border/60 bg-parchment p-3 text-sm">
+            <p className="text-charcoal">{PAYMENT_TRANSFER_METHODS_COPY.healthActiveLabel}</p>
+            <p className="text-2xl font-semibold text-ink">{paymentHealth.activeCount}</p>
+          </div>
+          <div className="rounded border border-sepia-border/60 bg-parchment p-3 text-sm">
+            <p className="text-charcoal">{PAYMENT_TRANSFER_METHODS_COPY.healthBankLabel}</p>
+            <p className="text-2xl font-semibold text-ink">{paymentHealth.activeBankCount}</p>
+          </div>
+          <div className="rounded border border-sepia-border/60 bg-parchment p-3 text-sm">
+            <p className="text-charcoal">{PAYMENT_TRANSFER_METHODS_COPY.healthWalletLabel}</p>
+            <p className="text-2xl font-semibold text-ink">{paymentHealth.activeWalletCount}</p>
+          </div>
+        </div>
+        {paymentHealth.warnings.length ? (
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-seal-wax">
+            {paymentHealth.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-charcoal">Prepaid checkout availability is healthy.</p>
+        )}
+      </section>
 
       <section className="vintage-panel p-5">
         <h2 className="text-xl font-semibold text-ink">
