@@ -106,7 +106,7 @@ export function presentOrderActionError(data: unknown): PresentedOrderActionErro
   if (code && ORDER_STALE_CODES.has(code)) {
     return {
       severity: "warning",
-      message: "Order state changed. Latest order data has been loaded. Review actions again.",
+      message: "Order state changed. The latest order data has been loaded. Please review actions again.",
       staleState: true,
       retryable: false,
     };
