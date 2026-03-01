@@ -1,3 +1,5 @@
+import { ADMIN_VALIDATION_COPY, ADMIN_VALIDATION_FIELDS } from "@/lib/admin/validation-copy";
+
 export type ChannelType = "BANK" | "WALLET";
 
 export type PaymentTransferMethodRecord = {
@@ -118,19 +120,37 @@ export function toPaymentTransferMethodPayload(
 ): { ok: true; payload: PaymentTransferMethodPayload } | { ok: false; error: string } {
   const label = draft.label.trim();
   if (label.length < 2) {
-    return { ok: false, error: "Method label is required." };
+    return {
+      ok: false,
+      error: ADMIN_VALIDATION_COPY.required(ADMIN_VALIDATION_FIELDS.paymentMethod.methodLabel),
+    };
   }
 
   const accountName = draft.accountName.trim();
   if (accountName.length < 2) {
-    return { ok: false, error: "Account name is required." };
+    return {
+      ok: false,
+      error: ADMIN_VALIDATION_COPY.required(ADMIN_VALIDATION_FIELDS.paymentMethod.accountName),
+    };
   }
 
   if (draft.channelType === "BANK" && !draft.accountNumber.trim()) {
-    return { ok: false, error: "Account number is required for bank methods." };
+    return {
+      ok: false,
+      error: ADMIN_VALIDATION_COPY.requiredFor(
+        ADMIN_VALIDATION_FIELDS.paymentMethod.accountNumber,
+        "bank methods",
+      ),
+    };
   }
   if (draft.channelType === "WALLET" && !draft.phoneNumber.trim()) {
-    return { ok: false, error: "Phone number is required for wallet methods." };
+    return {
+      ok: false,
+      error: ADMIN_VALIDATION_COPY.requiredFor(
+        ADMIN_VALIDATION_FIELDS.paymentMethod.phoneNumber,
+        "wallet methods",
+      ),
+    };
   }
 
   const sortOrder = parseInteger(draft.sortOrder) ?? fallbackSortOrder;
@@ -141,7 +161,10 @@ export function toPaymentTransferMethodPayload(
       : deriveMethodCode(label, draft.channelType, sortOrder);
 
   if (methodCode.length > 64) {
-    return { ok: false, error: "Method code is too long. Use a shorter label." };
+    return {
+      ok: false,
+      error: ADMIN_VALIDATION_COPY.maxLength(ADMIN_VALIDATION_FIELDS.paymentMethod.methodCode, 64),
+    };
   }
 
   return {
