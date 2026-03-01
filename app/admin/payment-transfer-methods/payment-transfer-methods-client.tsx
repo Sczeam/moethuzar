@@ -93,6 +93,7 @@ export default function PaymentTransferMethodsClient() {
         setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.createFailed));
         return;
       }
+      setCreateDraft(createPaymentTransferMethodFormDraft(nextMethodSortOrder(methods)));
       setStatusText(PAYMENT_TRANSFER_METHODS_COPY.createSuccess(data.method.label));
       await loadMethods();
     } catch {
