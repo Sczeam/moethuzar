@@ -1,4 +1,5 @@
 import { FALLBACK_SHIPPING_ZONE_KEY, SHIPPING_ZONE_KEYS } from "@/lib/constants/shipping-zones";
+import { ADMIN_VALIDATION_COPY, ADMIN_VALIDATION_FIELDS } from "@/lib/admin/validation-copy";
 
 export type KnownShippingZonePreset =
   | typeof SHIPPING_ZONE_KEYS.YANGON
@@ -167,20 +168,31 @@ export function toShippingRulePayload(
   const sortOrder = parseInteger(draft.sortOrder);
 
   if (!zoneKey.length) {
-    return { ok: false, error: "Zone is required." };
+    return { ok: false, error: ADMIN_VALIDATION_COPY.required(ADMIN_VALIDATION_FIELDS.shipping.zone) };
   }
 
   if (feeAmount === null || feeAmount < 0) {
-    return { ok: false, error: "Shipping fee must be a whole MMK amount." };
+    return {
+      ok: false,
+      error: ADMIN_VALIDATION_COPY.wholeMmkAmount(ADMIN_VALIDATION_FIELDS.shipping.shippingFee),
+    };
   }
 
   const freeShippingThresholdParsed = parseInteger(draft.freeShippingThreshold);
   if (draft.freeShippingThreshold.trim().length && freeShippingThresholdParsed === null) {
-    return { ok: false, error: "Free-shipping threshold must be a whole MMK amount." };
+    return {
+      ok: false,
+      error: ADMIN_VALIDATION_COPY.wholeMmkAmount(
+        ADMIN_VALIDATION_FIELDS.shipping.freeShippingThreshold,
+      ),
+    };
   }
 
   if (!draft.etaLabel.trim().length) {
-    return { ok: false, error: "Delivery ETA is required." };
+    return {
+      ok: false,
+      error: ADMIN_VALIDATION_COPY.required(ADMIN_VALIDATION_FIELDS.shipping.deliveryEta),
+    };
   }
 
   const normalizedFallback =
