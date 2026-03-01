@@ -37,6 +37,8 @@ export const SHIPPING_RULES_COPY = {
 export const PAYMENT_TRANSFER_METHODS_COPY = {
   pageTitle: "Payment Transfer Methods",
   activeCountLabel: (count: number) => `Active methods in checkout: ${count}`,
+  activeCountWarning:
+    "At least one active method is recommended so prepaid checkout remains available.",
   currentSectionTitle: "Current Methods",
   createSectionTitle: "Create Method",
   editSectionTitle: "Edit Method",
