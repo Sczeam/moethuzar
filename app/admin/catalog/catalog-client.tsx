@@ -35,6 +35,7 @@ import { CreateProductSectionCard } from "@/components/admin/catalog/create-prod
 import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
 import { CSS } from "@dnd-kit/utilities";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
+import { presentAdminApiError } from "@/lib/admin/error-presenter";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -138,36 +139,11 @@ function parseListInput(value: string): string[] {
 }
 
 function readValidationMessage(data: unknown, fallback: string): string {
-  if (!data || typeof data !== "object") {
-    return fallback;
-  }
-
-  const payload = data as {
-    error?: unknown;
-    issues?: Array<{ path?: unknown; message?: unknown }>;
-    requestId?: unknown;
-  };
-
-  if (Array.isArray(payload.issues) && payload.issues.length > 0) {
-    const issue = payload.issues[0];
-    const pathLabel =
-      Array.isArray(issue.path) && issue.path.length > 0
-        ? issue.path.join(".")
-        : "payload";
-    const message =
-      typeof issue.message === "string" ? issue.message : "Invalid input for this field.";
-    return `${pathLabel}: ${message}`;
-  }
-
-  if (typeof payload.error === "string") {
-    return payload.error;
-  }
-
-  if (typeof payload.requestId === "string") {
-    return `Validation failed. Request ID: ${payload.requestId}`;
-  }
-
-  return fallback;
+  return presentAdminApiError(data, {
+    fallback,
+    includeRequestId: true,
+    includeFirstIssue: true,
+  });
 }
 
 function formatFileSize(sizeInBytes: number): string {
@@ -629,10 +605,13 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
     const data = await response.json();
 
     if (!response.ok || !data.ok) {
-      setLoadError(data.error ?? "Failed to load catalog.");
-      setStatusText(
-        typeof data?.requestId === "string" ? `Request ID: ${data.requestId}` : "Please retry."
-      );
+      const presented = presentAdminApiError(data, {
+        fallback: "Failed to load catalog.",
+        includeRequestId: true,
+        includeFirstIssue: true,
+      });
+      setLoadError(presented);
+      setStatusText("Please retry.");
       setLoading(false);
       return;
     }
@@ -706,7 +685,13 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       const response = await fetch(`/api/admin/catalog/${productId}`);
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to load product details.");
+        setStatusText(
+          presentAdminApiError(data, {
+            fallback: "Failed to load product details.",
+            includeRequestId: true,
+            includeFirstIssue: true,
+          }),
+        );
         return;
       }
 
@@ -938,7 +923,13 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Failed to adjust inventory.");
+        setStatusText(
+          presentAdminApiError(data, {
+            fallback: "Failed to adjust inventory.",
+            includeRequestId: true,
+            includeFirstIssue: true,
+          }),
+        );
         return;
       }
 

@@ -15,21 +15,10 @@ import {
 } from "@/lib/admin/shipping-rule-form-adapter";
 import { ADMIN_SETTINGS_NAV_LINKS, SHIPPING_RULES_COPY } from "@/lib/admin/settings-copy";
 import { getShippingDeleteWarning, getShippingHealth } from "@/lib/admin/settings-guardrails";
+import { presentAdminApiError } from "@/lib/admin/error-presenter";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 
 type ShippingRule = ShippingRuleRecord;
-
-function apiErrorText(data: unknown, fallback: string) {
-  if (!data || typeof data !== "object") return fallback;
-  const payload = data as { error?: unknown; code?: unknown; requestId?: unknown };
-  const errorText = typeof payload.error === "string" ? payload.error : fallback;
-  const codeText = typeof payload.code === "string" ? payload.code : null;
-  const requestIdText = typeof payload.requestId === "string" ? payload.requestId : null;
-  if (codeText && requestIdText) return `${errorText} (${codeText}, requestId: ${requestIdText})`;
-  if (codeText) return `${errorText} (${codeText})`;
-  if (requestIdText) return `${errorText} (requestId: ${requestIdText})`;
-  return errorText;
-}
 
 function nextSortOrderFromRules(rules: ShippingRule[]) {
   const maxSort = rules.reduce((acc, rule) => Math.max(acc, rule.sortOrder), 0);
@@ -56,7 +45,9 @@ export default function ShippingRulesClient() {
       const response = await fetch("/api/admin/shipping-rules");
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, SHIPPING_RULES_COPY.loadFailed));
+        setStatusText(
+          presentAdminApiError(data, { fallback: SHIPPING_RULES_COPY.loadFailed, includeRequestId: true }),
+        );
         return;
       }
 
@@ -93,7 +84,9 @@ export default function ShippingRulesClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, SHIPPING_RULES_COPY.createFailed));
+        setStatusText(
+          presentAdminApiError(data, { fallback: SHIPPING_RULES_COPY.createFailed, includeRequestId: true }),
+        );
         return;
       }
       setStatusText(SHIPPING_RULES_COPY.createSuccess(data.rule.name));
@@ -126,7 +119,9 @@ export default function ShippingRulesClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, SHIPPING_RULES_COPY.updateFailed));
+        setStatusText(
+          presentAdminApiError(data, { fallback: SHIPPING_RULES_COPY.updateFailed, includeRequestId: true }),
+        );
         return;
       }
       setStatusText(SHIPPING_RULES_COPY.updateSuccess(data.rule.name));
@@ -148,7 +143,9 @@ export default function ShippingRulesClient() {
       const response = await fetch(`/api/admin/shipping-rules/${rule.id}`, { method: "DELETE" });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, SHIPPING_RULES_COPY.deleteFailed));
+        setStatusText(
+          presentAdminApiError(data, { fallback: SHIPPING_RULES_COPY.deleteFailed, includeRequestId: true }),
+        );
         return;
       }
 

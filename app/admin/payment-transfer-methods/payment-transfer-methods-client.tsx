@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ADMIN_SETTINGS_NAV_LINKS, PAYMENT_TRANSFER_METHODS_COPY } from "@/lib/admin/settings-copy";
 import { getPaymentDeleteWarning, getPaymentHealth } from "@/lib/admin/settings-guardrails";
+import { presentAdminApiError } from "@/lib/admin/error-presenter";
 import {
   createPaymentTransferMethodFormDraft,
   maskPaymentDestination,
@@ -17,19 +18,6 @@ import {
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 
 type PaymentTransferMethod = PaymentTransferMethodRecord;
-
-function apiErrorText(data: unknown, fallback: string) {
-  if (!data || typeof data !== "object") return fallback;
-
-  const payload = data as { error?: unknown; code?: unknown; requestId?: unknown };
-  const errorText = typeof payload.error === "string" ? payload.error : fallback;
-  const codeText = typeof payload.code === "string" ? payload.code : null;
-  const requestIdText = typeof payload.requestId === "string" ? payload.requestId : null;
-
-  if (codeText && requestIdText) return `${errorText} (${codeText}, requestId: ${requestIdText})`;
-  if (codeText) return `${errorText} (${codeText})`;
-  return errorText;
-}
 
 export default function PaymentTransferMethodsClient() {
   const [methods, setMethods] = useState<PaymentTransferMethod[]>([]);
@@ -54,7 +42,12 @@ export default function PaymentTransferMethodsClient() {
       const response = await fetch("/api/admin/payment-transfer-methods");
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.loadFailed));
+        setStatusText(
+          presentAdminApiError(data, {
+            fallback: PAYMENT_TRANSFER_METHODS_COPY.loadFailed,
+            includeRequestId: true,
+          }),
+        );
         return;
       }
 
@@ -92,7 +85,12 @@ export default function PaymentTransferMethodsClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.createFailed));
+        setStatusText(
+          presentAdminApiError(data, {
+            fallback: PAYMENT_TRANSFER_METHODS_COPY.createFailed,
+            includeRequestId: true,
+          }),
+        );
         return;
       }
       setCreateDraft(createPaymentTransferMethodFormDraft(nextMethodSortOrder(methods)));
@@ -128,7 +126,12 @@ export default function PaymentTransferMethodsClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.updateFailed));
+        setStatusText(
+          presentAdminApiError(data, {
+            fallback: PAYMENT_TRANSFER_METHODS_COPY.updateFailed,
+            includeRequestId: true,
+          }),
+        );
         return;
       }
 
@@ -159,7 +162,12 @@ export default function PaymentTransferMethodsClient() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
-        setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.deleteFailed));
+        setStatusText(
+          presentAdminApiError(data, {
+            fallback: PAYMENT_TRANSFER_METHODS_COPY.deleteFailed,
+            includeRequestId: true,
+          }),
+        );
         return;
       }
 
