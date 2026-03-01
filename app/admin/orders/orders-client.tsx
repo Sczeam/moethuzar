@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
 import type { OrdersKpiSnapshot } from "@/lib/constants/admin-orders-kpi-contract";
 import { orderStatusBadgeClass, type UiOrderStatus } from "@/lib/constants/order-status-ui";
 
@@ -127,6 +128,10 @@ export default function OrdersClient({
 
   const pageNumber = Number.parseInt(page, 10) || pagination.page;
   const pageSizeNumber = Number.parseInt(pageSize, 10) || pagination.pageSize;
+  const searchFieldId = "orders-filter-search";
+  const fromFieldId = "orders-filter-from";
+  const toFieldId = "orders-filter-to";
+  const pageSizeFieldId = "orders-filter-page-size";
 
   function pushState(next: {
     status?: string;
@@ -224,42 +229,67 @@ export default function OrdersClient({
       <section className="vintage-panel rounded-[24px] border-sepia-border/50 p-4 md:p-5">
         <form
           className="mt-4 grid gap-2 md:grid-cols-6"
+          aria-label="Order filters"
           onSubmit={(event) => {
             event.preventDefault();
             pushState({ q: searchText, from: fromDate, to: toDate, page: 1 });
           }}
         >
-          <input
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Search code/name/phone"
-            className="rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm md:col-span-2"
-          />
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(event) => setFromDate(event.target.value)}
-            className="rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
-          />
-          <input
-            type="date"
-            value={toDate}
-            onChange={(event) => setToDate(event.target.value)}
-            className="rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
-          />
-          <select
-            value={pageSizeNumber}
-            onChange={(event) => {
-              const nextSize = Number.parseInt(event.target.value, 10) || 20;
-              pushState({ pageSize: nextSize, page: 1 });
-            }}
-            className="rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
-          >
-            <option value={10}>10 / page</option>
-            <option value={20}>20 / page</option>
-            <option value={50}>50 / page</option>
-          </select>
-          <button type="submit" className="btn-primary rounded-xl">
+          <div className="md:col-span-2">
+            <label htmlFor={searchFieldId} className="mb-1 block text-xs uppercase tracking-[0.08em] text-charcoal">
+              Search
+            </label>
+            <input
+              id={searchFieldId}
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search code/name/phone"
+              className="w-full rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor={fromFieldId} className="mb-1 block text-xs uppercase tracking-[0.08em] text-charcoal">
+              From date
+            </label>
+            <input
+              id={fromFieldId}
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              className="w-full rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor={toFieldId} className="mb-1 block text-xs uppercase tracking-[0.08em] text-charcoal">
+              To date
+            </label>
+            <input
+              id={toFieldId}
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              className="w-full rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor={pageSizeFieldId} className="mb-1 block text-xs uppercase tracking-[0.08em] text-charcoal">
+              Page size
+            </label>
+            <select
+              id={pageSizeFieldId}
+              value={pageSizeNumber}
+              onChange={(event) => {
+                const nextSize = Number.parseInt(event.target.value, 10) || 20;
+                pushState({ pageSize: nextSize, page: 1 });
+              }}
+              className="w-full rounded-xl border border-sepia-border bg-parchment px-3 py-2 text-sm"
+            >
+              <option value={10}>10 / page</option>
+              <option value={20}>20 / page</option>
+              <option value={50}>50 / page</option>
+            </select>
+          </div>
+          <button type="submit" className={`btn-primary rounded-xl ${ADMIN_A11Y.target.minInteractive}`}>
             Apply
           </button>
         </form>
@@ -281,7 +311,11 @@ export default function OrdersClient({
               );
             })}
           </div>
-          <button type="button" onClick={onExportCsv} className="btn-secondary text-xs md:text-sm">
+          <button
+            type="button"
+            onClick={onExportCsv}
+            className={`btn-secondary text-xs md:text-sm ${ADMIN_A11Y.target.minInteractive}`}
+          >
             Export Current CSV
           </button>
         </div>
