@@ -14,6 +14,7 @@ import {
   type ShippingRuleRecord,
 } from "@/lib/admin/shipping-rule-form-adapter";
 import { ADMIN_SETTINGS_NAV_LINKS, SHIPPING_RULES_COPY } from "@/lib/admin/settings-copy";
+import { getShippingDeleteWarning, getShippingHealth } from "@/lib/admin/settings-guardrails";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 
 type ShippingRule = ShippingRuleRecord;
@@ -35,21 +36,6 @@ function nextSortOrderFromRules(rules: ShippingRule[]) {
   return maxSort + 1;
 }
 
-function missingRequiredActiveZoneKeys(rules: ShippingRule[]) {
-  const required = [
-    SHIPPING_ZONE_KEYS.YANGON,
-    SHIPPING_ZONE_KEYS.MANDALAY,
-    SHIPPING_ZONE_KEYS.PYINMANA,
-    SHIPPING_ZONE_KEYS.NAY_PYI_DAW,
-    FALLBACK_SHIPPING_ZONE_KEY,
-  ];
-
-  return required.filter(
-    (requiredKey) =>
-      !rules.some((rule) => rule.isActive && rule.zoneKey.toUpperCase().replace(/\s+/g, "_") === requiredKey),
-  );
-}
-
 export default function ShippingRulesClient() {
   const [rules, setRules] = useState<ShippingRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,11 +47,7 @@ export default function ShippingRulesClient() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const hasActiveFallback = useMemo(
-    () => rules.some((rule) => rule.isFallback && rule.isActive),
-    [rules],
-  );
-  const missingZoneKeys = useMemo(() => missingRequiredActiveZoneKeys(rules), [rules]);
+  const shippingHealth = useMemo(() => getShippingHealth(rules), [rules]);
 
   const loadRules = useCallback(async () => {
     setLoading(true);
@@ -157,8 +139,7 @@ export default function ShippingRulesClient() {
   }
 
   async function deleteRule(rule: ShippingRule) {
-    const fallbackLabel = rule.isFallback ? " fallback" : "";
-    const confirmed = window.confirm(`Delete${fallbackLabel} shipping rule "${rule.name}"?`);
+    const confirmed = window.confirm(getShippingDeleteWarning(rule));
     if (!confirmed) return;
 
     setDeletingId(rule.id);
@@ -203,17 +184,48 @@ export default function ShippingRulesClient() {
         </div>
       </div>
 
-      {!hasActiveFallback ? (
+      {!shippingHealth.hasActiveFallback ? (
         <div className="mb-4 border border-seal-wax/40 bg-seal-wax/10 p-3 text-sm text-seal-wax">
           {SHIPPING_RULES_COPY.fallbackMissingWarning}
         </div>
       ) : null}
 
-      {missingZoneKeys.length ? (
+      {shippingHealth.missingRequiredZoneKeys.length ? (
         <div className="mb-4 border border-amber-700/30 bg-amber-100/40 p-3 text-sm text-amber-900">
-          Missing active required zones: {missingZoneKeys.join(", ")}.
+          Missing active required zones: {shippingHealth.missingRequiredZoneKeys.join(", ")}.
         </div>
       ) : null}
+
+      <section className="vintage-panel mb-6 p-5">
+        <h2 className="text-xl font-semibold text-ink">{SHIPPING_RULES_COPY.healthTitle}</h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="rounded border border-sepia-border/60 bg-parchment p-3 text-sm">
+            <p className="text-charcoal">{SHIPPING_RULES_COPY.healthActiveRulesLabel}</p>
+            <p className="text-2xl font-semibold text-ink">{shippingHealth.activeRuleCount}</p>
+          </div>
+          <div className="rounded border border-sepia-border/60 bg-parchment p-3 text-sm">
+            <p className="text-charcoal">{SHIPPING_RULES_COPY.healthFallbackLabel}</p>
+            <p className="text-2xl font-semibold text-ink">
+              {shippingHealth.hasActiveFallback
+                ? SHIPPING_RULES_COPY.healthFallbackActive
+                : SHIPPING_RULES_COPY.healthFallbackMissing}
+            </p>
+          </div>
+          <div className="rounded border border-sepia-border/60 bg-parchment p-3 text-sm">
+            <p className="text-charcoal">Warnings</p>
+            <p className="text-2xl font-semibold text-ink">{shippingHealth.warnings.length}</p>
+          </div>
+        </div>
+        {shippingHealth.warnings.length ? (
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-seal-wax">
+            {shippingHealth.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-charcoal">All required shipping coverage checks are healthy.</p>
+        )}
+      </section>
 
       <section className="vintage-panel p-5">
         <h2 className="text-xl font-semibold text-ink">{SHIPPING_RULES_COPY.currentSectionTitle}</h2>
