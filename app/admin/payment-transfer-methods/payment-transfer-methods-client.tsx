@@ -1,107 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { ADMIN_SETTINGS_NAV_LINKS, PAYMENT_TRANSFER_METHODS_COPY } from "@/lib/admin/settings-copy";
 import {
-  ADMIN_SETTINGS_NAV_LINKS,
-  PAYMENT_TRANSFER_METHODS_COPY,
-} from "@/lib/admin/settings-copy";
-import {
-  type Dispatch,
-  type FormEvent,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+  createPaymentTransferMethodFormDraft,
+  maskPaymentDestination,
+  nextMethodSortOrder,
+  paymentTransferMethodToDraft,
+  toPaymentTransferMethodPayload,
+  withChannelType,
+  type ChannelType,
+  type PaymentTransferMethodFormDraft,
+  type PaymentTransferMethodRecord,
+} from "@/lib/admin/payment-transfer-method-form-adapter";
+import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 
-type ChannelType = "BANK" | "WALLET";
-
-type PaymentTransferMethod = {
-  id: string;
-  methodCode: string;
-  label: string;
-  channelType: ChannelType;
-  accountName: string;
-  accountNumber: string | null;
-  phoneNumber: string | null;
-  instructions: string | null;
-  isActive: boolean;
-  sortOrder: number;
-};
-
-type MethodDraft = {
-  methodCode: string;
-  label: string;
-  channelType: ChannelType;
-  accountName: string;
-  accountNumber: string;
-  phoneNumber: string;
-  instructions: string;
-  isActive: boolean;
-  sortOrder: string;
-};
-
-function createInitialDraft(): MethodDraft {
-  return {
-    methodCode: "",
-    label: "",
-    channelType: "BANK",
-    accountName: "",
-    accountNumber: "",
-    phoneNumber: "",
-    instructions: "",
-    isActive: true,
-    sortOrder: "0",
-  };
-}
-
-function toDraft(method: PaymentTransferMethod): MethodDraft {
-  return {
-    methodCode: method.methodCode,
-    label: method.label,
-    channelType: method.channelType,
-    accountName: method.accountName,
-    accountNumber: method.accountNumber ?? "",
-    phoneNumber: method.phoneNumber ?? "",
-    instructions: method.instructions ?? "",
-    isActive: method.isActive,
-    sortOrder: String(method.sortOrder),
-  };
-}
-
-function draftToPayload(draft: MethodDraft) {
-  return {
-    methodCode: draft.methodCode,
-    label: draft.label,
-    channelType: draft.channelType,
-    accountName: draft.accountName,
-    accountNumber: draft.accountNumber,
-    phoneNumber: draft.phoneNumber,
-    instructions: draft.instructions,
-    isActive: draft.isActive,
-    sortOrder: Number.parseInt(draft.sortOrder, 10),
-  };
-}
+type PaymentTransferMethod = PaymentTransferMethodRecord;
 
 function apiErrorText(data: unknown, fallback: string) {
-  if (!data || typeof data !== "object") {
-    return fallback;
-  }
+  if (!data || typeof data !== "object") return fallback;
 
   const payload = data as { error?: unknown; code?: unknown; requestId?: unknown };
   const errorText = typeof payload.error === "string" ? payload.error : fallback;
   const codeText = typeof payload.code === "string" ? payload.code : null;
   const requestIdText = typeof payload.requestId === "string" ? payload.requestId : null;
 
-  if (codeText && requestIdText) {
-    return `${errorText} (${codeText}, requestId: ${requestIdText})`;
-  }
-
-  if (codeText) {
-    return `${errorText} (${codeText})`;
-  }
-
+  if (codeText && requestIdText) return `${errorText} (${codeText}, requestId: ${requestIdText})`;
+  if (codeText) return `${errorText} (${codeText})`;
   return errorText;
 }
 
@@ -109,9 +34,11 @@ export default function PaymentTransferMethodsClient() {
   const [methods, setMethods] = useState<PaymentTransferMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusText, setStatusText] = useState("");
-  const [createDraft, setCreateDraft] = useState<MethodDraft>(createInitialDraft());
+  const [createDraft, setCreateDraft] = useState<PaymentTransferMethodFormDraft>(
+    createPaymentTransferMethodFormDraft(1),
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingDraft, setEditingDraft] = useState<MethodDraft | null>(null);
+  const [editingDraft, setEditingDraft] = useState<PaymentTransferMethodFormDraft | null>(null);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -129,7 +56,9 @@ export default function PaymentTransferMethodsClient() {
         return;
       }
 
-      setMethods(data.methods as PaymentTransferMethod[]);
+      const nextMethods = data.methods as PaymentTransferMethod[];
+      setMethods(nextMethods);
+      setCreateDraft(createPaymentTransferMethodFormDraft(nextMethodSortOrder(nextMethods)));
     } catch {
       setStatusText(PAYMENT_TRANSFER_METHODS_COPY.loadUnexpected);
     } finally {
@@ -145,18 +74,25 @@ export default function PaymentTransferMethodsClient() {
     event.preventDefault();
     setCreating(true);
     setStatusText("");
+
+    const mapped = toPaymentTransferMethodPayload(createDraft, nextMethodSortOrder(methods));
+    if (!mapped.ok) {
+      setStatusText(mapped.error);
+      setCreating(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/admin/payment-transfer-methods", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draftToPayload(createDraft)),
+        body: JSON.stringify(mapped.payload),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
         setStatusText(apiErrorText(data, PAYMENT_TRANSFER_METHODS_COPY.createFailed));
         return;
       }
-      setCreateDraft(createInitialDraft());
       setStatusText(PAYMENT_TRANSFER_METHODS_COPY.createSuccess(data.method.label));
       await loadMethods();
     } catch {
@@ -168,17 +104,22 @@ export default function PaymentTransferMethodsClient() {
 
   async function updateMethod(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editingId || !editingDraft) {
-      return;
-    }
+    if (!editingId || !editingDraft) return;
 
     setSaving(true);
     setStatusText("");
+    const mapped = toPaymentTransferMethodPayload(editingDraft, nextMethodSortOrder(methods));
+    if (!mapped.ok) {
+      setStatusText(mapped.error);
+      setSaving(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/admin/payment-transfer-methods/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draftToPayload(editingDraft)),
+        body: JSON.stringify(mapped.payload),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
@@ -195,11 +136,19 @@ export default function PaymentTransferMethodsClient() {
     }
   }
 
-  async function deleteMethod(methodId: string) {
-    setDeletingId(methodId);
+  async function deleteMethod(method: PaymentTransferMethod) {
+    if (method.isActive && activeCount <= 1) {
+      setStatusText("Cannot delete the last active method.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete payment method "${method.label}"?`);
+    if (!confirmed) return;
+
+    setDeletingId(method.id);
     setStatusText("");
     try {
-      const response = await fetch(`/api/admin/payment-transfer-methods/${methodId}`, {
+      const response = await fetch(`/api/admin/payment-transfer-methods/${method.id}`, {
         method: "DELETE",
       });
       const data = await response.json();
@@ -208,7 +157,7 @@ export default function PaymentTransferMethodsClient() {
         return;
       }
 
-      if (editingId === methodId) {
+      if (editingId === method.id) {
         setEditingId(null);
         setEditingDraft(null);
       }
@@ -235,9 +184,12 @@ export default function PaymentTransferMethodsClient() {
         </div>
       </div>
 
-      <p className="mb-4 text-sm text-charcoal">
+      <p className="mb-1 text-sm text-charcoal">
         {PAYMENT_TRANSFER_METHODS_COPY.activeCountLabel(activeCount)}
       </p>
+      {activeCount === 0 ? (
+        <p className="mb-4 text-xs text-seal-wax">{PAYMENT_TRANSFER_METHODS_COPY.activeCountWarning}</p>
+      ) : null}
 
       <section className="vintage-panel p-5">
         <h2 className="text-xl font-semibold text-ink">
@@ -251,10 +203,9 @@ export default function PaymentTransferMethodsClient() {
             <table className="min-w-full text-sm">
               <thead className="bg-parchment text-left text-charcoal">
                 <tr>
-                  <th className="px-3 py-2">Code</th>
-                  <th className="px-3 py-2">Label</th>
-                  <th className="px-3 py-2">Type</th>
-                  <th className="px-3 py-2">Account/Phone</th>
+                  <th className="px-3 py-2">Method</th>
+                  <th className="px-3 py-2">Channel</th>
+                  <th className="px-3 py-2">Transfer destination</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Actions</th>
                 </tr>
@@ -262,13 +213,15 @@ export default function PaymentTransferMethodsClient() {
               <tbody>
                 {methods.map((method) => (
                   <tr key={method.id} className="border-t border-sepia-border/60">
-                    <td className="px-3 py-2 font-mono text-xs">{method.methodCode}</td>
-                    <td className="px-3 py-2">{method.label}</td>
-                    <td className="px-3 py-2">{method.channelType}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-semibold">{method.label}</div>
+                      <div className="font-mono text-xs text-charcoal">{method.methodCode}</div>
+                    </td>
+                    <td className="px-3 py-2">{method.channelType === "BANK" ? "Bank transfer" : "Wallet"}</td>
                     <td className="px-3 py-2">
                       {method.channelType === "BANK"
-                        ? method.accountNumber || "-"
-                        : method.phoneNumber || "-"}
+                        ? `A/C ${maskPaymentDestination(method.accountNumber)}`
+                        : `Phone ${maskPaymentDestination(method.phoneNumber)}`}
                     </td>
                     <td className="px-3 py-2">{method.isActive ? "Active" : "Inactive"}</td>
                     <td className="px-3 py-2">
@@ -278,7 +231,7 @@ export default function PaymentTransferMethodsClient() {
                           className="btn-secondary"
                           onClick={() => {
                             setEditingId(method.id);
-                            setEditingDraft(toDraft(method));
+                            setEditingDraft(paymentTransferMethodToDraft(method));
                           }}
                         >
                           Edit
@@ -287,7 +240,7 @@ export default function PaymentTransferMethodsClient() {
                           type="button"
                           className="btn-secondary"
                           disabled={deletingId === method.id}
-                          onClick={() => void deleteMethod(method.id)}
+                          onClick={() => void deleteMethod(method)}
                         >
                           {deletingId === method.id ? "Deleting..." : "Delete"}
                         </button>
@@ -297,7 +250,7 @@ export default function PaymentTransferMethodsClient() {
                 ))}
                 {methods.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-6 text-center text-charcoal">
+                    <td colSpan={5} className="px-3 py-6 text-center text-charcoal">
                       {PAYMENT_TRANSFER_METHODS_COPY.emptyStateText}
                     </td>
                   </tr>
@@ -335,9 +288,9 @@ export default function PaymentTransferMethodsClient() {
             draft={editingDraft}
             onChange={(updater) =>
               setEditingDraft((prev) => {
-                const current = prev ?? createInitialDraft();
+                const current = prev ?? createPaymentTransferMethodFormDraft(nextMethodSortOrder(methods));
                 return typeof updater === "function"
-                  ? (updater as (value: MethodDraft) => MethodDraft)(current)
+                  ? (updater as (value: PaymentTransferMethodFormDraft) => PaymentTransferMethodFormDraft)(current)
                   : updater;
               })
             }
@@ -374,8 +327,8 @@ function MethodForm({
   submitLabel,
   disabled,
 }: {
-  draft: MethodDraft;
-  onChange: Dispatch<SetStateAction<MethodDraft>>;
+  draft: PaymentTransferMethodFormDraft;
+  onChange: Dispatch<SetStateAction<PaymentTransferMethodFormDraft>>;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   submitLabel: string;
   disabled: boolean;
@@ -383,78 +336,77 @@ function MethodForm({
   return (
     <form onSubmit={(event) => void onSubmit(event)} className="mt-4 space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <input
-          value={draft.methodCode}
-          onChange={(event) => onChange((prev) => ({ ...prev, methodCode: event.target.value }))}
-          placeholder="Method code (e.g. KBZ_PAY)"
-          className="field-input"
-          required
-        />
-        <input
-          value={draft.label}
-          onChange={(event) => onChange((prev) => ({ ...prev, label: event.target.value }))}
-          placeholder="Display name"
-          className="field-input"
-          required
-        />
-        <select
-          value={draft.channelType}
-          onChange={(event) =>
-            onChange((prev) => ({
-              ...prev,
-              channelType: event.target.value as ChannelType,
-            }))
-          }
-          className="field-select"
-        >
-          <option value="BANK">Bank</option>
-          <option value="WALLET">Wallet</option>
-        </select>
-      </div>
+        <label className="space-y-1 text-sm text-charcoal">
+          <span>Method label</span>
+          <input
+            value={draft.label}
+            onChange={(event) => onChange((prev) => ({ ...prev, label: event.target.value }))}
+            placeholder="e.g. KBZPay Personal"
+            className="field-input"
+            required
+          />
+        </label>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <input
-          value={draft.accountName}
-          onChange={(event) => onChange((prev) => ({ ...prev, accountName: event.target.value }))}
-          placeholder="Account holder name"
-          className="field-input"
-          required
-        />
-        <input
-          value={draft.accountNumber}
-          onChange={(event) =>
-            onChange((prev) => ({ ...prev, accountNumber: event.target.value }))
-          }
-          placeholder="Account number (bank)"
-          className="field-input"
-        />
-        <input
-          value={draft.phoneNumber}
-          onChange={(event) => onChange((prev) => ({ ...prev, phoneNumber: event.target.value }))}
-          placeholder="Phone number (wallet)"
-          className="field-input"
-        />
+        <label className="space-y-1 text-sm text-charcoal">
+          <span>Channel</span>
+          <select
+            value={draft.channelType}
+            onChange={(event) =>
+              onChange((prev) => withChannelType(prev, event.target.value as ChannelType))
+            }
+            className="field-select"
+          >
+            <option value="BANK">Bank</option>
+            <option value="WALLET">Wallet</option>
+          </select>
+        </label>
+
+        <label className="space-y-1 text-sm text-charcoal">
+          <span>Account name</span>
+          <input
+            value={draft.accountName}
+            onChange={(event) => onChange((prev) => ({ ...prev, accountName: event.target.value }))}
+            placeholder="Account holder name"
+            className="field-input"
+            required
+          />
+        </label>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <input
-          value={draft.instructions}
-          onChange={(event) =>
-            onChange((prev) => ({ ...prev, instructions: event.target.value }))
-          }
-          placeholder="Instructions (optional)"
-          className="field-input"
-        />
-        <input
-          type="number"
-          min={0}
-          step={1}
-          value={draft.sortOrder}
-          onChange={(event) => onChange((prev) => ({ ...prev, sortOrder: event.target.value }))}
-          placeholder="Sort order"
-          className="field-input"
-          required
-        />
+        {draft.channelType === "BANK" ? (
+          <label className="space-y-1 text-sm text-charcoal">
+            <span>Account number</span>
+            <input
+              value={draft.accountNumber}
+              onChange={(event) => onChange((prev) => ({ ...prev, accountNumber: event.target.value }))}
+              placeholder="Bank account number"
+              className="field-input"
+              required
+            />
+          </label>
+        ) : (
+          <label className="space-y-1 text-sm text-charcoal">
+            <span>Phone number</span>
+            <input
+              value={draft.phoneNumber}
+              onChange={(event) => onChange((prev) => ({ ...prev, phoneNumber: event.target.value }))}
+              placeholder="Wallet phone number"
+              className="field-input"
+              required
+            />
+          </label>
+        )}
+
+        <label className="space-y-1 text-sm text-charcoal">
+          <span>Instructions (optional)</span>
+          <input
+            value={draft.instructions}
+            onChange={(event) => onChange((prev) => ({ ...prev, instructions: event.target.value }))}
+            placeholder="e.g. Include transfer note with order code"
+            className="field-input"
+          />
+        </label>
       </div>
 
       <label className="inline-flex items-center gap-2 text-sm text-charcoal">
