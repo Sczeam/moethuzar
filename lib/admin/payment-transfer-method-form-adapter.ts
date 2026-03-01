@@ -43,18 +43,35 @@ function parseInteger(value: string) {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
-function normalizeMethodCode(value: string) {
+function normalizeExistingMethodCode(value: string) {
+  // Keep compatibility with service normalization:
+  // uppercase + collapse whitespace only.
+  return value.trim().toUpperCase().replace(/\s+/g, "_");
+}
+
+function sanitizeGeneratedCodeBase(value: string) {
   return value
     .trim()
     .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/[^A-Z0-9_ -]+/g, "_")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
 }
 
+function capMethodCodeLength(value: string) {
+  return value.slice(0, 64);
+}
+
 function deriveMethodCode(label: string, channelType: ChannelType, fallbackSortOrder: number) {
-  const base = normalizeMethodCode(label);
-  if (base.length) return `${base}_${channelType}`;
-  return `METHOD_${channelType}_${fallbackSortOrder}`;
+  const suffix = `_${channelType}`;
+  const base = sanitizeGeneratedCodeBase(label);
+  if (base.length) {
+    const maxBaseLength = 64 - suffix.length;
+    return capMethodCodeLength(`${base.slice(0, Math.max(0, maxBaseLength))}${suffix}`);
+  }
+
+  return capMethodCodeLength(`METHOD_${channelType}_${fallbackSortOrder}`);
 }
 
 export function nextMethodSortOrder(methods: PaymentTransferMethodRecord[]) {
@@ -97,6 +114,7 @@ export function paymentTransferMethodToDraft(
 export function toPaymentTransferMethodPayload(
   draft: PaymentTransferMethodFormDraft,
   fallbackSortOrder: number,
+  options?: { preserveMethodCode?: boolean },
 ): { ok: true; payload: PaymentTransferMethodPayload } | { ok: false; error: string } {
   const label = draft.label.trim();
   if (label.length < 2) {
@@ -116,7 +134,15 @@ export function toPaymentTransferMethodPayload(
   }
 
   const sortOrder = parseInteger(draft.sortOrder) ?? fallbackSortOrder;
-  const methodCode = normalizeMethodCode(draft.methodCode) || deriveMethodCode(label, draft.channelType, sortOrder);
+  const existingCode = normalizeExistingMethodCode(draft.methodCode);
+  const methodCode =
+    options?.preserveMethodCode && existingCode.length
+      ? existingCode
+      : deriveMethodCode(label, draft.channelType, sortOrder);
+
+  if (methodCode.length > 64) {
+    return { ok: false, error: "Method code is too long. Use a shorter label." };
+  }
 
   return {
     ok: true,
@@ -151,5 +177,5 @@ export function maskPaymentDestination(value: string | null) {
   const normalized = value.trim();
   if (normalized.length <= 4) return normalized;
   const last4 = normalized.slice(-4);
-  return `••••${last4}`;
+  return `****${last4}`;
 }

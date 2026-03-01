@@ -76,6 +76,42 @@ describe("payment-transfer-method-form-adapter", () => {
     }
   });
 
+  it("preserves existing method code on edit payload mapping", () => {
+    const mapped = toPaymentTransferMethodPayload(
+      {
+        ...createPaymentTransferMethodFormDraft(2),
+        methodCode: "KBZ-PAY",
+        label: "KBZ Pay Updated Label",
+        accountName: "Moethuzar Tun",
+        channelType: "WALLET",
+        phoneNumber: "0912345678",
+      },
+      2,
+      { preserveMethodCode: true },
+    );
+    expect(mapped.ok).toBe(true);
+    if (mapped.ok) {
+      expect(mapped.payload.methodCode).toBe("KBZ-PAY");
+    }
+  });
+
+  it("caps generated method code to backend max length", () => {
+    const mapped = toPaymentTransferMethodPayload(
+      {
+        ...createPaymentTransferMethodFormDraft(4),
+        label: "x".repeat(120),
+        accountName: "Moethuzar",
+        channelType: "BANK",
+        accountNumber: "123456",
+      },
+      4,
+    );
+    expect(mapped.ok).toBe(true);
+    if (mapped.ok) {
+      expect(mapped.payload.methodCode.length).toBeLessThanOrEqual(64);
+    }
+  });
+
   it("resets opposite channel field on channel switch", () => {
     const switched = withChannelType(
       {
@@ -110,7 +146,7 @@ describe("payment-transfer-method-form-adapter", () => {
   });
 
   it("masks destination", () => {
-    expect(maskPaymentDestination("1234567890")).toBe("••••7890");
+    expect(maskPaymentDestination("1234567890")).toBe("****7890");
     expect(maskPaymentDestination("123")).toBe("123");
     expect(maskPaymentDestination(null)).toBe("-");
   });

@@ -108,7 +108,9 @@ export default function PaymentTransferMethodsClient() {
 
     setSaving(true);
     setStatusText("");
-    const mapped = toPaymentTransferMethodPayload(editingDraft, nextMethodSortOrder(methods));
+    const mapped = toPaymentTransferMethodPayload(editingDraft, nextMethodSortOrder(methods), {
+      preserveMethodCode: true,
+    });
     if (!mapped.ok) {
       setStatusText(mapped.error);
       setSaving(false);
