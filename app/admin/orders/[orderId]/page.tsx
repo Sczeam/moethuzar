@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants/admin-order-action-contract";
 import { buildOrderActionRequest } from "./order-action-adapter";
 import { mapOrderActionError, type ActionFeedbackSeverity } from "./action-feedback";
+import { presentAdminApiError } from "@/lib/admin/error-presenter";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -122,13 +123,15 @@ export default function AdminOrderDetailPage() {
     const response = await fetch(`/api/admin/orders/${orderId}`);
     const data = await response.json();
     if (!response.ok || !data.ok) {
-      setLoadError(data.error ?? "Failed to load order.");
+      const presented = presentAdminApiError(data, {
+        fallback: "Failed to load order.",
+        includeRequestId: true,
+        includeFirstIssue: true,
+      });
+      setLoadError(presented);
       setFeedback({
         severity: "error",
-        message:
-          typeof data?.requestId === "string"
-            ? `${data.error ?? "Failed to load order."} (Request ID: ${data.requestId})`
-            : data.error ?? "Failed to load order. Please retry.",
+        message: presented,
         retryable: true,
       });
       setLoading(false);
