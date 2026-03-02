@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  adminDisabledControlClass,
+  adminInteractivePillClass,
+  adminStateTextClass,
+} from "@/lib/admin/state-clarity";
 import { useEffect, useMemo, useState } from "react";
 
 type WizardStep<TStep extends string> = {
@@ -93,18 +98,21 @@ export function AdminWizardShell<TStep extends string>({
               key={step.id}
               type="button"
               aria-current={step.id === currentStep ? "step" : undefined}
-              className={`border px-3 py-1.5 text-xs uppercase tracking-[0.08em] ${
-                currentStep === step.id
-                  ? "border-ink bg-ink text-paper-light"
-                  : "border-sepia-border text-charcoal"
-              }`}
+              className={`px-3 py-1.5 text-xs uppercase tracking-[0.08em] ${adminInteractivePillClass(
+                {
+                  active: currentStep === step.id,
+                  activeTone: "info",
+                }
+              )}`}
               onClick={() => handleStepClick(step.id)}
             >
               {step.label}
             </button>
           ))}
         </div>
-        {feedback ? <p className="mt-2 text-xs text-seal-wax">{feedback}</p> : null}
+        {feedback ? (
+          <p className={`mt-2 text-xs ${adminStateTextClass("danger")}`}>{feedback}</p>
+        ) : null}
       </div>
 
       {children}
@@ -112,9 +120,10 @@ export function AdminWizardShell<TStep extends string>({
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sepia-border/60 pt-3">
         <button
           type="button"
-          className="btn-secondary disabled:opacity-50"
+          className={`btn-secondary ${adminDisabledControlClass()}`}
           onClick={handleBack}
           disabled={currentIndex <= 0}
+          aria-disabled={currentIndex <= 0}
         >
           Back
         </button>
@@ -123,9 +132,10 @@ export function AdminWizardShell<TStep extends string>({
         </p>
         <button
           type="button"
-          className="btn-secondary disabled:opacity-50"
+          className={`btn-secondary ${adminDisabledControlClass()}`}
           onClick={handleNext}
           disabled={currentIndex < 0 || currentIndex >= steps.length - 1}
+          aria-disabled={currentIndex < 0 || currentIndex >= steps.length - 1}
         >
           Next
         </button>
