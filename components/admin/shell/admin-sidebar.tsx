@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 import type { AdminSidebarGroup } from "@/components/admin/navigation/nav-types";
 import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
+import { useDialogAccessibility } from "@/lib/admin/use-dialog-accessibility";
 
 type AdminSidebarProps = {
   groups: AdminSidebarGroup[];
@@ -11,6 +12,7 @@ type AdminSidebarProps = {
   isOpen: boolean;
   onClose: () => void;
   mobilePanelId?: string;
+  restoreFocusRef?: RefObject<HTMLElement | null>;
 };
 
 const SIDEBAR_SECTION_ORDER = [
@@ -177,8 +179,23 @@ function isRouteActive(pathname: string, href: string): boolean {
   return pathname.startsWith(`${href}/`);
 }
 
-export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId }: AdminSidebarProps) {
+export function AdminSidebar({
+  groups,
+  pathname,
+  isOpen,
+  onClose,
+  mobilePanelId,
+  restoreFocusRef,
+}: AdminSidebarProps) {
   const sections = buildSidebarSections(groups);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+
+  useDialogAccessibility({
+    isOpen,
+    containerRef: sidebarRef,
+    onClose,
+    restoreFocusRef,
+  });
 
   return (
     <>
@@ -191,6 +208,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
         }`}
       />
       <aside
+        ref={sidebarRef}
         id={mobilePanelId}
         role="dialog"
         aria-modal="true"

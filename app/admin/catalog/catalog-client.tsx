@@ -35,6 +35,7 @@ import { CreateProductSectionCard } from "@/components/admin/catalog/create-prod
 import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
 import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
 import { ADMIN_CATALOG_COPY } from "@/lib/admin/catalog-copy";
+import { useDialogAccessibility } from "@/lib/admin/use-dialog-accessibility";
 import { CSS } from "@dnd-kit/utilities";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
 import { presentAdminApiError } from "@/lib/admin/error-presenter";
@@ -1412,6 +1413,9 @@ function ProductFormFields({
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
+  const categoryModalRef = useRef<HTMLDivElement | null>(null);
+  const categoryInputRef = useRef<HTMLInputElement | null>(null);
+  const categorySelectRef = useRef<HTMLSelectElement | null>(null);
   const [categoryFeedback, setCategoryFeedback] = useState("");
   const initialDraftSignatureRef = useRef("");
   const draftIdentityRef = useRef("");
@@ -1516,20 +1520,13 @@ function ProductFormFields({
     };
   }, []);
 
-  useEffect(() => {
-    if (!isCategoryModalOpen) {
-      return;
-    }
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsCategoryModalOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [isCategoryModalOpen]);
+  useDialogAccessibility({
+    isOpen: isCategoryModalOpen,
+    containerRef: categoryModalRef,
+    initialFocusRef: categoryInputRef,
+    restoreFocusRef: categorySelectRef,
+    onClose: () => setIsCategoryModalOpen(false),
+  });
 
   async function createCategoryInline() {
     const name = newCategoryName.trim();
@@ -2341,6 +2338,7 @@ function ProductFormFields({
             <div className="space-y-1">
               <label className="text-xs uppercase tracking-[0.08em] text-charcoal">Category</label>
               <select
+                ref={categorySelectRef}
                 value={draft.categoryId}
                 onChange={(event) => {
                   const value = event.target.value;
@@ -2497,6 +2495,7 @@ function ProductFormFields({
             role="dialog"
             aria-modal="true"
             aria-label="Create category"
+            ref={categoryModalRef}
             className="mx-auto mt-24 w-[min(92vw,460px)] border border-sepia-border bg-parchment p-5 shadow-lg"
             onClick={(event) => event.stopPropagation()}
           >
@@ -2515,7 +2514,7 @@ function ProductFormFields({
             </div>
             <div className="mt-3 space-y-2">
               <input
-                autoFocus
+                ref={categoryInputRef}
                 value={newCategoryName}
                 onChange={(event) => setNewCategoryName(event.target.value)}
                 onKeyDown={(event) => {
