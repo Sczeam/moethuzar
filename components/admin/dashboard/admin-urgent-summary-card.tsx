@@ -1,4 +1,8 @@
 import Link from "next/link";
+import {
+  adminStateBadgeClass,
+  adminStateTextClass,
+} from "@/lib/admin/state-clarity";
 import type { UrgentOrderItem } from "@/server/services/admin-ops-dashboard.service";
 
 type AdminUrgentSummaryCardProps = {
@@ -9,7 +13,7 @@ export function AdminUrgentSummaryCard({ items }: AdminUrgentSummaryCardProps) {
   if (items.length === 0) {
     return (
       <section className="vintage-panel p-4 md:p-5">
-        <p className="text-[32px] leading-none text-seal-wax/65">!</p>
+        <p className={`text-[32px] leading-none ${adminStateTextClass("danger")}`}>!</p>
         <p className="mt-2 text-base font-semibold text-ink">No urgent follow-ups right now.</p>
       </section>
     );
@@ -21,7 +25,11 @@ export function AdminUrgentSummaryCard({ items }: AdminUrgentSummaryCardProps) {
     <section className="vintage-panel p-4 md:p-5" aria-label="Urgent order follow-up">
       <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-seal-wax/70 text-xl font-semibold text-paper-light">
+          <span
+            className={`inline-flex h-11 w-11 items-center justify-center rounded-full p-0 text-xl font-semibold ${adminStateBadgeClass(
+              "danger"
+            )}`}
+          >
             !
           </span>
           <div>

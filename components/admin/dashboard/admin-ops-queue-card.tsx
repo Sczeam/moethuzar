@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { adminStateToneClass } from "@/lib/admin/state-clarity";
 import type { DashboardQueueSummary } from "@/server/services/admin-ops-dashboard.service";
 
 type AdminOpsQueueCardProps = {
@@ -7,12 +8,12 @@ type AdminOpsQueueCardProps = {
 
 function priorityContainerClass(priority: DashboardQueueSummary["priority"]): string {
   if (priority === 1) {
-    return "border-antique-brass bg-antique-brass/10";
+    return adminStateToneClass("info");
   }
   if (priority === 2) {
-    return "border-sepia-border bg-paper-light";
+    return adminStateToneClass("neutral");
   }
-  return "border-sepia-border/70 bg-paper-light";
+  return "border-sepia-border/70 bg-paper-light text-ink";
 }
 
 function priorityLabel(priority: DashboardQueueSummary["priority"]): string {

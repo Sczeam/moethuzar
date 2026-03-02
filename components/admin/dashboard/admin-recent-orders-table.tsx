@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/format";
+import { adminStateBadgeClass } from "@/lib/admin/state-clarity";
 import type { RecentOrderSummary } from "@/server/services/admin-ops-dashboard.service";
 
 type AdminRecentOrdersTableProps = {
@@ -8,18 +9,18 @@ type AdminRecentOrdersTableProps = {
 
 function statusBadgeClass(status: RecentOrderSummary["status"]): string {
   if (status === "PENDING") {
-    return "bg-aged-gold/35 text-ink";
+    return adminStateBadgeClass("warning");
   }
   if (status === "CONFIRMED") {
-    return "bg-antique-brass/25 text-ink";
+    return adminStateBadgeClass("info");
   }
   if (status === "DELIVERED") {
-    return "bg-teal-700/15 text-ink";
+    return adminStateBadgeClass("success");
   }
   if (status === "CANCELLED") {
-    return "bg-seal-wax/20 text-seal-wax";
+    return adminStateBadgeClass("danger");
   }
-  return "bg-paper-light text-charcoal";
+  return adminStateBadgeClass("neutral");
 }
 
 function paymentMethodLabel(paymentMethod: RecentOrderSummary["paymentMethod"]): string {
@@ -58,7 +59,7 @@ export function AdminRecentOrdersTable({ orders }: AdminRecentOrdersTableProps) 
                     </Link>
                     <p className="mt-1 text-sm text-charcoal">{order.customerName}</p>
                   </div>
-                  <span className={`inline-flex rounded-none px-2 py-1 text-xs ${statusBadgeClass(order.status)}`}>
+                  <span className={statusBadgeClass(order.status)}>
                     {order.status}
                   </span>
                 </div>
@@ -100,7 +101,7 @@ export function AdminRecentOrdersTable({ orders }: AdminRecentOrdersTableProps) 
                   <td className="px-3 py-2 text-charcoal">{new Date(order.createdAt).toLocaleDateString()}</td>
                   <td className="px-3 py-2 text-charcoal">{paymentMethodLabel(order.paymentMethod)}</td>
                   <td className="px-3 py-2">
-                    <span className={`inline-flex rounded-none px-2 py-1 text-xs ${statusBadgeClass(order.status)}`}>
+                    <span className={statusBadgeClass(order.status)}>
                       {order.status}
                     </span>
                   </td>

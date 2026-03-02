@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, type ReactNode, type RefObject } from "react";
 import type { AdminSidebarGroup } from "@/components/admin/navigation/nav-types";
 import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
+import { adminStateToneClass } from "@/lib/admin/state-clarity";
 import { useDialogAccessibility } from "@/lib/admin/use-dialog-accessibility";
 
 type AdminSidebarProps = {
@@ -275,7 +276,10 @@ export function AdminSidebar({
                     return (
                       <li key={group.id} className="space-y-1">
                         {groupDisabled ? (
-                          <span className={`flex items-center gap-3 rounded-lg px-3 py-3 text-base text-charcoal/45 ${ADMIN_A11Y.target.minInteractive}`}>
+                          <span
+                            aria-disabled="true"
+                            className={`flex items-center gap-3 rounded-lg px-3 py-3 text-base text-charcoal/45 ${ADMIN_A11Y.target.minInteractive}`}
+                          >
                             {iconByLabel(group.label)}
                             {group.label}
                           </span>
@@ -285,7 +289,7 @@ export function AdminSidebar({
                             onClick={onClose}
                             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] transition ${
                               isGroupActive
-                                ? "bg-parchment text-ink"
+                                ? `${adminStateToneClass("info")} font-semibold`
                                 : "text-charcoal hover:bg-parchment/85"
                             } ${ADMIN_A11Y.target.minInteractive} ${ADMIN_A11Y.focus.ring}`}
                             aria-current={isGroupActive ? "page" : undefined}
@@ -293,7 +297,7 @@ export function AdminSidebar({
                             <span
                               className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${
                                 isGroupActive
-                                  ? "bg-antique-brass/20 text-ink"
+                                  ? adminStateToneClass("info")
                                   : "text-charcoal/85"
                               }`}
                             >
@@ -313,7 +317,10 @@ export function AdminSidebar({
                               if (childDisabled) {
                                 return (
                                   <li key={item.id}>
-                                    <span className={`block rounded-lg px-3 py-2 text-base text-charcoal/45 ${ADMIN_A11Y.target.compactInteractive}`}>
+                                    <span
+                                      aria-disabled="true"
+                                      className={`block rounded-lg px-3 py-2 text-base text-charcoal/45 ${ADMIN_A11Y.target.compactInteractive}`}
+                                    >
                                       {item.label}
                                     </span>
                                   </li>
@@ -327,7 +334,7 @@ export function AdminSidebar({
                                     onClick={onClose}
                                     className={`block rounded-lg px-3 py-1.5 text-[15px] transition ${
                                       isChildActive
-                                        ? "bg-parchment text-ink"
+                                        ? `${adminStateToneClass("info")} font-semibold`
                                         : "text-charcoal hover:bg-parchment/80"
                                     } ${ADMIN_A11Y.target.compactInteractive} ${ADMIN_A11Y.focus.ring}`}
                                     aria-current={isChildActive ? "page" : undefined}
