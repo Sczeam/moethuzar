@@ -13,6 +13,7 @@ import { presentAdminApiError } from "@/lib/admin/error-presenter";
 import { ADMIN_ORDERS_COPY } from "@/lib/admin/orders-copy";
 import { ADMIN_A11Y, adminFieldA11y, adminLiveRegionProps } from "@/lib/admin/a11y-contract";
 import { useDialogAccessibility } from "@/lib/admin/use-dialog-accessibility";
+import { adminStateBadgeClass, adminSurfaceNoticeClass, adminDisabledControlClass } from "@/lib/admin/state-clarity";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -79,25 +80,25 @@ type OrderDetail = {
 function paymentStatusBadgeClass(status: PaymentStatus) {
   switch (status) {
     case "VERIFIED":
-      return "bg-emerald-100 text-emerald-800";
+      return adminStateBadgeClass("success");
     case "PENDING_REVIEW":
-      return "bg-amber-100 text-amber-800";
+      return adminStateBadgeClass("warning");
     case "REJECTED":
-      return "bg-seal-wax/10 text-seal-wax";
+      return adminStateBadgeClass("danger");
     default:
-      return "bg-paper-light text-charcoal";
+      return adminStateBadgeClass("neutral");
   }
 }
 
 function feedbackClass(severity: ActionFeedbackSeverity) {
   switch (severity) {
     case "success":
-      return "border-emerald-300 bg-emerald-50 text-emerald-900";
+      return adminSurfaceNoticeClass("success");
     case "warning":
-      return "border-antique-brass/70 bg-antique-brass/10 text-ink";
+      return adminSurfaceNoticeClass("warning");
     case "error":
     default:
-      return "border-seal-wax/40 bg-seal-wax/10 text-seal-wax";
+      return adminSurfaceNoticeClass("danger");
   }
 }
 
@@ -324,7 +325,7 @@ export default function AdminOrderDetailPage() {
 
       {feedback ? (
         <section
-          className={`mb-4 rounded-none border px-4 py-3 text-sm ${feedbackClass(feedback.severity)}`}
+          className={`mb-4 ${feedbackClass(feedback.severity)}`}
           {...adminLiveRegionProps(feedback.severity === "error" ? "assertive" : "polite")}
         >
           <div className="flex flex-wrap items-center gap-2">
@@ -582,7 +583,12 @@ export default function AdminOrderDetailPage() {
                       key={actionId}
                       className="rounded-md border border-sepia-border/80 bg-paper-light px-3 py-2"
                     >
-                      <button type="button" disabled className="btn-secondary opacity-60">
+                      <button
+                        type="button"
+                        disabled
+                        aria-disabled="true"
+                        className={`btn-secondary ${adminDisabledControlClass()}`}
+                      >
                         {COPY_TEXT[ACTION_DESCRIPTORS[actionId].labelKey]}
                       </button>
                       <p className="mt-2 text-xs text-charcoal/90">{COPY_TEXT[reasonKey]}</p>

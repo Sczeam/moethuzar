@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
+import { adminInteractivePillClass, adminStateBadgeClass } from "@/lib/admin/state-clarity";
 import type { OrdersKpiSnapshot } from "@/lib/constants/admin-orders-kpi-contract";
 import { orderStatusBadgeClass, type UiOrderStatus } from "@/lib/constants/order-status-ui";
 
@@ -36,19 +37,19 @@ const paymentStatuses = ["ALL", "PENDING_REVIEW", "VERIFIED", "REJECTED", "NOT_R
 function paymentStatusBadgeClass(status: PaymentStatus) {
   switch (status) {
     case "PENDING_REVIEW":
-      return "bg-amber-100 text-amber-800";
+      return adminStateBadgeClass("warning");
     case "VERIFIED":
-      return "bg-emerald-100 text-emerald-800";
+      return adminStateBadgeClass("success");
     case "REJECTED":
-      return "bg-seal-wax/10 text-seal-wax";
+      return adminStateBadgeClass("danger");
     default:
-      return "bg-paper-light text-charcoal";
+      return adminStateBadgeClass("neutral");
   }
 }
 
-function interactivePillClass(active: boolean, activeClass: string): string {
+function interactivePillClass(active: boolean, activeTone: "info" | "warning"): string {
   return `${ADMIN_A11Y.target.minInteractive} rounded-full px-3 text-sm font-semibold ${ADMIN_A11Y.focus.ring} ${
-    active ? activeClass : "bg-paper-light text-charcoal"
+    adminInteractivePillClass({ active, activeTone })
   }`;
 }
 
@@ -308,18 +309,19 @@ export default function OrdersClient({
                   key={status}
                   type="button"
                   onClick={() => pushState({ status, page: 1 })}
-                  className={interactivePillClass(active, "bg-teak-brown text-paper-light")}
+                  aria-pressed={active}
+                  className={interactivePillClass(active, "info")}
                 >
                   {status}
                 </button>
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={onExportCsv}
-            className={`btn-secondary text-xs md:text-sm ${ADMIN_A11Y.target.minInteractive}`}
-          >
+            <button
+              type="button"
+              onClick={onExportCsv}
+              className={`btn-secondary text-xs md:text-sm ${ADMIN_A11Y.target.minInteractive}`}
+            >
             Export Current CSV
           </button>
         </div>
@@ -332,7 +334,8 @@ export default function OrdersClient({
                 key={paymentStatus}
                 type="button"
                 onClick={() => pushState({ paymentStatus, page: 1 })}
-                className={interactivePillClass(active, "bg-antique-brass text-ink")}
+                aria-pressed={active}
+                className={interactivePillClass(active, "warning")}
               >
                 {paymentStatus}
               </button>
@@ -457,6 +460,7 @@ export default function OrdersClient({
           <button
             type="button"
             className={`btn-secondary disabled:opacity-60 ${ADMIN_A11Y.target.minInteractive}`}
+            aria-disabled={pagination.page <= 1}
             disabled={pagination.page <= 1}
             onClick={() => pushState({ page: pagination.page - 1 })}
           >
@@ -465,6 +469,7 @@ export default function OrdersClient({
           <button
             type="button"
             className={`btn-secondary disabled:opacity-60 ${ADMIN_A11Y.target.minInteractive}`}
+            aria-disabled={pagination.page >= pagination.totalPages}
             disabled={pagination.page >= pagination.totalPages}
             onClick={() => pushState({ page: pagination.page + 1 })}
           >

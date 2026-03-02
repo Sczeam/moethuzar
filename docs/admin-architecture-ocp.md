@@ -259,3 +259,38 @@ Fulfillment formula:
 Reasoning:
 - `PENDING` is excluded from denominator because fulfillment has not started.
 - Contract is stable for UI and remains extensible without changing page structure.
+
+---
+
+## 12) Contrast Decisions (A8.5)
+
+Status: **Applied**
+
+Semantic state classes are now centralized in:
+- `lib/admin/state-clarity.ts`
+
+Tokens used:
+- `neutral`
+- `info`
+- `success`
+- `warning`
+- `danger`
+
+Rules adopted:
+- Status states must use semantic helpers (not ad-hoc color class strings).
+- Disabled controls must include non-color cues:
+  - `aria-disabled="true"` where relevant
+  - reduced saturation/opacity/cursor via shared helper
+- Active filter pills must include non-color state semantics:
+  - `aria-pressed` on toggle-like controls
+  - border-weight difference between active/inactive
+- Feedback surfaces (warning/error banners) use shared notice classes to keep contrast and state mapping consistent.
+
+Initial rollout scope:
+- `app/admin/orders/orders-client.tsx`
+- `app/admin/orders/[orderId]/page.tsx`
+- `app/admin/shipping-rules/shipping-rules-client.tsx`
+- `app/admin/payment-transfer-methods/payment-transfer-methods-client.tsx`
+
+Follow-up:
+- Continue replacing remaining ad-hoc status classes in admin dashboard cards with semantic helpers.

@@ -16,6 +16,8 @@ import {
 import { ADMIN_SETTINGS_NAV_LINKS, SHIPPING_RULES_COPY } from "@/lib/admin/settings-copy";
 import { getShippingDeleteWarning, getShippingHealth } from "@/lib/admin/settings-guardrails";
 import { presentAdminApiError } from "@/lib/admin/error-presenter";
+import { adminLiveRegionProps } from "@/lib/admin/a11y-contract";
+import { adminStateBadgeClass, adminSurfaceNoticeClass, adminDisabledControlClass } from "@/lib/admin/state-clarity";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 
 type ShippingRule = ShippingRuleRecord;
@@ -182,13 +184,13 @@ export default function ShippingRulesClient() {
       </div>
 
       {!shippingHealth.hasActiveFallback ? (
-        <div className="mb-4 border border-seal-wax/40 bg-seal-wax/10 p-3 text-sm text-seal-wax">
+        <div className={`mb-4 ${adminSurfaceNoticeClass("danger")}`}>
           {SHIPPING_RULES_COPY.fallbackMissingWarning}
         </div>
       ) : null}
 
       {shippingHealth.missingRequiredZoneKeys.length ? (
-        <div className="mb-4 border border-amber-700/30 bg-amber-100/40 p-3 text-sm text-amber-900">
+        <div className={`mb-4 ${adminSurfaceNoticeClass("warning")}`}>
           Missing active required zones: {shippingHealth.missingRequiredZoneKeys.join(", ")}.
         </div>
       ) : null}
@@ -254,8 +256,16 @@ export default function ShippingRulesClient() {
                     <td className="px-3 py-2">{rule.feeAmount.toLocaleString()}</td>
                     <td className="px-3 py-2">{rule.etaLabel}</td>
                     <td className="px-3 py-2">
-                      {rule.isActive ? "Active" : "Inactive"}
-                      {rule.isFallback ? " / Fallback" : ""}
+                      <span
+                        className={
+                          rule.isActive
+                            ? adminStateBadgeClass("success")
+                            : adminStateBadgeClass("neutral")
+                        }
+                      >
+                        {rule.isActive ? "Active" : "Inactive"}
+                        {rule.isFallback ? " · Fallback" : ""}
+                      </span>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex gap-2">
@@ -272,8 +282,10 @@ export default function ShippingRulesClient() {
                         <button
                           type="button"
                           className="btn-secondary"
+                          aria-disabled={deletingId === rule.id}
                           disabled={deletingId === rule.id}
                           onClick={() => void deleteRule(rule)}
+                          title={deletingId === rule.id ? "Delete is in progress" : undefined}
                         >
                           {deletingId === rule.id ? "Deleting..." : "Delete"}
                         </button>
@@ -344,7 +356,11 @@ export default function ShippingRulesClient() {
         </section>
       ) : null}
 
-      {statusText ? <p className="mt-4 text-sm text-charcoal">{statusText}</p> : null}
+      {statusText ? (
+        <p className="mt-4 text-sm text-charcoal" {...adminLiveRegionProps("polite")}>
+          {statusText}
+        </p>
+      ) : null}
     </main>
   );
 }
@@ -515,7 +531,12 @@ function ShippingRuleForm({
         </label>
       </div>
 
-      <button type="submit" disabled={disabled} className="btn-primary disabled:opacity-60">
+      <button
+        type="submit"
+        disabled={disabled}
+        aria-disabled={disabled}
+        className={`btn-primary disabled:opacity-60 ${disabled ? adminDisabledControlClass() : ""}`}
+      >
         {submitLabel}
       </button>
 
