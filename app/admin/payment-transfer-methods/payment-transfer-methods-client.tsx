@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ADMIN_SETTINGS_NAV_LINKS, PAYMENT_TRANSFER_METHODS_COPY } from "@/lib/admin/settings-copy";
 import { getPaymentDeleteWarning, getPaymentHealth } from "@/lib/admin/settings-guardrails";
 import { presentAdminApiError } from "@/lib/admin/error-presenter";
+import { adminLiveRegionProps } from "@/lib/admin/a11y-contract";
+import { adminStateBadgeClass, adminSurfaceNoticeClass, adminDisabledControlClass } from "@/lib/admin/state-clarity";
 import {
   createPaymentTransferMethodFormDraft,
   maskPaymentDestination,
@@ -202,7 +204,9 @@ export default function PaymentTransferMethodsClient() {
         {PAYMENT_TRANSFER_METHODS_COPY.activeCountLabel(activeCount)}
       </p>
       {activeCount === 0 ? (
-        <p className="mb-4 text-xs text-seal-wax">{PAYMENT_TRANSFER_METHODS_COPY.activeCountWarning}</p>
+        <p className={`mb-4 ${adminSurfaceNoticeClass("danger")}`}>
+          {PAYMENT_TRANSFER_METHODS_COPY.activeCountWarning}
+        </p>
       ) : null}
 
       <section className="vintage-panel mb-6 p-5">
@@ -264,7 +268,17 @@ export default function PaymentTransferMethodsClient() {
                         ? `A/C ${maskPaymentDestination(method.accountNumber)}`
                         : `Phone ${maskPaymentDestination(method.phoneNumber)}`}
                     </td>
-                    <td className="px-3 py-2">{method.isActive ? "Active" : "Inactive"}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={
+                          method.isActive
+                            ? adminStateBadgeClass("success")
+                            : adminStateBadgeClass("neutral")
+                        }
+                      >
+                        {method.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex gap-2">
                         <button
@@ -280,8 +294,10 @@ export default function PaymentTransferMethodsClient() {
                         <button
                           type="button"
                           className="btn-secondary"
+                          aria-disabled={deletingId === method.id}
                           disabled={deletingId === method.id}
                           onClick={() => void deleteMethod(method)}
+                          title={deletingId === method.id ? "Delete is in progress" : undefined}
                         >
                           {deletingId === method.id ? "Deleting..." : "Delete"}
                         </button>
@@ -356,7 +372,11 @@ export default function PaymentTransferMethodsClient() {
         </section>
       ) : null}
 
-      {statusText ? <p className="mt-4 text-sm text-charcoal">{statusText}</p> : null}
+      {statusText ? (
+        <p className="mt-4 text-sm text-charcoal" {...adminLiveRegionProps("polite")}>
+          {statusText}
+        </p>
+      ) : null}
     </main>
   );
 }
@@ -459,7 +479,12 @@ function MethodForm({
         Active in checkout
       </label>
 
-      <button type="submit" disabled={disabled} className="btn-primary disabled:opacity-60">
+      <button
+        type="submit"
+        disabled={disabled}
+        aria-disabled={disabled}
+        className={`btn-primary disabled:opacity-60 ${disabled ? adminDisabledControlClass() : ""}`}
+      >
         {submitLabel}
       </button>
     </form>
