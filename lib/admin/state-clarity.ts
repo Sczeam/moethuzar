@@ -51,7 +51,7 @@ export function adminInteractivePillClass({
 }
 
 export function adminDisabledControlClass(): string {
-  return "opacity-60 cursor-not-allowed saturate-50";
+  return "disabled:opacity-60 disabled:cursor-not-allowed disabled:saturate-50";
 }
 
 export function adminStateTextClass(tone: AdminStateTone): string {
