@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "admin:a11y:smoke": "node scripts/admin-a11y-smoke.mjs",
     "check:preflight": "pnpm prisma:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

@@ -48,6 +48,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Admin a11y smoke
+        run: pnpm admin:a11y:smoke
+
       - name: Test
         run: pnpm test
 
