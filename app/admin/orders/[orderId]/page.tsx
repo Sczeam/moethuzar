@@ -11,6 +11,7 @@ import { buildOrderActionRequest } from "./order-action-adapter";
 import { mapOrderActionError, type ActionFeedbackSeverity } from "./action-feedback";
 import { presentAdminApiError } from "@/lib/admin/error-presenter";
 import { ADMIN_ORDERS_COPY } from "@/lib/admin/orders-copy";
+import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -364,7 +365,7 @@ export default function AdminOrderDetailPage() {
             {feedback.retryable && retryIntent ? (
               <button
                 type="button"
-                className="btn-secondary text-xs"
+                className={`btn-secondary text-sm ${ADMIN_A11Y.target.minInteractive}`}
                 disabled={actionPending}
                 onClick={() => void runAction(retryIntent)}
               >
@@ -373,7 +374,7 @@ export default function AdminOrderDetailPage() {
             ) : null}
             <button
               type="button"
-              className="btn-secondary text-xs"
+              className={`btn-secondary text-sm ${ADMIN_A11Y.target.minInteractive}`}
               onClick={() => setFeedback(null)}
             >
               {ADMIN_ORDERS_COPY.feedback.dismiss}
@@ -425,7 +426,7 @@ export default function AdminOrderDetailPage() {
                 onClick={() =>
                   void copyText(order.orderCode, ADMIN_ORDERS_COPY.feedback.orderCodeCopied)
                 }
-                className="btn-secondary text-xs"
+                className={`btn-secondary text-sm ${ADMIN_A11Y.target.minInteractive}`}
               >
                 {ADMIN_ORDERS_COPY.actions.copyOrderCode}
               </button>
@@ -443,7 +444,7 @@ export default function AdminOrderDetailPage() {
               <div className="flex flex-wrap items-start justify-end gap-2">
                 <a
                   href={`tel:${order.customerPhone}`}
-                  className="btn-primary text-xs"
+                  className={`btn-primary text-sm ${ADMIN_A11Y.target.minInteractive}`}
                 >
                   {ADMIN_ORDERS_COPY.customer.callCustomer}
                 </a>
@@ -452,7 +453,7 @@ export default function AdminOrderDetailPage() {
                   onClick={() =>
                     void copyText(order.customerPhone, ADMIN_ORDERS_COPY.feedback.customerPhoneCopied)
                   }
-                  className="btn-secondary text-xs"
+                  className={`btn-secondary text-sm ${ADMIN_A11Y.target.minInteractive}`}
                 >
                   {ADMIN_ORDERS_COPY.customer.copyPhone}
                 </button>
@@ -522,7 +523,7 @@ export default function AdminOrderDetailPage() {
                     href={order.paymentProofUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="btn-secondary inline-flex text-xs"
+                    className={`btn-secondary inline-flex text-sm ${ADMIN_A11Y.target.minInteractive}`}
                   >
                     {ADMIN_ORDERS_COPY.payment.openPaymentProof}
                   </a>
@@ -707,7 +708,7 @@ export default function AdminOrderDetailPage() {
                 type="button"
                 disabled={actionPending}
                 onClick={() => void runAction()}
-                className="btn-primary disabled:opacity-60"
+                className={`btn-primary disabled:opacity-60 ${ADMIN_A11Y.target.minInteractive}`}
               >
                 {actionPending
                   ? ADMIN_ORDERS_COPY.modal.saving
@@ -721,7 +722,7 @@ export default function AdminOrderDetailPage() {
                   setSelectedActionId(null);
                   setNoteError("");
                 }}
-                className="btn-secondary"
+                className={`btn-secondary ${ADMIN_A11Y.target.minInteractive}`}
               >
                 {ADMIN_ORDERS_COPY.modal.cancel}
               </button>

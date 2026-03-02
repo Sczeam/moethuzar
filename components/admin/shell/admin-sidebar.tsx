@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { AdminSidebarGroup } from "@/components/admin/navigation/nav-types";
+import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
 
 type AdminSidebarProps = {
   groups: AdminSidebarGroup[];
@@ -256,7 +257,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                     return (
                       <li key={group.id} className="space-y-1">
                         {groupDisabled ? (
-                          <span className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] text-charcoal/45">
+                          <span className={`flex items-center gap-3 rounded-lg px-3 py-3 text-base text-charcoal/45 ${ADMIN_A11Y.target.minInteractive}`}>
                             {iconByLabel(group.label)}
                             {group.label}
                           </span>
@@ -268,7 +269,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                               isGroupActive
                                 ? "bg-parchment text-ink"
                                 : "text-charcoal hover:bg-parchment/85"
-                            }`}
+                            } ${ADMIN_A11Y.target.minInteractive} ${ADMIN_A11Y.focus.ring}`}
                             aria-current={isGroupActive ? "page" : undefined}
                           >
                             <span
@@ -294,7 +295,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                               if (childDisabled) {
                                 return (
                                   <li key={item.id}>
-                                    <span className="block rounded-lg px-3 py-1.5 text-[15px] text-charcoal/45">
+                                    <span className={`block rounded-lg px-3 py-2 text-base text-charcoal/45 ${ADMIN_A11Y.target.compactInteractive}`}>
                                       {item.label}
                                     </span>
                                   </li>
@@ -310,7 +311,7 @@ export function AdminSidebar({ groups, pathname, isOpen, onClose, mobilePanelId 
                                       isChildActive
                                         ? "bg-parchment text-ink"
                                         : "text-charcoal hover:bg-parchment/80"
-                                    }`}
+                                    } ${ADMIN_A11Y.target.compactInteractive} ${ADMIN_A11Y.focus.ring}`}
                                     aria-current={isChildActive ? "page" : undefined}
                                   >
                                     {item.label}

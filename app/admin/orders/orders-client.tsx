@@ -46,6 +46,12 @@ function paymentStatusBadgeClass(status: PaymentStatus) {
   }
 }
 
+function interactivePillClass(active: boolean, activeClass: string): string {
+  return `${ADMIN_A11Y.target.minInteractive} rounded-full px-3 text-sm font-semibold ${ADMIN_A11Y.focus.ring} ${
+    active ? activeClass : "bg-paper-light text-charcoal"
+  }`;
+}
+
 function paymentMethodLabel(method: PaymentMethod) {
   return method === "PREPAID_TRANSFER" ? "Prepaid" : "COD";
 }
@@ -302,9 +308,7 @@ export default function OrdersClient({
                   key={status}
                   type="button"
                   onClick={() => pushState({ status, page: 1 })}
-                  className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
-                    active ? "bg-teak-brown text-paper-light" : "bg-paper-light text-charcoal"
-                  }`}
+                  className={interactivePillClass(active, "bg-teak-brown text-paper-light")}
                 >
                   {status}
                 </button>
@@ -328,9 +332,7 @@ export default function OrdersClient({
                 key={paymentStatus}
                 type="button"
                 onClick={() => pushState({ paymentStatus, page: 1 })}
-                className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
-                  active ? "bg-antique-brass text-ink" : "bg-paper-light text-charcoal"
-                }`}
+                className={interactivePillClass(active, "bg-antique-brass text-ink")}
               >
                 {paymentStatus}
               </button>
@@ -417,7 +419,7 @@ export default function OrdersClient({
                   {order.orderCode}
                 </Link>
                 <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${orderStatusBadgeClass(
+                  className={`inline-flex rounded-full px-2.5 py-1.5 text-xs font-semibold ${orderStatusBadgeClass(
                     order.status
                   )}`}
                 >
@@ -429,7 +431,7 @@ export default function OrdersClient({
               <div className="mt-2 flex items-center justify-between gap-2 text-xs text-charcoal">
                 <p>{paymentMethodLabel(order.paymentMethod)}</p>
                 <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${paymentStatusBadgeClass(
+                  className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${paymentStatusBadgeClass(
                     order.paymentStatus
                   )}`}
                 >
@@ -454,7 +456,7 @@ export default function OrdersClient({
         <div className="flex gap-2">
           <button
             type="button"
-            className="btn-secondary disabled:opacity-60"
+            className={`btn-secondary disabled:opacity-60 ${ADMIN_A11Y.target.minInteractive}`}
             disabled={pagination.page <= 1}
             onClick={() => pushState({ page: pagination.page - 1 })}
           >
@@ -462,7 +464,7 @@ export default function OrdersClient({
           </button>
           <button
             type="button"
-            className="btn-secondary disabled:opacity-60"
+            className={`btn-secondary disabled:opacity-60 ${ADMIN_A11Y.target.minInteractive}`}
             disabled={pagination.page >= pagination.totalPages}
             onClick={() => pushState({ page: pagination.page + 1 })}
           >
