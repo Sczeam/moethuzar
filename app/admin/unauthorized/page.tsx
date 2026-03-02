@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { adminStateTextClass, adminStateToneClass } from "@/lib/admin/state-clarity";
 import LogoutButton from "./logout-button";
 
 export default function AdminUnauthorizedPage() {
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-xl items-center px-4 py-10">
-      <section className="w-full vintage-panel border-seal-wax/40 p-6">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-seal-wax">
+      <section className={`w-full vintage-panel p-6 ${adminStateToneClass("danger")}`}>
+        <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${adminStateTextClass("danger")}`}>
           Access Restricted
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-ink">You are signed in, but not an admin.</h1>

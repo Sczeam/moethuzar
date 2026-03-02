@@ -1,5 +1,6 @@
 "use client";
 
+import { adminDisabledControlClass, adminStateTextClass } from "@/lib/admin/state-clarity";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -64,12 +65,15 @@ export default function LoginForm({ nextPath }: { nextPath: string }) {
       <button
         type="submit"
         disabled={submitting}
-        className="btn-primary mt-5 w-full disabled:opacity-60"
+        aria-disabled={submitting}
+        className={`btn-primary mt-5 w-full ${adminDisabledControlClass()}`}
       >
         {submitting ? "Signing in..." : "Sign In"}
       </button>
 
-      {statusText ? <p className="mt-4 text-sm text-seal-wax">{statusText}</p> : null}
+      {statusText ? (
+        <p className={`mt-4 text-sm ${adminStateTextClass("danger")}`}>{statusText}</p>
+      ) : null}
     </form>
   );
 }
