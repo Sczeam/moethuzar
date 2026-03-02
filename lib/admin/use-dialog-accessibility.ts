@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -38,6 +38,12 @@ export function useDialogAccessibility({
   trapFocus = true,
   restoreFocus = true,
 }: DialogAccessibilityOptions): void {
+  const onCloseRef = useRef<(() => void) | undefined>(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -70,7 +76,7 @@ export function useDialogAccessibility({
 
       if (closeOnEscape && event.key === "Escape") {
         event.preventDefault();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
 
@@ -118,7 +124,6 @@ export function useDialogAccessibility({
     containerRef,
     initialFocusRef,
     restoreFocusRef,
-    onClose,
     closeOnEscape,
     trapFocus,
     restoreFocus,
