@@ -33,6 +33,7 @@ import {
 import { CreateProductPreviewCard } from "@/components/admin/catalog/create-product-preview-card";
 import { CreateProductSectionCard } from "@/components/admin/catalog/create-product-section-card";
 import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
+import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
 import { ADMIN_CATALOG_COPY } from "@/lib/admin/catalog-copy";
 import { CSS } from "@dnd-kit/utilities";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
@@ -311,7 +312,7 @@ function SortableImageRow({
           )}
           <button
             type="button"
-            className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-sepia-border bg-parchment/95 text-sm leading-none text-ink shadow-sm"
+            className={`absolute right-2 top-2 inline-flex items-center justify-center rounded-full border border-sepia-border bg-parchment/95 text-base leading-none text-ink shadow-sm ${ADMIN_A11Y.target.compactInteractive}`}
             disabled={isQueueUploading || totalImages <= 1}
             onPointerDown={(event) => event.stopPropagation()}
             onTouchStart={(event) => event.stopPropagation()}
@@ -354,7 +355,7 @@ function SortableImageRow({
         <div className="flex flex-wrap items-center gap-2 lg:hidden">
           <button
             type="button"
-            className="btn-secondary px-2 py-1 text-xs"
+            className={`btn-secondary px-3 py-2 text-sm ${ADMIN_A11Y.target.minInteractive}`}
             disabled={isQueueUploading || index === 0}
             onClick={() => onMoveUp(index)}
           >
@@ -362,7 +363,7 @@ function SortableImageRow({
           </button>
           <button
             type="button"
-            className="btn-secondary px-2 py-1 text-xs"
+            className={`btn-secondary px-3 py-2 text-sm ${ADMIN_A11Y.target.minInteractive}`}
             disabled={isQueueUploading || index >= totalImages - 1}
             onClick={() => onMoveDown(index)}
           >
@@ -370,7 +371,7 @@ function SortableImageRow({
           </button>
           <button
             type="button"
-            className="btn-secondary px-2 py-1 text-xs"
+            className={`btn-secondary px-3 py-2 text-sm ${ADMIN_A11Y.target.minInteractive}`}
             disabled={isQueueUploading || index === 0}
             onClick={() => onMakePrimary(index)}
           >
