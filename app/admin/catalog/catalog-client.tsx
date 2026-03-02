@@ -35,6 +35,15 @@ import { CreateProductSectionCard } from "@/components/admin/catalog/create-prod
 import { AdminWizardShell } from "@/components/admin/wizard/admin-wizard-shell";
 import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
 import { ADMIN_CATALOG_COPY } from "@/lib/admin/catalog-copy";
+import {
+  adminDisabledControlClass,
+  adminFieldInvalidClass,
+  adminInteractivePillClass,
+  adminProgressFillClass,
+  adminStateBadgeClass,
+  adminStateTextClass,
+  adminStateToneClass,
+} from "@/lib/admin/state-clarity";
 import { useDialogAccessibility } from "@/lib/admin/use-dialog-accessibility";
 import { CSS } from "@dnd-kit/utilities";
 import { buildVariantDiagnostics, toSkuToken } from "@/lib/admin/variant-editor";
@@ -118,14 +127,14 @@ const statusOptions: ProductStatus[] = ["DRAFT", "ACTIVE", "ARCHIVED"];
 
 function statusBadge(status: ProductStatus): string {
   if (status === "ACTIVE") {
-    return "bg-antique-brass/20 text-teak-brown";
+    return adminStateBadgeClass("success");
   }
 
   if (status === "ARCHIVED") {
-    return "bg-charcoal/15 text-charcoal";
+    return adminStateBadgeClass("warning");
   }
 
-  return "bg-paper-light text-charcoal";
+  return adminStateBadgeClass("neutral");
 }
 
 function toInt(value: string, fallback = 0): number {
@@ -315,6 +324,7 @@ function SortableImageRow({
             type="button"
             className={`absolute right-2 top-2 inline-flex items-center justify-center rounded-full border border-sepia-border bg-parchment/95 text-base leading-none text-ink shadow-sm ${ADMIN_A11Y.target.compactInteractive}`}
             disabled={isQueueUploading || totalImages <= 1}
+            aria-disabled={isQueueUploading || totalImages <= 1}
             onPointerDown={(event) => event.stopPropagation()}
             onTouchStart={(event) => event.stopPropagation()}
             onClick={() => onRemove(index)}
@@ -356,24 +366,27 @@ function SortableImageRow({
         <div className="flex flex-wrap items-center gap-2 lg:hidden">
           <button
             type="button"
-            className={`btn-secondary px-3 py-2 text-sm ${ADMIN_A11Y.target.minInteractive}`}
+            className={`btn-secondary px-3 py-2 text-sm ${ADMIN_A11Y.target.minInteractive} ${adminDisabledControlClass()}`}
             disabled={isQueueUploading || index === 0}
+            aria-disabled={isQueueUploading || index === 0}
             onClick={() => onMoveUp(index)}
           >
             Move Up
           </button>
           <button
             type="button"
-            className={`btn-secondary px-3 py-2 text-sm ${ADMIN_A11Y.target.minInteractive}`}
+            className={`btn-secondary px-3 py-2 text-sm ${ADMIN_A11Y.target.minInteractive} ${adminDisabledControlClass()}`}
             disabled={isQueueUploading || index >= totalImages - 1}
+            aria-disabled={isQueueUploading || index >= totalImages - 1}
             onClick={() => onMoveDown(index)}
           >
             Move Down
           </button>
           <button
             type="button"
-            className={`btn-secondary px-3 py-2 text-sm ${ADMIN_A11Y.target.minInteractive}`}
+            className={`btn-secondary px-3 py-2 text-sm ${ADMIN_A11Y.target.minInteractive} ${adminDisabledControlClass()}`}
             disabled={isQueueUploading || index === 0}
+            aria-disabled={isQueueUploading || index === 0}
             onClick={() => onMakePrimary(index)}
           >
             Set Primary
@@ -530,16 +543,18 @@ function CatalogEditorForm({
           <button
             type="submit"
             disabled={submitting}
+            aria-disabled={submitting}
             onClick={() => onSubmitIntentChange("draft")}
-            className="btn-secondary disabled:opacity-60"
+            className={`btn-secondary ${adminDisabledControlClass()}`}
           >
             {submitting && submitIntent === "draft" ? "Saving Draft..." : "Save Draft"}
           </button>
           <button
             type="submit"
             disabled={submitting}
+            aria-disabled={submitting}
             onClick={() => onSubmitIntentChange("publish")}
-            className="btn-primary disabled:opacity-60"
+            className={`btn-primary ${adminDisabledControlClass()}`}
           >
             {submitting && submitIntent === "publish" ? "Publishing..." : "Publish"}
           </button>
@@ -1155,12 +1170,14 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
       ) : null}
 
       {!loading && loadError ? (
-        <section className="vintage-panel border-seal-wax/40 p-5">
+        <section className={`vintage-panel p-5 ${adminStateToneClass("danger")}`}>
           <h2 className="text-xl font-semibold text-ink">
             {ADMIN_CATALOG_COPY.load.loadCatalogFailed}
           </h2>
-          <p className="mt-2 text-sm text-charcoal">{loadError}</p>
-          {statusText ? <p className="mt-1 text-xs text-charcoal/80">{statusText}</p> : null}
+          <p className={`mt-2 text-sm ${adminStateTextClass("danger")}`}>{loadError}</p>
+          {statusText ? (
+            <p className={`mt-1 text-xs ${adminStateTextClass("neutral")}`}>{statusText}</p>
+          ) : null}
           <button type="button" onClick={() => void loadCatalog()} className="btn-primary mt-4">
             {ADMIN_CATALOG_COPY.load.retryLabel ?? "Retry"}
           </button>
@@ -1191,7 +1208,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
                         <p className="font-semibold">{product.name}</p>
                       </td>
                       <td className="px-3 py-2">
-                        <span className={`status-pill ${statusBadge(product.status)}`}>
+                        <span className={statusBadge(product.status)}>
                           {product.status}
                         </span>
                       </td>
@@ -1205,6 +1222,7 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
                           type="button"
                           className="btn-secondary"
                           disabled={openingProductId === product.id}
+                          aria-disabled={openingProductId === product.id}
                           onClick={() => void openProduct(product.id)}
                         >
                           {openingProductId === product.id ? "Opening..." : "Edit"}
@@ -1326,7 +1344,8 @@ export default function CatalogClient({ view = "all" }: CatalogClientProps) {
                             type="button"
                             onClick={() => void adjustInventory(variant.id!)}
                             disabled={adjusting}
-                            className="btn-secondary disabled:opacity-60"
+                            aria-disabled={adjusting}
+                            className={`btn-secondary ${adminDisabledControlClass()}`}
                           >
                             {adjusting ? "Applying..." : "Apply"}
                           </button>
@@ -2263,12 +2282,12 @@ function ProductFormFields({
               placeholder="e.g. Midnight Bloom Blazer Set"
               className={`rounded-md border bg-paper-light px-3 py-2 ${
                 showBasicInfoErrors && basicInfoErrors.name
-                  ? "border-seal-wax/80"
+                  ? adminFieldInvalidClass()
                   : "border-sepia-border"
               }`}
             />
             {showBasicInfoErrors && basicInfoErrors.name ? (
-              <p className="text-xs text-seal-wax">{basicInfoErrors.name}</p>
+              <p className={`text-xs ${adminStateTextClass("danger")}`}>{basicInfoErrors.name}</p>
             ) : null}
           </div>
 
@@ -2297,12 +2316,12 @@ function ProductFormFields({
                 placeholder="e.g. 55000"
                 className={`w-full rounded-md border bg-paper-light px-3 py-2 ${
                   showBasicInfoErrors && basicInfoErrors.price
-                    ? "border-seal-wax/80"
+                    ? adminFieldInvalidClass()
                     : "border-sepia-border"
                 }`}
               />
               {showBasicInfoErrors && basicInfoErrors.price ? (
-                <p className="text-xs text-seal-wax">{basicInfoErrors.price}</p>
+                <p className={`text-xs ${adminStateTextClass("danger")}`}>{basicInfoErrors.price}</p>
               ) : null}
             </div>
 
@@ -2352,7 +2371,7 @@ function ProductFormFields({
                 }}
                 className={`w-full rounded-md border bg-paper-light px-3 py-2 ${
                   showBasicInfoErrors && basicInfoErrors.category
-                    ? "border-seal-wax/80"
+                    ? adminFieldInvalidClass()
                     : "border-sepia-border"
                 }`}
               >
@@ -2365,7 +2384,9 @@ function ProductFormFields({
                 <option value="__create__">+ Create category</option>
               </select>
               {showBasicInfoErrors && basicInfoErrors.category ? (
-                <p className="text-xs text-seal-wax">{basicInfoErrors.category}</p>
+                <p className={`text-xs ${adminStateTextClass("danger")}`}>
+                  {basicInfoErrors.category}
+                </p>
               ) : null}
             </div>
                 </div>
@@ -2382,11 +2403,10 @@ function ProductFormFields({
                           <button
                             key={sizeOption}
                             type="button"
-                            className={`rounded border px-3 py-1 text-xs ${
-                              isActive
-                                ? "border-antique-brass bg-antique-brass/15 text-ink"
-                                : "border-sepia-border bg-paper-light text-charcoal"
-                            }`}
+                            className={adminInteractivePillClass({
+                              active: isActive,
+                              activeTone: "info",
+                            })}
                             onClick={() =>
                               toggleMatrixValue(matrixSizes, setMatrixSizes, sizeOption)
                             }
@@ -2479,7 +2499,9 @@ function ProductFormFields({
                 </div>
 
                 {showBasicInfoErrors && basicInfoErrors.slug ? (
-                  <p className="text-xs text-seal-wax">{basicInfoErrors.slug}</p>
+                  <p className={`text-xs ${adminStateTextClass("danger")}`}>
+                    {basicInfoErrors.slug}
+                  </p>
                 ) : null}
         </div>
       </CreateProductSectionCard>
@@ -2539,8 +2561,9 @@ function ProductFormFields({
                 <button
                   type="button"
                   disabled={creatingCategory}
+                  aria-disabled={creatingCategory}
                   onClick={() => void createCategoryInline()}
-                  className="btn-primary disabled:opacity-60"
+                  className={`btn-primary ${adminDisabledControlClass()}`}
                 >
                   {creatingCategory ? "Creating..." : "Create Category"}
                 </button>
@@ -2568,6 +2591,7 @@ function ProductFormFields({
                 type="button"
                 className="btn-secondary"
                 disabled={isQueueUploading}
+                aria-disabled={isQueueUploading}
                 onClick={() => imageFileInputRef.current?.click()}
               >
                 Select Files
@@ -2577,7 +2601,9 @@ function ProductFormFields({
 
           <div
             className={`rounded-lg border border-dashed p-6 text-sm transition-colors ${
-              isDragOver ? "border-antique-brass bg-antique-brass/10" : "border-sepia-border bg-paper-light/40"
+              isDragOver
+                ? adminStateToneClass("info")
+                : "border-sepia-border bg-paper-light/40"
             }`}
             onDragOver={(event) => {
               event.preventDefault();
@@ -2615,16 +2641,18 @@ function ProductFormFields({
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  className="btn-secondary disabled:opacity-60"
+                  className={`btn-secondary ${adminDisabledControlClass()}`}
                   disabled={isQueueUploading || queueSummary.failed === 0}
+                  aria-disabled={isQueueUploading || queueSummary.failed === 0}
                   onClick={retryAllFailedUploads}
                 >
                   Retry All Failed
                 </button>
                 <button
                   type="button"
-                  className="btn-secondary disabled:opacity-60"
+                  className={`btn-secondary ${adminDisabledControlClass()}`}
                   disabled={isQueueUploading || completedUploadCount === 0}
+                  aria-disabled={isQueueUploading || completedUploadCount === 0}
                   onClick={clearCompletedUploads}
                 >
                   Clear Completed
@@ -2632,7 +2660,7 @@ function ProductFormFields({
               </div>
               <div className="h-2 w-full overflow-hidden rounded bg-sepia-border/40">
                 <div
-                  className="h-full bg-antique-brass transition-all"
+                  className={`h-full ${adminProgressFillClass("info")} transition-all`}
                   style={{ width: `${overallUploadProgress}%` }}
                 />
               </div>
@@ -2651,18 +2679,25 @@ function ProductFormFields({
                       <div className="h-1.5 w-full overflow-hidden rounded bg-sepia-border/40">
                         <div
                           className={`h-full transition-all ${
-                            item.status === "failed" ? "bg-seal-wax" : "bg-antique-brass"
+                            item.status === "failed"
+                              ? adminProgressFillClass("danger")
+                              : adminProgressFillClass("info")
                           }`}
                           style={{ width: `${barWidth}%` }}
                         />
                       </div>
-                      {item.error ? <p className="mt-1 text-xs text-seal-wax">{item.error}</p> : null}
+                      {item.error ? (
+                        <p className={`mt-1 text-xs ${adminStateTextClass("danger")}`}>
+                          {item.error}
+                        </p>
+                      ) : null}
                       <div className="mt-2 flex gap-2">
                         {item.status === "failed" ? (
                           <button
                             type="button"
-                            className="btn-secondary disabled:opacity-60"
+                            className={`btn-secondary ${adminDisabledControlClass()}`}
                             disabled={isQueueUploading}
+                            aria-disabled={isQueueUploading}
                             onClick={() => retryUploadItem(item.id)}
                           >
                             Retry
@@ -2784,7 +2819,8 @@ function ProductFormFields({
         type="button"
         onClick={() => void generateVariantsFromMatrix()}
         disabled={generatingMatrix}
-        className="btn-secondary disabled:opacity-60"
+        aria-disabled={generatingMatrix}
+        className={`btn-secondary ${adminDisabledControlClass()}`}
       >
         {generatingMatrix ? "Generating..." : "Generate Missing Variants"}
       </button>
@@ -2817,8 +2853,9 @@ function ProductFormFields({
         </button>
         <button
           type="button"
-          className="btn-secondary"
+          className={`btn-secondary ${adminDisabledControlClass()}`}
           disabled={selectedVariantIndexes.length === 0}
+          aria-disabled={selectedVariantIndexes.length === 0}
           onClick={() => setSelectedVariantIndexes([])}
         >
           Clear
@@ -2834,7 +2871,7 @@ function ProductFormFields({
           : ""}
       </p>
       {variantDiagnostics.hasBlocking ? (
-        <p className="mt-1 text-xs text-seal-wax">
+        <p className={`mt-1 text-xs ${adminStateTextClass("danger")}`}>
           {variantBlockingCount} variant{variantBlockingCount === 1 ? "" : "s"} need fixes
           before Review.
         </p>
@@ -2898,25 +2935,28 @@ function ProductFormFields({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className="btn-secondary disabled:opacity-50"
+          className={`btn-secondary ${adminDisabledControlClass()}`}
           onClick={applyBulkVariantFields}
           disabled={selectedVariantIndexes.length === 0}
+          aria-disabled={selectedVariantIndexes.length === 0}
         >
           Apply Bulk Changes
         </button>
         <button
           type="button"
-          className="btn-secondary disabled:opacity-50"
+          className={`btn-secondary ${adminDisabledControlClass()}`}
           onClick={autofillSelectedVariantIdentity}
           disabled={selectedVariantIndexes.length === 0}
+          aria-disabled={selectedVariantIndexes.length === 0}
         >
           Auto-fill Name/SKU
         </button>
         <button
           type="button"
-          className="btn-secondary disabled:opacity-50"
+          className={`btn-secondary ${adminDisabledControlClass()}`}
           onClick={duplicateSelectedVariants}
           disabled={selectedVariantIndexes.length === 0}
+          aria-disabled={selectedVariantIndexes.length === 0}
         >
           Duplicate Selected
         </button>
@@ -2925,9 +2965,10 @@ function ProductFormFields({
         </button>
         <button
           type="button"
-          className="btn-secondary disabled:opacity-50"
+          className={`btn-secondary ${adminDisabledControlClass()}`}
           onClick={removeSelectedVariants}
           disabled={selectedVariantIndexes.length === 0}
+          aria-disabled={selectedVariantIndexes.length === 0}
         >
           Remove Selected
         </button>
@@ -3062,7 +3103,7 @@ function ProductFormFields({
           key={`variant-card-${variant.id ?? index}`}
           className={`rounded-md border p-3 ${
             (variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0
-              ? "border-seal-wax/70 bg-seal-wax/5"
+              ? adminStateToneClass("danger")
               : "border-sepia-border/70"
           }`}
         >
@@ -3175,7 +3216,7 @@ function ProductFormFields({
             </button>
           </div>
           {(variantDiagnostics.issuesByIndex[index]?.length ?? 0) > 0 ? (
-            <ul className="mt-2 list-disc pl-5 text-xs text-seal-wax">
+            <ul className={`mt-2 list-disc pl-5 text-xs ${adminStateTextClass("danger")}`}>
               {variantDiagnostics.issuesByIndex[index].map((issue) => (
                 <li key={`${index}-${issue}`}>{issue}</li>
               ))}

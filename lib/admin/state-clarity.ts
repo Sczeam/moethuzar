@@ -8,12 +8,32 @@ const ADMIN_STATE_TONE_CLASS: Record<AdminStateTone, string> = {
   danger: "border-seal-wax/45 bg-seal-wax/10 text-seal-wax",
 };
 
+const ADMIN_TEXT_TONE_CLASS: Record<AdminStateTone, string> = {
+  neutral: "text-charcoal",
+  info: "text-ink",
+  success: "text-emerald-900",
+  warning: "text-amber-900",
+  danger: "text-seal-wax",
+};
+
+const ADMIN_PROGRESS_TONE_CLASS: Record<AdminStateTone, string> = {
+  neutral: "bg-charcoal/35",
+  info: "bg-antique-brass",
+  success: "bg-emerald-600",
+  warning: "bg-amber-600",
+  danger: "bg-seal-wax",
+};
+
+export function adminStateToneClass(tone: AdminStateTone): string {
+  return ADMIN_STATE_TONE_CLASS[tone];
+}
+
 export function adminStateBadgeClass(tone: AdminStateTone): string {
-  return `inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${ADMIN_STATE_TONE_CLASS[tone]}`;
+  return `inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${adminStateToneClass(tone)}`;
 }
 
 export function adminSurfaceNoticeClass(tone: AdminStateTone): string {
-  return `rounded-md border px-3 py-3 text-sm ${ADMIN_STATE_TONE_CLASS[tone]}`;
+  return `rounded-md border px-3 py-3 text-sm ${adminStateToneClass(tone)}`;
 }
 
 export function adminInteractivePillClass({
@@ -31,5 +51,17 @@ export function adminInteractivePillClass({
 }
 
 export function adminDisabledControlClass(): string {
-  return "opacity-60 cursor-not-allowed saturate-50";
+  return "disabled:opacity-60 disabled:cursor-not-allowed disabled:saturate-50";
+}
+
+export function adminStateTextClass(tone: AdminStateTone): string {
+  return ADMIN_TEXT_TONE_CLASS[tone];
+}
+
+export function adminProgressFillClass(tone: AdminStateTone): string {
+  return ADMIN_PROGRESS_TONE_CLASS[tone];
+}
+
+export function adminFieldInvalidClass(): string {
+  return "border-seal-wax/70 ring-1 ring-seal-wax/25";
 }
