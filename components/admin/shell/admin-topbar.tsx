@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
 
 type AdminTopbarProps = {
@@ -8,6 +9,7 @@ type AdminTopbarProps = {
   onOpenSidebar: () => void;
   mobileNavControlsId?: string;
   isSidebarOpen?: boolean;
+  sidebarToggleRef?: RefObject<HTMLButtonElement | null>;
 };
 
 export function AdminTopbar({
@@ -16,12 +18,14 @@ export function AdminTopbar({
   onOpenSidebar,
   mobileNavControlsId,
   isSidebarOpen = false,
+  sidebarToggleRef,
 }: AdminTopbarProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-sepia-border/70 bg-parchment/95 backdrop-blur-sm">
       <div className="flex min-h-14 items-center justify-between gap-3 px-4 md:min-h-[72px] md:px-8 xl:px-20">
         <div className="flex items-center gap-2">
           <button
+            ref={sidebarToggleRef}
             type="button"
             onClick={onOpenSidebar}
             className={`inline-flex items-center justify-center rounded-full text-ink transition hover:bg-paper-light ${ADMIN_A11Y.target.minInteractive} ${ADMIN_A11Y.focus.ring}`}

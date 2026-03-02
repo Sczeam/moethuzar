@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState, type RefObject } from "react";
 import { usePathname } from "next/navigation";
 import { buildAdminSidebarGroups } from "@/components/admin/navigation/build-nav";
 import { ADMIN_MODULE_REGISTRY } from "@/components/admin/navigation/module-registry";
@@ -109,6 +109,7 @@ export function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const mobileNavId = useId();
+  const sidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const isDashboardRoute = pathname === "/admin";
 
   const isPublicAdminRoute =
@@ -131,21 +132,6 @@ export function AdminShell({ children }: AdminShellProps) {
     [],
   );
 
-  useEffect(() => {
-    if (!sidebarOpen) {
-      return;
-    }
-
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === "Escape") {
-        setSidebarOpen(false);
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [sidebarOpen]);
-
   if (isPublicAdminRoute) {
     return <>{children}</>;
   }
@@ -158,6 +144,7 @@ export function AdminShell({ children }: AdminShellProps) {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         mobilePanelId={mobileNavId}
+        restoreFocusRef={sidebarToggleRef as RefObject<HTMLElement | null>}
       />
       <div className="min-w-0">
         <AdminTopbar
@@ -166,6 +153,7 @@ export function AdminShell({ children }: AdminShellProps) {
           onOpenSidebar={() => setSidebarOpen(true)}
           mobileNavControlsId={mobileNavId}
           isSidebarOpen={sidebarOpen}
+          sidebarToggleRef={sidebarToggleRef}
         />
         <div className="space-y-4 px-4 py-4 md:space-y-8 md:px-8 md:py-8 xl:px-20">
           {!isDashboardRoute ? <AdminBreadcrumbs items={breadcrumbs} /> : null}

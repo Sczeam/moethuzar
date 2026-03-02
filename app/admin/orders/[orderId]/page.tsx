@@ -11,7 +11,8 @@ import { buildOrderActionRequest } from "./order-action-adapter";
 import { mapOrderActionError, type ActionFeedbackSeverity } from "./action-feedback";
 import { presentAdminApiError } from "@/lib/admin/error-presenter";
 import { ADMIN_ORDERS_COPY } from "@/lib/admin/orders-copy";
-import { ADMIN_A11Y } from "@/lib/admin/a11y-contract";
+import { ADMIN_A11Y, adminFieldA11y, adminLiveRegionProps } from "@/lib/admin/a11y-contract";
+import { useDialogAccessibility } from "@/lib/admin/use-dialog-accessibility";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -119,6 +120,17 @@ export default function AdminOrderDetailPage() {
   const lastActionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
+  const closeActionModal = useCallback(() => {
+    if (actionPending) {
+      return;
+    }
+    setSelectedActionId(null);
+    setNoteError("");
+  }, [actionPending]);
+  const noteA11y = adminFieldA11y({
+    fieldId: "order-action-note",
+    errorMessage: noteError,
+  });
 
   const loadOrder = useCallback(async () => {
     setLoadError("");
@@ -164,58 +176,13 @@ export default function AdminOrderDetailPage() {
     return () => window.clearTimeout(timer);
   }, [feedback]);
 
-  useEffect(() => {
-    if (!selectedActionId) {
-      return;
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !actionPending) {
-        setSelectedActionId(null);
-        setNoteError("");
-        return;
-      }
-
-      if (event.key === "Tab" && modalRef.current) {
-        const focusable = Array.from(
-          modalRef.current.querySelectorAll<HTMLElement>(
-            "button:not([disabled]), textarea:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex='-1'])"
-          )
-        );
-        if (focusable.length === 0) {
-          return;
-        }
-
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        const active = document.activeElement as HTMLElement | null;
-
-        if (event.shiftKey && active === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && active === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-
-    const timer = window.setTimeout(() => {
-      modalCancelButtonRef.current?.focus();
-    }, 0);
-
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.clearTimeout(timer);
-    };
-  }, [selectedActionId, actionPending]);
-
-  useEffect(() => {
-    if (selectedActionId === null) {
-      lastActionTriggerRef.current?.focus();
-    }
-  }, [selectedActionId]);
+  useDialogAccessibility({
+    isOpen: Boolean(selectedActionId),
+    containerRef: modalRef,
+    initialFocusRef: modalCancelButtonRef,
+    restoreFocusRef: lastActionTriggerRef,
+    onClose: closeActionModal,
+  });
 
   const actionState = useMemo(() => {
     if (!order) {
@@ -358,7 +325,7 @@ export default function AdminOrderDetailPage() {
       {feedback ? (
         <section
           className={`mb-4 rounded-none border px-4 py-3 text-sm ${feedbackClass(feedback.severity)}`}
-          role={feedback.severity === "error" ? "alert" : "status"}
+          {...adminLiveRegionProps(feedback.severity === "error" ? "assertive" : "polite")}
         >
           <div className="flex flex-wrap items-center gap-2">
             <p className="flex-1">{feedback.message}</p>
@@ -652,12 +619,7 @@ export default function AdminOrderDetailPage() {
       {selectedActionId ? (
         <div
           className="fixed inset-0 z-60 bg-ink/35 p-4"
-          onClick={() => {
-            if (!actionPending) {
-              setSelectedActionId(null);
-              setNoteError("");
-            }
-          }}
+          onClick={closeActionModal}
         >
           <div
             role="dialog"
@@ -681,6 +643,7 @@ export default function AdminOrderDetailPage() {
                 : ADMIN_ORDERS_COPY.modal.noteOptional}
             </label>
             <textarea
+              id="order-action-note"
               value={actionNote}
               onChange={(event) => {
                 setActionNote(event.target.value);
@@ -688,8 +651,7 @@ export default function AdminOrderDetailPage() {
                   setNoteError("");
                 }
               }}
-              aria-invalid={noteError ? "true" : "false"}
-              aria-describedby={noteError ? "order-action-note-error" : undefined}
+              {...noteA11y}
               className="mt-1 min-h-24 w-full rounded-none border border-sepia-border bg-parchment px-3 py-2 text-sm"
               placeholder={
                 ACTION_DESCRIPTORS[selectedActionId].requiresNote
@@ -698,7 +660,7 @@ export default function AdminOrderDetailPage() {
               }
             />
             {noteError ? (
-              <p id="order-action-note-error" className="mt-2 text-xs text-seal-wax" role="alert">
+              <p id={noteA11y.errorId} className="mt-2 text-xs text-seal-wax" role="alert">
                 {noteError}
               </p>
             ) : null}
@@ -718,10 +680,7 @@ export default function AdminOrderDetailPage() {
                 type="button"
                 disabled={actionPending}
                 ref={modalCancelButtonRef}
-                onClick={() => {
-                  setSelectedActionId(null);
-                  setNoteError("");
-                }}
+                onClick={closeActionModal}
                 className={`btn-secondary ${ADMIN_A11Y.target.minInteractive}`}
               >
                 {ADMIN_ORDERS_COPY.modal.cancel}
