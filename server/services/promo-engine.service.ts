@@ -116,6 +116,14 @@ export function evaluatePromoCode(
     return reject(normalizedCode, PROMO_REJECTION_CODES.INVALID_CODE, "Promo code is required.");
   }
 
+  if (normalizePromoCode(rule.code) !== normalizedCode) {
+    return reject(
+      normalizedCode,
+      PROMO_REJECTION_CODES.INVALID_CODE,
+      `Promo ${normalizedCode} is invalid.`
+    );
+  }
+
   if (input.subtotalAmount < 0 || !Number.isInteger(input.subtotalAmount)) {
     return reject(
       normalizedCode,

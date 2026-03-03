@@ -29,7 +29,7 @@ describe("promo-engine.service", () => {
   });
 
   it("applies flat discount with zero-floor clamp", () => {
-    const result = evaluatePromoCode("flat5000", buildRule({ discountType: "FLAT", value: 5000 }), {
+    const result = evaluatePromoCode("SUMMER10", buildRule({ discountType: "FLAT", value: 5000 }), {
       subtotalAmount: 3200,
       now,
     });
@@ -42,7 +42,7 @@ describe("promo-engine.service", () => {
   });
 
   it("applies percent discount using MMK floor rounding", () => {
-    const result = evaluatePromoCode("save15", buildRule({ discountType: "PERCENT", value: 15 }), {
+    const result = evaluatePromoCode("SUMMER10", buildRule({ discountType: "PERCENT", value: 15 }), {
       subtotalAmount: 9999,
       now,
     });
@@ -55,7 +55,7 @@ describe("promo-engine.service", () => {
   });
 
   it("rejects when minimum order amount is not met", () => {
-    const result = evaluatePromoCode("SAVE10", buildRule({ minOrderAmount: 50000 }), {
+    const result = evaluatePromoCode("SUMMER10", buildRule({ minOrderAmount: 50000 }), {
       subtotalAmount: 49999,
       now,
     });
@@ -68,7 +68,7 @@ describe("promo-engine.service", () => {
 
   it("rejects when promo is outside start/end window", () => {
     const future = evaluatePromoCode(
-      "SAVE10",
+      "SUMMER10",
       buildRule({ startsAt: new Date("2026-03-04T00:00:00.000Z") }),
       {
         subtotalAmount: 100000,
@@ -82,7 +82,7 @@ describe("promo-engine.service", () => {
     });
 
     const expired = evaluatePromoCode(
-      "SAVE10",
+      "SUMMER10",
       buildRule({ endsAt: new Date("2026-03-02T23:59:59.000Z") }),
       {
         subtotalAmount: 100000,
@@ -98,7 +98,7 @@ describe("promo-engine.service", () => {
 
   it("rejects when usage limit has been reached", () => {
     const result = evaluatePromoCode(
-      "SAVE10",
+      "SUMMER10",
       buildRule({
         usageLimit: 100,
         usageCount: 100,
@@ -112,6 +112,24 @@ describe("promo-engine.service", () => {
     expect(result).toMatchObject({
       ok: false,
       rejectionCode: PROMO_REJECTION_CODES.USAGE_LIMIT_REACHED,
+    });
+  });
+
+  it("rejects when input code does not match resolved promo rule code", () => {
+    const result = evaluatePromoCode(
+      "SAVE10",
+      buildRule({
+        code: "WELCOME10",
+      }),
+      {
+        subtotalAmount: 100000,
+        now,
+      }
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      rejectionCode: PROMO_REJECTION_CODES.INVALID_CODE,
     });
   });
 });

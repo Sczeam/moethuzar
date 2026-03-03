@@ -33,8 +33,7 @@ ADD COLUMN "subtotalAfterDiscount" DECIMAL(12,2) DEFAULT 0;
 UPDATE "Order"
 SET
   "subtotalBeforeDiscount" = "subtotalAmount",
-  "subtotalAfterDiscount" = "subtotalAmount"
-WHERE "subtotalBeforeDiscount" IS NULL OR "subtotalAfterDiscount" IS NULL;
+  "subtotalAfterDiscount" = "subtotalAmount";
 
 -- Enforce non-null snapshots after backfill.
 ALTER TABLE "Order"
