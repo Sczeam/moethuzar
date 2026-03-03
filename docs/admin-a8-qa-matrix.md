@@ -1,6 +1,6 @@
 # Admin A8 QA Matrix
 
-Last updated: 2026-03-02
+Last updated: 2026-03-03
 
 Purpose: repeatable accessibility verification for admin routes after UX or component changes.
 
@@ -22,15 +22,15 @@ Use `Pass / Fail / N/A` per row. Fail blocks merge.
 
 | Route | Keyboard path (tab order) | Focus visible | Min target size | Dialog trap/ESC/restore | Contrast + state clarity | Live region / field error semantics |
 |---|---|---|---|---|---|---|
-| `/admin` |  |  |  | N/A |  | N/A |
-| `/admin/orders` |  |  |  | N/A |  |  |
-| `/admin/orders/[orderId]` |  |  |  |  |  |  |
-| `/admin/catalog` |  |  |  |  |  |  |
-| `/admin/catalog/new` |  |  |  |  |  |  |
-| `/admin/shipping-rules` |  |  |  | N/A |  |  |
-| `/admin/payment-transfer-methods` |  |  |  | N/A |  |  |
-| `/admin/login` |  |  |  | N/A |  |  |
-| `/admin/unauthorized` |  |  |  | N/A |  | N/A |
+| `/admin` | Pass | Pass | Pass | N/A | Pass | N/A |
+| `/admin/orders` | Pass | Pass | Pass | N/A | Pass | Pass |
+| `/admin/orders/[orderId]` | Pass | Pass | Pass | Pass | Pass | Pass |
+| `/admin/catalog` | Pass | Pass | Pass | Pass | Pass | Pass |
+| `/admin/catalog/new` | Pass | Pass | Pass | Pass | Pass | Pass |
+| `/admin/shipping-rules` | Pass | Pass | Pass | N/A | Pass | Pass |
+| `/admin/payment-transfer-methods` | Pass | Pass | Pass | N/A | Pass | Pass |
+| `/admin/login` | Pass | Pass | Pass | N/A | Pass | Pass |
+| `/admin/unauthorized` | Pass | Pass | Pass | N/A | Pass | N/A |
 
 ## Route-Level Checks
 
@@ -58,4 +58,15 @@ Use `Pass / Fail / N/A` per row. Fail blocks merge.
 6. Error/status semantics:
 - Use `adminLiveRegionProps` for feedback messages.
 - Use `adminFieldA11y` for field error associations where inputs have validation errors.
+
+## A8.7 Closeout Evidence (2026-03-03)
+
+- Semantic rollout PRs:
+  - `#207` (`#205`) Catalog semantic-state rollout.
+  - `#208` (`#204`) Wizard/Dashboard/Sidebar semantic-state rollout.
+  - `#209` (`#206`) Auth semantic-state rollout.
+- Guardrails executed:
+  - `pnpm -s admin:a11y:smoke` -> pass
+  - `pnpm -s tsc --noEmit` -> pass
+  - `pnpm -s lint` -> pass
 
