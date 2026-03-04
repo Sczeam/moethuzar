@@ -40,7 +40,7 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
   return trimmed ? trimmed : null;
 }
 
-function toPromoData(input: PromoCodePayloadInput) {
+function toPromoCreateData(input: PromoCodePayloadInput) {
   return {
     code: normalizePromoCode(input.code),
     label: normalizeOptionalText(input.label),
@@ -51,6 +51,20 @@ function toPromoData(input: PromoCodePayloadInput) {
     endsAt: input.endsAt ?? null,
     usageLimit: input.usageLimit ?? null,
     isActive: input.isActive ?? true,
+  };
+}
+
+function toPromoUpdateData(input: PromoCodePayloadInput) {
+  return {
+    code: normalizePromoCode(input.code),
+    label: normalizeOptionalText(input.label),
+    discountType: input.discountType,
+    value: input.value,
+    minOrderAmount: input.minOrderAmount ?? null,
+    startsAt: input.startsAt ?? null,
+    endsAt: input.endsAt ?? null,
+    usageLimit: input.usageLimit ?? null,
+    isActive: input.isActive,
   };
 }
 
@@ -81,7 +95,7 @@ export async function getAdminPromoById(
 
 export async function createAdminPromo(input: PromoCodePayloadInput): Promise<AdminPromoRecord> {
   return prisma.promoCode.create({
-    data: toPromoData(input),
+    data: toPromoCreateData(input),
   });
 }
 
@@ -96,7 +110,7 @@ export async function updateAdminPromo(
 
   return prisma.promoCode.update({
     where: { id: promoId },
-    data: toPromoData(input),
+    data: toPromoUpdateData(input),
   });
 }
 
@@ -114,4 +128,3 @@ export async function toggleAdminPromo(promoId: string): Promise<AdminPromoRecor
     data: { isActive: !existing.isActive },
   });
 }
-
