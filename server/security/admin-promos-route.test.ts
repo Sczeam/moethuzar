@@ -8,6 +8,9 @@ const {
   getAdminPromoByIdMock,
   updateAdminPromoMock,
   toggleAdminPromoMock,
+  logAdminPromoCreatedMock,
+  logAdminPromoUpdatedMock,
+  logAdminPromoToggledMock,
 } = vi.hoisted(() => ({
   requireAdminUserIdMock: vi.fn(),
   listAdminPromosMock: vi.fn(),
@@ -15,6 +18,9 @@ const {
   getAdminPromoByIdMock: vi.fn(),
   updateAdminPromoMock: vi.fn(),
   toggleAdminPromoMock: vi.fn(),
+  logAdminPromoCreatedMock: vi.fn(),
+  logAdminPromoUpdatedMock: vi.fn(),
+  logAdminPromoToggledMock: vi.fn(),
 }));
 
 vi.mock("@/server/auth/admin", () => ({
@@ -27,6 +33,12 @@ vi.mock("@/server/services/admin-promo-code.service", () => ({
   getAdminPromoById: getAdminPromoByIdMock,
   updateAdminPromo: updateAdminPromoMock,
   toggleAdminPromo: toggleAdminPromoMock,
+}));
+
+vi.mock("@/server/services/promo-observability.service", () => ({
+  logAdminPromoCreated: logAdminPromoCreatedMock,
+  logAdminPromoUpdated: logAdminPromoUpdatedMock,
+  logAdminPromoToggled: logAdminPromoToggledMock,
 }));
 
 import { GET as listPromosGet, POST as createPromoPost } from "@/app/api/admin/promos/route";
@@ -57,6 +69,9 @@ describe("admin promos routes", () => {
     getAdminPromoByIdMock.mockReset();
     updateAdminPromoMock.mockReset();
     toggleAdminPromoMock.mockReset();
+    logAdminPromoCreatedMock.mockReset();
+    logAdminPromoUpdatedMock.mockReset();
+    logAdminPromoToggledMock.mockReset();
   });
 
   it("lists promos", async () => {
@@ -87,6 +102,13 @@ describe("admin promos routes", () => {
     expect(response.status).toBe(201);
     expect(payload.ok).toBe(true);
     expect(payload.promo.code).toBe("SAVE10");
+    expect(logAdminPromoCreatedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adminUserId: "admin-id",
+        promoId,
+        promoCode: "SAVE10",
+      }),
+    );
   });
 
   it("returns validation envelope on invalid create payload", async () => {
@@ -125,6 +147,7 @@ describe("admin promos routes", () => {
     expect(response.status).toBe(200);
     expect(payload.ok).toBe(true);
     expect(payload.promo.id).toBe(promoId);
+    expect(logAdminPromoUpdatedMock).not.toHaveBeenCalled();
   });
 
   it("updates promo by id", async () => {
@@ -161,6 +184,13 @@ describe("admin promos routes", () => {
     expect(response.status).toBe(200);
     expect(payload.ok).toBe(true);
     expect(payload.promo.isActive).toBe(false);
+    expect(logAdminPromoToggledMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adminUserId: "admin-id",
+        promoId,
+        isActive: false,
+      }),
+    );
   });
 
   it("returns deterministic app error envelope for missing promo", async () => {

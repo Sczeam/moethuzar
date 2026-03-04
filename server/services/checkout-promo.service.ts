@@ -7,6 +7,7 @@ import {
   type PromoEvaluationRejected,
   type PromoRuleSnapshot,
 } from "@/server/services/promo-engine.service";
+import { logPromoReservationConflict } from "@/server/services/promo-observability.service";
 import { CartStatus, Prisma } from "@prisma/client";
 
 type PromoRuleRecord = {
@@ -159,6 +160,12 @@ export async function reservePromoUsage(
       return;
     }
 
+    logPromoReservationConflict({
+      promoId: promoRule.id,
+      promoCode: null,
+      usageLimit: promoRule.usageLimit,
+      usageCount: promoRule.usageCount,
+    });
     throw new AppError(
       "Promo is no longer active. Please retry with another promo.",
       409,
@@ -229,6 +236,12 @@ export async function reservePromoUsage(
     promoRule.endsAt = latest.endsAt;
   }
 
+  logPromoReservationConflict({
+    promoId: promoRule.id,
+    promoCode: null,
+    usageLimit: promoRule.usageLimit,
+    usageCount: promoRule.usageCount,
+  });
   throw new AppError(
     "Promo could not be reserved. Please retry checkout.",
     409,

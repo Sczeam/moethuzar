@@ -5,10 +5,14 @@ const {
   rateLimitOrResponseMock,
   resolveCartSessionMock,
   previewPromoForActiveCartMock,
+  logPromoApplyPreviewSuccessMock,
+  logPromoApplyPreviewRejectedMock,
 } = vi.hoisted(() => ({
   rateLimitOrResponseMock: vi.fn(),
   resolveCartSessionMock: vi.fn(),
   previewPromoForActiveCartMock: vi.fn(),
+  logPromoApplyPreviewSuccessMock: vi.fn(),
+  logPromoApplyPreviewRejectedMock: vi.fn(),
 }));
 
 vi.mock("@/server/security/rate-limit", () => ({
@@ -23,6 +27,11 @@ vi.mock("@/server/services/checkout-promo.service", () => ({
   previewPromoForActiveCart: previewPromoForActiveCartMock,
 }));
 
+vi.mock("@/server/services/promo-observability.service", () => ({
+  logPromoApplyPreviewSuccess: logPromoApplyPreviewSuccessMock,
+  logPromoApplyPreviewRejected: logPromoApplyPreviewRejectedMock,
+}));
+
 import { POST as checkoutPromoPost } from "@/app/api/checkout/promo/route";
 
 describe("checkout promo route", () => {
@@ -30,6 +39,8 @@ describe("checkout promo route", () => {
     rateLimitOrResponseMock.mockReset();
     resolveCartSessionMock.mockReset();
     previewPromoForActiveCartMock.mockReset();
+    logPromoApplyPreviewSuccessMock.mockReset();
+    logPromoApplyPreviewRejectedMock.mockReset();
   });
 
   it("returns promo preview on success", async () => {
@@ -63,6 +74,7 @@ describe("checkout promo route", () => {
     expect(previewPromoForActiveCartMock).toHaveBeenCalledWith("guest-token", {
       promoCode: "save10",
     });
+    expect(logPromoApplyPreviewSuccessMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns rate-limit response without calling preview service", async () => {
@@ -82,6 +94,8 @@ describe("checkout promo route", () => {
     expect(response.status).toBe(429);
     expect(payload.code).toBe("RATE_LIMITED");
     expect(previewPromoForActiveCartMock).not.toHaveBeenCalled();
+    expect(logPromoApplyPreviewSuccessMock).not.toHaveBeenCalled();
+    expect(logPromoApplyPreviewRejectedMock).not.toHaveBeenCalled();
   });
 
   it("returns deterministic app error envelope for invalid promo", async () => {
@@ -105,6 +119,12 @@ describe("checkout promo route", () => {
     expect(payload.code).toBe("PROMO_INVALID_CODE");
     expect(payload.requestId).toBeTruthy();
     expect(response.headers.get("x-request-id")).toBeTruthy();
+    expect(logPromoApplyPreviewRejectedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rejectionCode: "PROMO_INVALID_CODE",
+        status: 400,
+      }),
+    );
   });
 });
 
