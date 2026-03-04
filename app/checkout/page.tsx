@@ -39,6 +39,22 @@ type ShippingQuoteResponse = {
   paymentPolicy?: PaymentPolicy;
 };
 
+type AppliedPromo = {
+  promoCode: string;
+  discountType: "FLAT" | "PERCENT";
+  discountValue: number;
+  discountAmount: number;
+  subtotalBeforeDiscount: number;
+  subtotalAfterDiscount: number;
+};
+
+type PromoPreviewResponse = {
+  ok?: boolean;
+  error?: string;
+  code?: string;
+  promo?: AppliedPromo;
+};
+
 type PaymentTransferMethodOption = {
   id: string;
   methodCode: string;
@@ -114,6 +130,10 @@ export default function CheckoutPage() {
   const [transferMethodsError, setTransferMethodsError] = useState("");
   const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
   const [shippingQuoteError, setShippingQuoteError] = useState("");
+  const [promoDraftCode, setPromoDraftCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState("");
   const [paymentUploadError, setPaymentUploadError] = useState("");
   const [paymentUploadStatus, setPaymentUploadStatus] = useState("");
   const [paymentUploading, setPaymentUploading] = useState(false);
@@ -147,13 +167,17 @@ export default function CheckoutPage() {
   }, []);
 
   const isCartEmpty = useMemo(() => !cart || cart.items.length === 0, [cart]);
-  const subtotalAmountInt = useMemo(() => {
+  const subtotalAmount = useMemo(() => {
     if (!cart) {
       return 0;
     }
 
-    return Math.round(Number(cart.subtotalAmount));
+    const parsed = Number(cart.subtotalAmount);
+    return Number.isFinite(parsed) ? parsed : 0;
   }, [cart]);
+  const subtotalAmountInt = useMemo(() => {
+    return Math.floor(subtotalAmount);
+  }, [subtotalAmount]);
 
   const canRequestShippingQuote = useMemo(() => {
     if (isCartEmpty || !cart) {
@@ -164,7 +188,9 @@ export default function CheckoutPage() {
   }, [cart, form.country, form.stateRegion, form.townshipCity, isCartEmpty]);
 
   const deliveryFeeAmount = shippingQuote?.feeAmount ?? 0;
-  const grandTotalAmount = subtotalAmountInt + deliveryFeeAmount;
+  const promoDiscountAmount = appliedPromo?.discountAmount ?? 0;
+  const subtotalAfterDiscount = Math.max(0, subtotalAmount - promoDiscountAmount);
+  const grandTotalAmount = subtotalAfterDiscount + deliveryFeeAmount;
   const requiresPrepaidProof = paymentPolicy?.requiresProof ?? false;
   const selectedTransferMethod = useMemo(
     () =>
@@ -176,6 +202,79 @@ export default function CheckoutPage() {
     setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
     setFormErrorSummary([]);
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function getPromoErrorMessage(code?: string, fallback?: string): string {
+    if (!code) {
+      return fallback ?? "Unable to apply promo code right now.";
+    }
+
+    if (code === "PROMO_INVALID_CODE") {
+      return "Promo code is invalid. Please check and try again.";
+    }
+    if (code === "PROMO_INACTIVE") {
+      return "This promo is inactive right now.";
+    }
+    if (code === "PROMO_NOT_STARTED") {
+      return "This promo is not active yet.";
+    }
+    if (code === "PROMO_EXPIRED") {
+      return "This promo has expired.";
+    }
+    if (code === "PROMO_MIN_ORDER_NOT_MET") {
+      return "Your subtotal does not meet this promo's minimum order amount.";
+    }
+    if (code === "PROMO_USAGE_LIMIT_REACHED") {
+      return "This promo has reached its usage limit.";
+    }
+    if (code === "PROMO_INVALID_CONFIG" || code === "PROMO_RESERVATION_CONFLICT") {
+      return "Promo is unavailable right now. Please retry or use another code.";
+    }
+
+    return fallback ?? "Unable to apply promo code right now.";
+  }
+
+  async function onApplyPromo() {
+    if (!promoDraftCode.trim()) {
+      setPromoError("Enter a promo code first.");
+      setAppliedPromo(null);
+      return;
+    }
+
+    setPromoLoading(true);
+    setPromoError("");
+
+    try {
+      const response = await fetch("/api/checkout/promo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ promoCode: promoDraftCode.trim() }),
+      });
+
+      const data = (await response.json()) as PromoPreviewResponse;
+      if (!response.ok || !data.ok || !data.promo) {
+        setAppliedPromo(null);
+        setPromoError(getPromoErrorMessage(data.code, data.error));
+        return;
+      }
+
+      setAppliedPromo(data.promo);
+      setPromoDraftCode(data.promo.promoCode);
+      setPromoError("");
+    } catch {
+      setAppliedPromo(null);
+      setPromoError("Unable to apply promo code right now.");
+    } finally {
+      setPromoLoading(false);
+    }
+  }
+
+  function onRemovePromo() {
+    setAppliedPromo(null);
+    setPromoError("");
+    setPromoDraftCode("");
   }
 
   useEffect(() => {
@@ -584,6 +683,7 @@ export default function CheckoutPage() {
         ...form,
         paymentMethod: form.paymentMethod || undefined,
         paymentProofUrl: form.paymentProofUrl.trim(),
+        promoCode: appliedPromo?.promoCode ?? "",
         paymentReference: requiresPrepaidProof
           ? `${selectedTransferMethodId}${form.paymentReference.trim() ? `:${form.paymentReference.trim()}` : ""}`
           : form.paymentReference.trim(),
@@ -632,6 +732,13 @@ export default function CheckoutPage() {
           setStatusText("Some items are out of stock. Please review your cart.");
         } else if (parsedData?.code === "PAYMENT_PROOF_REQUIRED") {
           setStatusText("Upload a payment screenshot before placing this order.");
+        } else if (
+          typeof parsedData?.code === "string" &&
+          parsedData.code.startsWith("PROMO_")
+        ) {
+          setAppliedPromo(null);
+          setPromoError(getPromoErrorMessage(parsedData.code, parsedData.error as string | undefined));
+          setStatusText("Promo code could not be applied. Review your promo code and try again.");
         } else if (
           parsedData?.code === "INVALID_PAYMENT_METHOD_FOR_ZONE" ||
           parsedData?.code === "TRANSFER_METHOD_REQUIRED" ||
@@ -1149,6 +1256,55 @@ export default function CheckoutPage() {
 
         <aside className="vintage-panel p-5">
           <h2 className="text-lg font-semibold">Order Summary</h2>
+          <section className="mt-4 space-y-2 border-b border-sepia-border pb-4">
+            <label htmlFor="promoCode" className="field-label">
+              Promo Code
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="promoCode"
+                value={promoDraftCode}
+                onChange={(event) => {
+                  setPromoDraftCode(event.target.value.toUpperCase());
+                  setPromoError("");
+                  setAppliedPromo(null);
+                }}
+                placeholder="e.g. NEWIN10"
+                className="field-input flex-1"
+                disabled={promoLoading}
+              />
+              {appliedPromo ? (
+                <button
+                  type="button"
+                  className="btn-secondary whitespace-nowrap px-3 py-2 text-sm"
+                  onClick={onRemovePromo}
+                  disabled={promoLoading}
+                >
+                  Remove
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-primary whitespace-nowrap px-3 py-2 text-sm disabled:opacity-60"
+                  onClick={() => void onApplyPromo()}
+                  disabled={promoLoading || !promoDraftCode.trim()}
+                >
+                  {promoLoading ? "Applying..." : "Apply"}
+                </button>
+              )}
+            </div>
+            {appliedPromo ? (
+              <p className="text-xs text-teak-brown">
+                Applied: <span className="font-semibold text-ink">{appliedPromo.promoCode}</span>{" "}
+                (
+                {appliedPromo.discountType === "PERCENT"
+                  ? `${appliedPromo.discountValue}%`
+                  : formatMoney(String(appliedPromo.discountAmount), cart.currency)}
+                )
+              </p>
+            ) : null}
+            {promoError ? <p className="text-xs text-seal-wax">{promoError}</p> : null}
+          </section>
           <div className="mt-4 space-y-3">
             {cart.items.map((item) => (
               <div key={item.id} className="flex items-start justify-between text-sm">
@@ -1161,8 +1317,20 @@ export default function CheckoutPage() {
           </div>
           <div className="summary-row mt-6 border-t border-sepia-border pt-4">
             <p className="font-semibold">Subtotal</p>
-            <p className="font-semibold">{formatMoney(cart.subtotalAmount, cart.currency)}</p>
+            <p className="font-semibold">{formatMoney(String(subtotalAmount), cart.currency)}</p>
           </div>
+          {appliedPromo ? (
+            <div className="summary-row mt-2 text-teak-brown">
+              <p>Discount ({appliedPromo.promoCode})</p>
+              <p>-{formatMoney(String(promoDiscountAmount), cart.currency)}</p>
+            </div>
+          ) : null}
+          {appliedPromo ? (
+            <div className="summary-row mt-2">
+              <p>Subtotal after discount</p>
+              <p>{formatMoney(String(subtotalAfterDiscount), cart.currency)}</p>
+            </div>
+          ) : null}
           <div className="summary-row mt-2">
             <p>Shipping</p>
             <p>{formatMoney(String(deliveryFeeAmount), cart.currency)}</p>
