@@ -132,6 +132,7 @@ export default function AdminOrderDetailPage() {
     fieldId: "order-action-note",
     errorMessage: noteError,
   });
+  const { errorId: noteErrorId, ...noteA11yProps } = noteA11y;
 
   const loadOrder = useCallback(async () => {
     setLoadError("");
@@ -657,7 +658,7 @@ export default function AdminOrderDetailPage() {
                   setNoteError("");
                 }
               }}
-              {...noteA11y}
+              {...noteA11yProps}
               className="mt-1 min-h-24 w-full rounded-none border border-sepia-border bg-parchment px-3 py-2 text-sm"
               placeholder={
                 ACTION_DESCRIPTORS[selectedActionId].requiresNote
@@ -666,7 +667,7 @@ export default function AdminOrderDetailPage() {
               }
             />
             {noteError ? (
-              <p id={noteA11y.errorId} className="mt-2 text-xs text-seal-wax" role="alert">
+              <p id={noteErrorId} className="mt-2 text-xs text-seal-wax" role="alert">
                 {noteError}
               </p>
             ) : null}
