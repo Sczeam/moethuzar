@@ -217,7 +217,9 @@ export async function createOrderFromCart(
           const unitPrice = Number(toPriceString(item.price));
           return acc + unitPrice * item.quantity;
         }, 0);
-        const subtotalAmount = Math.max(0, Math.round(subtotalAmountRaw));
+        const subtotalAmount = Math.max(0, subtotalAmountRaw);
+        const promoSubtotalAmount = Math.floor(subtotalAmount);
+        const shippingSubtotalAmount = Math.floor(subtotalAmount);
         const now = new Date();
 
         let promoCode: string | null = null;
@@ -229,22 +231,27 @@ export async function createOrderFromCart(
 
         const promoInputCode = normalizeOptionalText(input.promoCode);
         if (promoInputCode) {
-          const promoSnapshot = await evaluatePromoByCode(tx, promoInputCode, subtotalAmount, now);
+          const promoSnapshot = await evaluatePromoByCode(
+            tx,
+            promoInputCode,
+            promoSubtotalAmount,
+            now
+          );
           await reservePromoUsage(tx, { ...promoSnapshot.reserveState }, now);
 
           promoCode = promoSnapshot.normalizedCode;
           promoDiscountType = promoSnapshot.discountType;
           promoDiscountValue = promoSnapshot.discountValue;
           discountAmount = promoSnapshot.discountAmount;
-          subtotalBeforeDiscount = promoSnapshot.subtotalBeforeDiscount;
-          subtotalAfterDiscount = promoSnapshot.subtotalAfterDiscount;
+          subtotalBeforeDiscount = subtotalAmount;
+          subtotalAfterDiscount = Math.max(0, subtotalAmount - discountAmount);
         }
 
         const shippingQuote = await resolveShippingQuote({
           country: input.country,
           stateRegion: input.stateRegion,
           townshipCity: input.townshipCity,
-          subtotalAmount: subtotalBeforeDiscount,
+          subtotalAmount: shippingSubtotalAmount,
         });
 
         const deliveryFeeAmount = shippingQuote.feeAmount;

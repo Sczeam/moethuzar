@@ -141,15 +141,29 @@ export async function reservePromoUsage(
   }
 
   if (promoRule.usageLimit === null) {
-    await tx.promoCode.update({
-      where: { id: promoRule.id },
+    const reserved = await tx.promoCode.updateMany({
+      where: {
+        id: promoRule.id,
+        usageLimit: null,
+        isActive: true,
+        OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+        AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
+      },
       data: {
         usageCount: {
           increment: 1,
         },
       },
     });
-    return;
+    if (reserved.count === 1) {
+      return;
+    }
+
+    throw new AppError(
+      "Promo is no longer active. Please retry with another promo.",
+      409,
+      "PROMO_RESERVATION_CONFLICT"
+    );
   }
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -228,7 +242,7 @@ function toIntSubtotal(value: unknown): number {
     return 0;
   }
 
-  return Math.max(0, Math.round(numeric));
+  return Math.max(0, Math.floor(numeric));
 }
 
 export async function previewPromoForActiveCart(
