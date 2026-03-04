@@ -12,6 +12,7 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
 - Admin settings QA matrix (A6.5): `docs/admin-settings-qa-matrix-a6-5.md`
 - Admin settings rollout checklist (A6.5): `docs/admin-settings-rollout-checklist-a6-5.md`
 - Promo observability contract (C5.3): `docs/promo-observability-contract.md`
+- Promo rollout + rollback checklist (C5.4): `docs/promo-rollout-checklist.md`
 - Launch operations runbook: `docs/launch-ops-runbook.md`
 - Manual QA checklist: `docs/mvp-qa-checklist.md`
 
