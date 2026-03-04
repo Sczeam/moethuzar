@@ -2,6 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { resolvePaymentPolicyByZone } from "@/lib/payment-policy";
 import type { CheckoutInput } from "@/lib/validation/checkout";
 import { AppError } from "@/server/errors";
+import {
+  evaluatePromoByCode,
+  reservePromoUsage,
+} from "@/server/services/checkout-promo.service";
 import { assertActivePaymentTransferMethodByCode } from "@/server/services/payment-transfer-method.service";
 import { resolveShippingQuote } from "@/server/services/shipping-rule.service";
 import {
@@ -11,6 +15,7 @@ import {
   PaymentMethod,
   PaymentStatus,
   Prisma,
+  PromoDiscountType,
   ProductStatus,
 } from "@prisma/client";
 
@@ -58,6 +63,12 @@ type CreateOrderResult = {
   paymentReference: string | null;
   paymentSubmittedAt: Date | null;
   paymentVerifiedAt: Date | null;
+  promoCode: string | null;
+  promoDiscountType: string | null;
+  promoDiscountValue: number | null;
+  discountAmount: string;
+  subtotalBeforeDiscount: string;
+  subtotalAfterDiscount: string;
   currency: string;
   subtotalAmount: string;
   deliveryFeeAmount: string;
@@ -114,6 +125,12 @@ export async function createOrderFromCart(
         paymentReference: existingOrder.paymentReference,
         paymentSubmittedAt: existingOrder.paymentSubmittedAt,
         paymentVerifiedAt: existingOrder.paymentVerifiedAt,
+        promoCode: existingOrder.promoCode,
+        promoDiscountType: existingOrder.promoDiscountType,
+        promoDiscountValue: existingOrder.promoDiscountValue,
+        discountAmount: toPriceString(existingOrder.discountAmount),
+        subtotalBeforeDiscount: toPriceString(existingOrder.subtotalBeforeDiscount),
+        subtotalAfterDiscount: toPriceString(existingOrder.subtotalAfterDiscount),
         currency: existingOrder.currency,
         subtotalAmount: toPriceString(existingOrder.subtotalAmount),
         deliveryFeeAmount: toPriceString(existingOrder.deliveryFeeAmount),
@@ -196,20 +213,49 @@ export async function createOrderFromCart(
           }
         }
 
-        const subtotalAmount = cart.items.reduce((acc, item) => {
+        const subtotalAmountRaw = cart.items.reduce((acc, item) => {
           const unitPrice = Number(toPriceString(item.price));
           return acc + unitPrice * item.quantity;
         }, 0);
+        const subtotalAmount = Math.max(0, subtotalAmountRaw);
+        const promoSubtotalAmount = Math.floor(subtotalAmount);
+        const shippingSubtotalAmount = Math.floor(subtotalAmount);
+        const now = new Date();
+
+        let promoCode: string | null = null;
+        let promoDiscountType: PromoDiscountType | null = null;
+        let promoDiscountValue: number | null = null;
+        let discountAmount = 0;
+        let subtotalBeforeDiscount = subtotalAmount;
+        let subtotalAfterDiscount = subtotalAmount;
+
+        const promoInputCode = normalizeOptionalText(input.promoCode);
+        if (promoInputCode) {
+          const promoSnapshot = await evaluatePromoByCode(
+            tx,
+            promoInputCode,
+            promoSubtotalAmount,
+            now
+          );
+          await reservePromoUsage(tx, { ...promoSnapshot.reserveState }, now);
+
+          promoCode = promoSnapshot.normalizedCode;
+          promoDiscountType = promoSnapshot.discountType;
+          promoDiscountValue = promoSnapshot.discountValue;
+          discountAmount = promoSnapshot.discountAmount;
+          subtotalBeforeDiscount = subtotalAmount;
+          subtotalAfterDiscount = Math.max(0, subtotalAmount - discountAmount);
+        }
 
         const shippingQuote = await resolveShippingQuote({
           country: input.country,
           stateRegion: input.stateRegion,
           townshipCity: input.townshipCity,
-          subtotalAmount: Math.round(subtotalAmount),
+          subtotalAmount: shippingSubtotalAmount,
         });
 
         const deliveryFeeAmount = shippingQuote.feeAmount;
-        const totalAmount = subtotalAmount + deliveryFeeAmount;
+        const totalAmount = subtotalAfterDiscount + deliveryFeeAmount;
         const paymentPolicy = resolvePaymentPolicyByZone(shippingQuote.zoneKey);
         const paymentReference = normalizeOptionalText(input.paymentReference);
         const paymentProofUrl = normalizeOptionalText(input.paymentProofUrl);
@@ -254,7 +300,6 @@ export async function createOrderFromCart(
           await assertActivePaymentTransferMethodByCode(transferMethodCode);
         }
 
-        const now = new Date();
         const orderCode = createOrderCode(now);
 
         const created = await tx.order.create({
@@ -268,12 +313,12 @@ export async function createOrderFromCart(
             paymentReference: effectivePaymentReference,
             paymentSubmittedAt: effectivePaymentProofUrl ? now : null,
             paymentVerifiedAt: null,
-            promoCode: null,
-            promoDiscountType: null,
-            promoDiscountValue: null,
-            discountAmount: "0.00",
-            subtotalBeforeDiscount: subtotalAmount.toFixed(2),
-            subtotalAfterDiscount: subtotalAmount.toFixed(2),
+            promoCode,
+            promoDiscountType,
+            promoDiscountValue,
+            discountAmount: discountAmount.toFixed(2),
+            subtotalBeforeDiscount: subtotalBeforeDiscount.toFixed(2),
+            subtotalAfterDiscount: subtotalAfterDiscount.toFixed(2),
             currency: cart.currency,
             subtotalAmount: subtotalAmount.toFixed(2),
             deliveryFeeAmount: deliveryFeeAmount.toFixed(2),
@@ -382,6 +427,12 @@ export async function createOrderFromCart(
         paymentReference: order.paymentReference,
         paymentSubmittedAt: order.paymentSubmittedAt,
         paymentVerifiedAt: order.paymentVerifiedAt,
+        promoCode: order.promoCode,
+        promoDiscountType: order.promoDiscountType,
+        promoDiscountValue: order.promoDiscountValue,
+        discountAmount: toPriceString(order.discountAmount),
+        subtotalBeforeDiscount: toPriceString(order.subtotalBeforeDiscount),
+        subtotalAfterDiscount: toPriceString(order.subtotalAfterDiscount),
         currency: order.currency,
         subtotalAmount: toPriceString(order.subtotalAmount),
         deliveryFeeAmount: toPriceString(order.deliveryFeeAmount),
@@ -440,6 +491,12 @@ export async function createOrderFromCart(
             paymentReference: existingOrder.paymentReference,
             paymentSubmittedAt: existingOrder.paymentSubmittedAt,
             paymentVerifiedAt: existingOrder.paymentVerifiedAt,
+            promoCode: existingOrder.promoCode,
+            promoDiscountType: existingOrder.promoDiscountType,
+            promoDiscountValue: existingOrder.promoDiscountValue,
+            discountAmount: toPriceString(existingOrder.discountAmount),
+            subtotalBeforeDiscount: toPriceString(existingOrder.subtotalBeforeDiscount),
+            subtotalAfterDiscount: toPriceString(existingOrder.subtotalAfterDiscount),
             currency: existingOrder.currency,
             subtotalAmount: toPriceString(existingOrder.subtotalAmount),
             deliveryFeeAmount: toPriceString(existingOrder.deliveryFeeAmount),
