@@ -66,6 +66,14 @@ function buildBreadcrumbs(pathname: string): BreadcrumbItem[] {
     ];
   }
 
+  if (pathname.startsWith("/admin/promotions")) {
+    return [
+      { label: "Dashboard", href: "/admin" },
+      { label: "Marketing", href: "/admin/promotions" },
+      { label: "Discounts" },
+    ];
+  }
+
   return [{ label: "Dashboard", href: "/admin" }, { label: "Admin" }];
 }
 
@@ -96,6 +104,10 @@ function getPageTitle(pathname: string): { title: string; subtitle?: string } {
 
   if (pathname.startsWith("/admin/payment-transfer-methods")) {
     return { title: "Payment Settings", subtitle: "Manage prepaid transfer methods" };
+  }
+
+  if (pathname.startsWith("/admin/promotions")) {
+    return { title: "Discounts", subtitle: "Create and manage promo campaigns" };
   }
 
   return { title: "Admin" };

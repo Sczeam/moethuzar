@@ -47,10 +47,10 @@ export const ADMIN_MODULE_REGISTRY: AdminModuleDefinition[] = [
   {
     id: "marketing",
     label: "Marketing",
-    href: "/admin",
+    href: "/admin/promotions",
     order: 50,
     children: [
-      { id: "marketing-promos", label: "Discounts", disabled: true, order: 10 },
+      { id: "marketing-promos", label: "Discounts", href: "/admin/promotions", order: 10 },
       { id: "marketing-seo", label: "SEO", disabled: true, order: 20 },
       { id: "marketing-campaigns", label: "Campaigns", disabled: true, order: 30 },
     ],
