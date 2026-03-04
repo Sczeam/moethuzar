@@ -1267,6 +1267,7 @@ export default function CheckoutPage() {
                 onChange={(event) => {
                   setPromoDraftCode(event.target.value.toUpperCase());
                   setPromoError("");
+                  setAppliedPromo(null);
                 }}
                 placeholder="e.g. NEWIN10"
                 className="field-input flex-1"
@@ -1295,7 +1296,11 @@ export default function CheckoutPage() {
             {appliedPromo ? (
               <p className="text-xs text-teak-brown">
                 Applied: <span className="font-semibold text-ink">{appliedPromo.promoCode}</span>{" "}
-                ({appliedPromo.discountType === "PERCENT" ? `${appliedPromo.discountValue}%` : formatMoney(String(appliedPromo.discountValue), cart.currency)})
+                (
+                {appliedPromo.discountType === "PERCENT"
+                  ? `${appliedPromo.discountValue}%`
+                  : formatMoney(String(appliedPromo.discountAmount), cart.currency)}
+                )
               </p>
             ) : null}
             {promoError ? <p className="text-xs text-seal-wax">{promoError}</p> : null}
