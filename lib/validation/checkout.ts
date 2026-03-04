@@ -24,6 +24,7 @@ export const checkoutSchema = z.object({
   paymentMethod: z.enum(["COD", "PREPAID_TRANSFER"]).optional(),
   paymentProofUrl: z.url().max(1024).optional().or(z.literal("")),
   paymentReference: z.string().trim().max(120).optional(),
+  promoCode: z.string().trim().max(64).optional().or(z.literal("")),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
