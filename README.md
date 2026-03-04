@@ -11,6 +11,8 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
 - Admin settings copy contract (A6.1): `docs/admin-settings-copy-contract-a6-1.md`
 - Admin settings QA matrix (A6.5): `docs/admin-settings-qa-matrix-a6-5.md`
 - Admin settings rollout checklist (A6.5): `docs/admin-settings-rollout-checklist-a6-5.md`
+- Promo observability contract (C5.3): `docs/promo-observability-contract.md`
+- Promo rollout + rollback checklist (C5.4): `docs/promo-rollout-checklist.md`
 - Launch operations runbook: `docs/launch-ops-runbook.md`
 - Manual QA checklist: `docs/mvp-qa-checklist.md`
 
@@ -50,6 +52,11 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
   - real upload progress (signed R2 upload)
   - inline category creation flow from dropdown modal
 - Admin transfer-method management (bank / KBZPay / AyaPay / WavePay)
+- Admin promotions workspace (`/admin/promotions`) with:
+  - promo create/update/toggle lifecycle
+  - preview simulator (subtotal -> discount -> after-discount)
+  - status-aware promo table
+- Checkout promo apply flow with structured rejection codes
 
 ## Environment Variables
 
@@ -127,6 +134,7 @@ Admin:
 - `/admin/orders/[orderId]`
 - `/admin/shipping-rules`
 - `/admin/payment-transfer-methods`
+- `/admin/promotions`
 
 ## API Surface
 
@@ -146,6 +154,7 @@ Storefront/customer:
 - `GET /api/checkout/prepaid-transfer-methods`
 - `POST /api/checkout/payment-proof/sign`
 - `POST /api/checkout/payment-proof/upload`
+- `POST /api/checkout/promo`
 - `GET /api/orders/[orderCode]`
 
 Admin:
@@ -176,6 +185,11 @@ Admin:
 - `POST /api/admin/payment-transfer-methods`
 - `PATCH /api/admin/payment-transfer-methods/[methodId]`
 - `DELETE /api/admin/payment-transfer-methods/[methodId]`
+- `GET /api/admin/promos`
+- `POST /api/admin/promos`
+- `GET /api/admin/promos/[promoId]`
+- `PATCH /api/admin/promos/[promoId]`
+- `POST /api/admin/promos/[promoId]/toggle`
 
 ## Admin Access Bootstrap
 
@@ -204,5 +218,6 @@ where email = 'admin@yourdomain.com';
 - Inventory source of truth: `ProductVariant.inventory`.
 - Cart is variant-based; cart token rotates after successful checkout.
 - Prepaid checkout supports proof upload with signed-R2 path and server-upload fallback.
+- Promo apply and admin promo mutations emit structured observability events.
 - API errors return consistent structured payloads with `requestId`.
 - `master` is protected; merge through PR.
