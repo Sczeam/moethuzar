@@ -103,7 +103,7 @@ type CreateOrderResult = {
 export async function createOrderFromCart(
   guestToken: string,
   input: CheckoutInput,
-  options?: { idempotencyKey?: string }
+  options?: { idempotencyKey?: string; customerId?: string | null }
 ): Promise<CreateOrderResult> {
   if (options?.idempotencyKey) {
     const existingOrder = await prisma.order.findUnique({
@@ -306,6 +306,7 @@ export async function createOrderFromCart(
           data: {
             orderCode,
             idempotencyKey: options?.idempotencyKey,
+            customerId: options?.customerId ?? null,
             status: OrderStatus.PENDING,
             paymentMethod,
             paymentStatus,
