@@ -9,19 +9,21 @@ async function findActiveAdminByAuthId(authUserId: string): Promise<AdminUser | 
   });
 }
 
+export async function requireActiveAdminByAuthUserId(authUserId: string): Promise<AdminUser> {
+  const adminUser = await findActiveAdminByAuthId(authUserId);
+  if (!adminUser || !adminUser.isActive) {
+    throw new AppError("Admin account is not allowed.", 403, "FORBIDDEN");
+  }
+  return adminUser;
+}
+
 export async function requireAdminUser(request: Request): Promise<AdminUser> {
   const sessionUser = await getCurrentSessionUser(request);
   if (!sessionUser) {
     throw new AppError("Invalid access token.", 401, "UNAUTHORIZED");
   }
 
-  const adminUser = await findActiveAdminByAuthId(sessionUser.id);
-
-  if (!adminUser || !adminUser.isActive) {
-    throw new AppError("Invalid admin identity.", 403, "FORBIDDEN");
-  }
-
-  return adminUser;
+  return requireActiveAdminByAuthUserId(sessionUser.id);
 }
 
 export async function requireAdminUserId(request: Request): Promise<string> {
