@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { logWarn } from "@/lib/observability";
 import { rateLimiter, type RateLimitResult } from "@/server/security/rate-limiter";
 
-type PolicyName = "checkout" | "publicOrderLookup" | "adminLogin";
+type PolicyName = "checkout" | "publicOrderLookup" | "adminLogin" | "customerLogin" | "accountMe";
 
 type RateLimitPolicy = {
   windowMs: number;
@@ -13,6 +13,8 @@ const POLICIES: Record<PolicyName, RateLimitPolicy> = {
   checkout: { windowMs: 60_000, max: 8 },
   publicOrderLookup: { windowMs: 60_000, max: 30 },
   adminLogin: { windowMs: 60_000, max: 6 },
+  customerLogin: { windowMs: 60_000, max: 8 },
+  accountMe: { windowMs: 60_000, max: 60 },
 };
 
 function getRequestId(request: Request): string {

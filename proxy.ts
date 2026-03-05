@@ -7,12 +7,33 @@ function isAdminPath(pathname: string): boolean {
   return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
+function isAccountPath(pathname: string): boolean {
+  return pathname === "/account" || pathname.startsWith("/account/");
+}
+
+function isAccountAuthApiPath(pathname: string): boolean {
+  return pathname === "/api/account/auth" || pathname.startsWith("/api/account/auth/");
+}
+
 function isAdminLoginPath(pathname: string): boolean {
   return pathname === "/admin/login";
 }
 
 function isAdminUnauthorizedPath(pathname: string): boolean {
   return pathname === "/admin/unauthorized";
+}
+
+function isAccountLoginPath(pathname: string): boolean {
+  return pathname === "/account/login";
+}
+
+function isAccountPublicPath(pathname: string): boolean {
+  return (
+    pathname === "/account/login" ||
+    pathname === "/account/register" ||
+    pathname === "/account/forgot-password" ||
+    pathname === "/account/reset-password"
+  );
 }
 
 function hasAdminRole(user: { app_metadata?: Record<string, unknown> } | null): boolean {
@@ -37,7 +58,26 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const { response, user } = await updateSession(request);
 
-  if (!isAdminPath(pathname)) {
+  if (!isAdminPath(pathname) && !isAccountPath(pathname) && !isAccountAuthApiPath(pathname)) {
+    return response;
+  }
+
+  // Account auth API endpoints are intentionally pass-through to avoid redirect loops.
+  if (isAccountAuthApiPath(pathname)) {
+    return response;
+  }
+
+  if (isAccountPath(pathname)) {
+    if (!user && !isAccountPublicPath(pathname)) {
+      const loginUrl = new URL("/account/login", request.url);
+      loginUrl.searchParams.set("next", sanitizeNextPath(pathname, "/account"));
+      return NextResponse.redirect(loginUrl);
+    }
+
+    if (user && isAccountLoginPath(pathname)) {
+      return NextResponse.redirect(new URL("/account", request.url));
+    }
+
     return response;
   }
 
@@ -65,5 +105,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/account/:path*", "/api/account/auth/:path*"],
 };
