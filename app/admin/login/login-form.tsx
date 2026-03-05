@@ -1,79 +1,59 @@
 "use client";
 
 import { adminDisabledControlClass, adminStateTextClass } from "@/lib/admin/state-clarity";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import {
+  adminLoginAction,
+  initialAdminLoginActionState,
+} from "@/app/admin/login/actions";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 
 export default function LoginForm({ nextPath }: { nextPath: string }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [statusText, setStatusText] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const router = useRouter();
-
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitting(true);
-    setStatusText("");
-
-    try {
-      const response = await fetch("/api/admin/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        setStatusText(data.error ?? "Login failed.");
-        return;
-      }
-
-      router.push(nextPath);
-      router.refresh();
-    } catch {
-      setStatusText("Unexpected server error.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const [state, formAction] = useActionState(adminLoginAction, initialAdminLoginActionState);
 
   return (
-    <form onSubmit={onSubmit} className="w-full vintage-panel p-6">
+    <form action={formAction} className="w-full vintage-panel p-6">
       <h1 className="text-3xl font-semibold text-ink">Admin Login</h1>
       <p className="mt-2 text-sm text-charcoal">Sign in with your admin credentials.</p>
+      <input type="hidden" name="nextPath" value={nextPath} />
 
       <div className="mt-6 space-y-3">
         <input
+          name="email"
           type="email"
           required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
           placeholder="Email"
           className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
         />
         <input
+          name="password"
           type="password"
           required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
           placeholder="Password"
           className="w-full rounded-md border border-sepia-border bg-parchment px-3 py-2"
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={submitting}
-        aria-disabled={submitting}
-        className={`btn-primary mt-5 w-full ${adminDisabledControlClass()}`}
-      >
-        {submitting ? "Signing in..." : "Sign In"}
-      </button>
+      <LoginSubmitButton />
 
-      {statusText ? (
-        <p className={`mt-4 text-sm ${adminStateTextClass("danger")}`}>{statusText}</p>
+      {state.error ? (
+        <p className={`mt-4 text-sm ${adminStateTextClass("danger")}`}>{state.error}</p>
       ) : null}
     </form>
+  );
+}
+
+function LoginSubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      aria-disabled={pending}
+      className={`btn-primary mt-5 w-full ${adminDisabledControlClass()}`}
+    >
+      {pending ? "Signing in..." : "Sign In"}
+    </button>
   );
 }

@@ -1,8 +1,7 @@
 import { routeErrorResponse } from "@/lib/api/route-error";
-import { AppError } from "@/server/errors";
 import { rateLimitOrResponse } from "@/server/security/rate-limit";
-import { prisma } from "@/lib/prisma";
 import { signInWithEmailPassword } from "@/server/auth/auth-service";
+import { requireActiveAdminByAuthUserId } from "@/server/auth/admin";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -24,19 +23,17 @@ export async function POST(request: Request) {
       password: payload.password,
     });
 
-    const adminUser = await prisma.adminUser.findUnique({
-      where: { authUserId: sessionUser.id },
-      select: { id: true, email: true, fullName: true, isActive: true, role: true },
-    });
-
-    if (!adminUser || !adminUser.isActive) {
-      throw new AppError("Admin account is not allowed.", 403, "FORBIDDEN");
-    }
+    const adminUser = await requireActiveAdminByAuthUserId(sessionUser.id);
 
     return NextResponse.json(
       {
         ok: true,
-        adminUser,
+        adminUser: {
+          id: adminUser.id,
+          email: adminUser.email,
+          fullName: adminUser.fullName,
+          role: adminUser.role,
+        },
       },
       { status: 200 }
     );
