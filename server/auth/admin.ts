@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentSessionUser } from "@/server/auth/auth-service";
 import { AppError } from "@/server/errors";
 import type { AdminUser } from "@prisma/client";
 
@@ -10,22 +10,12 @@ async function findActiveAdminByAuthId(authUserId: string): Promise<AdminUser | 
 }
 
 export async function requireAdminUser(request: Request): Promise<AdminUser> {
-  const supabase = await createClient();
-  const authorization = request.headers.get("authorization");
-  const bearerToken = authorization?.startsWith("Bearer ")
-    ? authorization.slice("Bearer ".length)
-    : null;
-
-  const { data, error } = bearerToken
-    ? await supabase.auth.getUser(bearerToken)
-    : await supabase.auth.getUser();
-
-  if (error || !data.user) {
+  const sessionUser = await getCurrentSessionUser(request);
+  if (!sessionUser) {
     throw new AppError("Invalid access token.", 401, "UNAUTHORIZED");
   }
 
-  const authUserId = data.user.id;
-  const adminUser = await findActiveAdminByAuthId(authUserId);
+  const adminUser = await findActiveAdminByAuthId(sessionUser.id);
 
   if (!adminUser || !adminUser.isActive) {
     throw new AppError("Invalid admin identity.", 403, "FORBIDDEN");
