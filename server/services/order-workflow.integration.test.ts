@@ -15,6 +15,8 @@ describeIfDatabase("order workflow integration", () => {
   const suffix = crypto.randomUUID().slice(0, 8);
   const guestToken = `it-cart-${suffix}`;
   const adminAuthUserId = crypto.randomUUID();
+  const customerAuthUserId = crypto.randomUUID();
+  const customerEmail = `customer.${suffix}@moethuzar.local`;
   const adminEmail = `admin.${suffix}@moethuzar.local`;
   const categorySlug = `it-category-${suffix}`;
   const productSlug = `it-product-${suffix}`;
@@ -32,6 +34,7 @@ describeIfDatabase("order workflow integration", () => {
   let variantId = "";
   let orderId = "";
   let shippingFallbackRuleId = "";
+  let customerId = "";
 
   beforeAll(async () => {
     ({ prisma } = await import("@/lib/prisma"));
@@ -50,6 +53,14 @@ describeIfDatabase("order workflow integration", () => {
       },
     });
     adminUserId = adminUser.id;
+
+    const customer = await prisma.customer.create({
+      data: {
+        authUserId: customerAuthUserId,
+        email: customerEmail,
+      },
+    });
+    customerId = customer.id;
 
     const category = await prisma.category.create({
       data: {
@@ -134,6 +145,7 @@ describeIfDatabase("order workflow integration", () => {
     await prisma.productVariant.deleteMany({ where: { productId } });
     await prisma.product.deleteMany({ where: { id: productId } });
     await prisma.shippingRule.deleteMany({ where: { id: shippingFallbackRuleId } });
+    await prisma.customer.deleteMany({ where: { id: customerId } });
     await prisma.category.deleteMany({ where: { id: categoryId } });
     await prisma.adminUser.deleteMany({ where: { id: adminUserId } });
   });
@@ -180,6 +192,33 @@ describeIfDatabase("order workflow integration", () => {
 
     expect(replayed.id).toBe(order.id);
     expect(replayed.orderCode).toBe(order.orderCode);
+
+    const replayedWithCustomer = await createOrderFromCart(
+      guestToken,
+      {
+        country: "Myanmar",
+        customerName: "Test Customer",
+        customerPhone: "0912345678",
+        stateRegion: "Yangon Region",
+        townshipCity: "Sanchaung",
+        addressLine1: "No. 1, Test Street",
+        customerEmail: "",
+        customerNote: "",
+        addressLine2: "",
+        postalCode: "",
+        termsAccepted: true,
+        termsVersion: LEGAL_TERMS_VERSION,
+      },
+      { idempotencyKey, customerId }
+    );
+
+    expect(replayedWithCustomer.id).toBe(order.id);
+    const persistedOrder = await prisma.order.findUniqueOrThrow({
+      where: { id: order.id },
+      select: { customerId: true },
+    });
+    // B3 policy: idempotent replay must not mutate customer linkage.
+    expect(persistedOrder.customerId).toBeNull();
 
     orderId = order.id;
 
