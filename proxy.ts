@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
+import { sanitizeNextPath } from "@/server/auth/redirect";
 
 function isAdminPath(pathname: string): boolean {
   return pathname === "/admin" || pathname.startsWith("/admin/");
@@ -42,7 +43,7 @@ export async function proxy(request: NextRequest) {
 
   if (!user && !isAdminLoginPath(pathname)) {
     const loginUrl = new URL("/admin/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
+    loginUrl.searchParams.set("next", sanitizeNextPath(pathname, "/admin/catalog"));
     return NextResponse.redirect(loginUrl);
   }
 
