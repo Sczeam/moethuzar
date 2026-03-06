@@ -2,6 +2,8 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { type AccountLoginActionState } from "@/app/account/login/state";
+import { isNextRedirectError } from "@/server/auth/action-errors";
 import { signInWithEmailPassword } from "@/server/auth/auth-service";
 import { sanitizeNextPath } from "@/server/auth/redirect";
 import { rateLimitOrResponse } from "@/server/security/rate-limit";
@@ -12,16 +14,6 @@ const loginSchema = z.object({
   password: z.string().min(6).max(256),
   nextPath: z.string().optional(),
 });
-
-export type AccountLoginActionState = {
-  ok: boolean;
-  error: string;
-};
-
-export const initialAccountLoginActionState: AccountLoginActionState = {
-  ok: false,
-  error: "",
-};
 
 function buildActionRequest(pathname: string, reqHeaders: Headers): Request {
   return new Request(`http://localhost${pathname}`, {
@@ -59,6 +51,10 @@ export async function accountLoginAction(
 
     redirect(sanitizeNextPath(parsed.nextPath, "/account"));
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     if (error instanceof z.ZodError) {
       return { ok: false, error: "Please enter a valid email and password." };
     }

@@ -1,10 +1,8 @@
 "use client";
 
 import { adminDisabledControlClass, adminStateTextClass } from "@/lib/admin/state-clarity";
-import {
-  adminLoginAction,
-  initialAdminLoginActionState,
-} from "@/app/admin/login/actions";
+import { adminLoginAction } from "@/app/admin/login/actions";
+import { initialAdminLoginActionState } from "@/app/admin/login/state";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
