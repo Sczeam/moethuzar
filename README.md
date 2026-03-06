@@ -14,6 +14,8 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
 - Promo observability contract (C5.3): `docs/promo-observability-contract.md`
 - Promo rollout + rollback checklist (C5.4): `docs/promo-rollout-checklist.md`
 - Promo verification report (C5.5): `docs/promo-verification-report-c5-5.md`
+- Phase B QA matrix: `docs/account-phase-b-qa-matrix.md`
+- Phase B rollout checklist: `docs/account-phase-b-rollout-checklist.md`
 - Launch operations runbook: `docs/launch-ops-runbook.md`
 - Manual QA checklist: `docs/mvp-qa-checklist.md`
 
