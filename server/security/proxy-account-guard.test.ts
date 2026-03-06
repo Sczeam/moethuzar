@@ -41,6 +41,36 @@ describe("proxy account guard behavior", () => {
     expect(response.status).toBe(200);
   });
 
+  it("does not redirect unauthenticated /account/register", async () => {
+    updateSessionMock.mockResolvedValueOnce({
+      response: NextResponse.next(),
+      user: null,
+    });
+
+    const response = await proxy(nextRequest("/account/register"));
+    expect(response.status).toBe(200);
+  });
+
+  it("does not redirect unauthenticated /account/forgot-password", async () => {
+    updateSessionMock.mockResolvedValueOnce({
+      response: NextResponse.next(),
+      user: null,
+    });
+
+    const response = await proxy(nextRequest("/account/forgot-password"));
+    expect(response.status).toBe(200);
+  });
+
+  it("does not redirect unauthenticated /account/reset-password", async () => {
+    updateSessionMock.mockResolvedValueOnce({
+      response: NextResponse.next(),
+      user: null,
+    });
+
+    const response = await proxy(nextRequest("/account/reset-password"));
+    expect(response.status).toBe(200);
+  });
+
   it("redirects authenticated /account/login to /account", async () => {
     updateSessionMock.mockResolvedValueOnce({
       response: NextResponse.next(),
@@ -48,6 +78,17 @@ describe("proxy account guard behavior", () => {
     });
 
     const response = await proxy(nextRequest("/account/login"));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/account");
+  });
+
+  it("redirects authenticated /account/register to /account", async () => {
+    updateSessionMock.mockResolvedValueOnce({
+      response: NextResponse.next(),
+      user: { id: "user-1" },
+    });
+
+    const response = await proxy(nextRequest("/account/register"));
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toContain("/account");
   });

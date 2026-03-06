@@ -23,8 +23,8 @@ function isAdminUnauthorizedPath(pathname: string): boolean {
   return pathname === "/admin/unauthorized";
 }
 
-function isAccountLoginPath(pathname: string): boolean {
-  return pathname === "/account/login";
+function isAccountLoginOrRegisterPath(pathname: string): boolean {
+  return pathname === "/account/login" || pathname === "/account/register";
 }
 
 function isAccountPublicPath(pathname: string): boolean {
@@ -74,7 +74,7 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    if (user && isAccountLoginPath(pathname)) {
+    if (user && isAccountLoginOrRegisterPath(pathname)) {
       return NextResponse.redirect(new URL("/account", request.url));
     }
 

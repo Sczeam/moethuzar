@@ -2,23 +2,34 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { type AccountLoginActionState } from "@/app/account/login/state";
+import { z } from "zod";
+import { type AccountRegisterActionState } from "@/app/account/register/state";
 import { isNextRedirectError } from "@/server/auth/action-errors";
-import { AUTH_COPY_BY_CODE } from "@/server/auth/auth-copy";
 import { mapAuthActionError } from "@/server/auth/auth-action-error";
-import { signInWithEmailPassword } from "@/server/auth/auth-service";
+import { AUTH_COPY_BY_CODE } from "@/server/auth/auth-copy";
+import { registerWithEmailPassword } from "@/server/auth/auth-recovery.service";
 import { authActionFailure } from "@/server/contracts/action-result";
 import { logAuthFailureEvent } from "@/server/observability/auth-events";
 import { sanitizeNextPath } from "@/server/auth/redirect";
 import { getRequestIdFromHeaders } from "@/server/security/request-id";
 import { rateLimitOrResponse } from "@/server/security/rate-limit";
-import { z } from "zod";
 
-const loginSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().min(6).max(256),
-  nextPath: z.string().optional(),
-});
+const registerSchema = z
+  .object({
+    email: z.string().trim().email(),
+    password: z.string().min(8).max(256),
+    confirmPassword: z.string().min(8).max(256),
+    nextPath: z.string().optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (input.password !== input.confirmPassword) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: "Passwords do not match.",
+      });
+    }
+  });
 
 function buildActionRequest(pathname: string, reqHeaders: Headers): Request {
   return new Request(`http://localhost${pathname}`, {
@@ -27,32 +38,33 @@ function buildActionRequest(pathname: string, reqHeaders: Headers): Request {
   });
 }
 
-export async function accountLoginAction(
-  _previousState: AccountLoginActionState,
+export async function accountRegisterAction(
+  _previousState: AccountRegisterActionState,
   formData: FormData
-): Promise<AccountLoginActionState> {
+): Promise<AccountRegisterActionState> {
   const reqHeaders = await headers();
   const requestId = getRequestIdFromHeaders(reqHeaders);
 
   try {
-    const request = buildActionRequest("/account/login", reqHeaders);
-    const limitedResponse = rateLimitOrResponse(request, "customerLogin");
+    const request = buildActionRequest("/account/register", reqHeaders);
+    const limitedResponse = rateLimitOrResponse(request, "customerRegister");
     if (limitedResponse) {
       logAuthFailureEvent({
-        event: "auth.customer_login.failed",
+        event: "auth.customer_register.failed",
         requestId,
         reasonCode: "RATE_LIMITED",
       });
       return authActionFailure(requestId, "RATE_LIMITED", AUTH_COPY_BY_CODE.RATE_LIMITED);
     }
 
-    const parsed = loginSchema.parse({
+    const parsed = registerSchema.parse({
       email: formData.get("email"),
       password: formData.get("password"),
+      confirmPassword: formData.get("confirmPassword"),
       nextPath: formData.get("nextPath"),
     });
 
-    await signInWithEmailPassword({
+    await registerWithEmailPassword({
       email: parsed.email,
       password: parsed.password,
     });
@@ -65,10 +77,11 @@ export async function accountLoginAction(
 
     const mapped = mapAuthActionError(error);
     logAuthFailureEvent({
-      event: "auth.customer_login.failed",
+      event: "auth.customer_register.failed",
       requestId,
       reasonCode: mapped.code,
     });
+
     return authActionFailure(requestId, mapped.code, mapped.message);
   }
 }
