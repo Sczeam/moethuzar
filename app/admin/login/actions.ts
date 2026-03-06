@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { type AdminLoginActionState } from "@/app/admin/login/state";
 import { signInWithEmailPassword } from "@/server/auth/auth-service";
 import { requireActiveAdminByAuthUserId } from "@/server/auth/admin";
 import { sanitizeNextPath } from "@/server/auth/redirect";
@@ -13,16 +14,6 @@ const loginSchema = z.object({
   password: z.string().min(6).max(256),
   nextPath: z.string().optional(),
 });
-
-export type AdminLoginActionState = {
-  ok: boolean;
-  error: string;
-};
-
-export const initialAdminLoginActionState: AdminLoginActionState = {
-  ok: false,
-  error: "",
-};
 
 function buildActionRequest(pathname: string, reqHeaders: Headers): Request {
   return new Request(`http://localhost${pathname}`, {
