@@ -4,6 +4,7 @@ import { logInfo, logWarn } from "@/lib/observability";
 import { checkoutSchema } from "@/lib/validation/checkout";
 import { resolveCustomerFromSession } from "@/server/auth/customer-identity";
 import { rateLimitOrResponse } from "@/server/security/rate-limit";
+import { resolveCheckoutAccountIntentCustomer } from "@/server/services/checkout-account-intent.service";
 import { createOrderFromCart } from "@/server/services/order.service";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -35,13 +36,51 @@ export async function POST(request: Request) {
       });
     }
 
+    const normalizedEmail = payload.customerEmail?.trim().toLowerCase() ?? "";
+    if (payload.accountIntent?.enabled) {
+      const accountIntentLimited = rateLimitOrResponse(
+        request,
+        "checkoutAccountIntent",
+        normalizedEmail || "missing-email"
+      );
+      if (accountIntentLimited) {
+        return accountIntentLimited;
+      }
+    }
+
+    let checkoutCustomerId =
+      resolvedCustomer.kind === "customer" ? resolvedCustomer.customerId : null;
+
+    const accountIntentResult = await resolveCheckoutAccountIntentCustomer({
+      accountIntentEnabled: payload.accountIntent?.enabled ?? false,
+      customerEmail: normalizedEmail || null,
+      password: payload.accountIntent?.password ?? "",
+      resolvedCustomerId: checkoutCustomerId,
+    });
+    if (accountIntentResult.customerId) {
+      checkoutCustomerId = accountIntentResult.customerId;
+    }
+
+    if (
+      payload.accountIntent?.enabled &&
+      accountIntentResult.reason !== "ACCOUNT_CREATED" &&
+      accountIntentResult.reason !== "SESSION_CUSTOMER"
+    ) {
+      logWarn({
+        event: "checkout.account_intent_degraded",
+        requestId,
+        reason: accountIntentResult.reason,
+        hasSession: resolvedCustomer.kind === "customer",
+      });
+    }
+
     const idempotencyHeader = request.headers.get("x-idempotency-key");
     const idempotencyKey = idempotencyHeader
       ? idempotencyKeySchema.parse(idempotencyHeader)
       : undefined;
     const order = await createOrderFromCart(session.token, payload, {
       idempotencyKey,
-      customerId: resolvedCustomer.kind === "customer" ? resolvedCustomer.customerId : null,
+      customerId: checkoutCustomerId,
     });
     logInfo({
       event: "order.checkout_created",

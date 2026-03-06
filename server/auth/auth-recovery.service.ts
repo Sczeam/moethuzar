@@ -59,6 +59,37 @@ export async function registerWithEmailPassword(input: RegisterInput): Promise<{
   return { userId: data.user.id };
 }
 
+export async function registerWithEmailPasswordNoSession(
+  input: RegisterInput
+): Promise<{ userId: string; email: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email: input.email,
+    password: input.password,
+  });
+
+  if (error) {
+    if (isAlreadyRegisteredError(error)) {
+      throw new AppError("EMAIL_ALREADY_REGISTERED", 409, "EMAIL_ALREADY_REGISTERED");
+    }
+    throw new AppError("Registration failed.", 500, "UNEXPECTED_ERROR");
+  }
+
+  if (!data.user) {
+    throw new AppError("Registration failed.", 500, "UNEXPECTED_ERROR");
+  }
+
+  // Checkout account intent must not silently authenticate the browsing session.
+  if (data.session) {
+    await supabase.auth.signOut();
+  }
+
+  return {
+    userId: data.user.id,
+    email: data.user.email?.trim().toLowerCase() ?? input.email.trim().toLowerCase(),
+  };
+}
+
 export async function sendPasswordReset(input: ForgotPasswordInput): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(input.email, {

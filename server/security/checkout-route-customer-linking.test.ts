@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   attachCartCookie: vi.fn(),
   createOrderFromCart: vi.fn(),
   resolveCustomerFromSession: vi.fn(),
+  resolveCheckoutAccountIntentCustomer: vi.fn(),
 }));
 
 vi.mock("@/lib/cart-session", () => ({
@@ -20,6 +21,10 @@ vi.mock("@/server/services/order.service", () => ({
 
 vi.mock("@/server/auth/customer-identity", () => ({
   resolveCustomerFromSession: mocks.resolveCustomerFromSession,
+}));
+
+vi.mock("@/server/services/checkout-account-intent.service", () => ({
+  resolveCheckoutAccountIntentCustomer: mocks.resolveCheckoutAccountIntentCustomer,
 }));
 
 import { POST as checkoutPost } from "@/app/api/checkout/route";
@@ -91,9 +96,14 @@ describe("checkout route customer linking", () => {
     mocks.attachCartCookie.mockReset();
     mocks.createOrderFromCart.mockReset();
     mocks.resolveCustomerFromSession.mockReset();
+    mocks.resolveCheckoutAccountIntentCustomer.mockReset();
 
     mocks.resolveCartSession.mockReturnValue({ token: "guest-token" });
     mocks.createOrderFromCart.mockResolvedValue(createOrderResult());
+    mocks.resolveCheckoutAccountIntentCustomer.mockResolvedValue({
+      customerId: null,
+      reason: "DISABLED",
+    });
   });
 
   it("passes resolved customer id to createOrderFromCart for signed-in checkout", async () => {
@@ -159,6 +169,122 @@ describe("checkout route customer linking", () => {
       customerId: null,
     });
     expect(passedInput).not.toHaveProperty("customerId");
+  });
+
+  it("creates order with account-intent customer id for guest checkout when registration succeeds", async () => {
+    mocks.resolveCustomerFromSession.mockResolvedValueOnce({
+      kind: "guest",
+      customerId: null,
+      authUserId: null,
+      email: null,
+      reason: "NO_SESSION",
+    });
+    mocks.resolveCheckoutAccountIntentCustomer.mockResolvedValueOnce({
+      customerId: "1f51934f-0f7f-4706-bd8c-1257f38ca5f7",
+      reason: "ACCOUNT_CREATED",
+    });
+
+    const response = await checkoutPost(
+      new Request("http://localhost:3000/api/checkout", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(
+          createPayload({
+            customerEmail: "customer@example.com",
+            accountIntent: {
+              enabled: true,
+              password: "password123",
+              confirmPassword: "password123",
+            },
+          })
+        ),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.createOrderFromCart).toHaveBeenCalledWith(
+      "guest-token",
+      expect.any(Object),
+      expect.objectContaining({
+        customerId: "1f51934f-0f7f-4706-bd8c-1257f38ca5f7",
+      })
+    );
+  });
+
+  it("keeps checkout successful when account-intent registration degrades", async () => {
+    mocks.resolveCustomerFromSession.mockResolvedValueOnce({
+      kind: "guest",
+      customerId: null,
+      authUserId: null,
+      email: null,
+      reason: "NO_SESSION",
+    });
+    mocks.resolveCheckoutAccountIntentCustomer.mockResolvedValueOnce({
+      customerId: null,
+      reason: "EMAIL_ALREADY_REGISTERED",
+    });
+
+    const response = await checkoutPost(
+      new Request("http://localhost:3000/api/checkout", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(
+          createPayload({
+            customerEmail: "existing@example.com",
+            accountIntent: {
+              enabled: true,
+              password: "password123",
+              confirmPassword: "password123",
+            },
+          })
+        ),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.createOrderFromCart).toHaveBeenCalledWith(
+      "guest-token",
+      expect.any(Object),
+      expect.objectContaining({
+        customerId: null,
+      })
+    );
+  });
+
+  it("returns validation error when account-intent is enabled without customer email", async () => {
+    mocks.resolveCustomerFromSession.mockResolvedValueOnce({
+      kind: "guest",
+      customerId: null,
+      authUserId: null,
+      email: null,
+      reason: "NO_SESSION",
+    });
+
+    const response = await checkoutPost(
+      new Request("http://localhost:3000/api/checkout", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(
+          createPayload({
+            accountIntent: {
+              enabled: true,
+              password: "password123",
+              confirmPassword: "password123",
+            },
+          })
+        ),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.resolveCheckoutAccountIntentCustomer).not.toHaveBeenCalled();
+    expect(mocks.createOrderFromCart).not.toHaveBeenCalled();
   });
 });
 
