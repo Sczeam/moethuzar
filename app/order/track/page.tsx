@@ -2,13 +2,22 @@
 
 import { ORDER_CODE_EXAMPLES, normalizeOrderCode } from "@/lib/order-code";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function OrderTrackPage() {
+  const searchParams = useSearchParams();
+  const initialCode = searchParams.get("code") ?? "";
   const [orderCode, setOrderCode] = useState("");
   const [statusText, setStatusText] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+    if (!initialCode) {
+      return;
+    }
+    setOrderCode(initialCode);
+  }, [initialCode]);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
