@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { type AdminLoginActionState } from "@/app/admin/login/state";
+import { isNextRedirectError } from "@/server/auth/action-errors";
 import { signInWithEmailPassword } from "@/server/auth/auth-service";
 import { requireActiveAdminByAuthUserId } from "@/server/auth/admin";
 import { sanitizeNextPath } from "@/server/auth/redirect";
@@ -51,6 +52,10 @@ export async function adminLoginAction(
 
     redirect(sanitizeNextPath(parsed.nextPath, "/admin/catalog"));
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     if (error instanceof z.ZodError) {
       return { ok: false, error: "Please enter a valid email and password." };
     }
