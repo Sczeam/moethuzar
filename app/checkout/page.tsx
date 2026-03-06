@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  CHECKOUT_ACCOUNT_INTENT_HEADER,
+  CHECKOUT_ACCOUNT_INTENT_QUERY_PARAM,
+  parseCheckoutAccountIntentStatus,
+} from "@/lib/account/checkout-account-intent";
 import { formatMoney } from "@/lib/format";
 import {
   MM_COUNTRIES,
@@ -86,6 +91,17 @@ type CheckoutForm = {
   paymentReference: string;
 };
 
+type AccountIntentForm = {
+  enabled: boolean;
+  password: string;
+  confirmPassword: string;
+};
+
+type AccountSessionUser = {
+  id: string;
+  email: string | null;
+} | null;
+
 const initialForm: CheckoutForm = {
   country: "Myanmar",
   customerName: "",
@@ -104,7 +120,19 @@ const initialForm: CheckoutForm = {
   paymentReference: "",
 };
 
-type FieldErrors = Partial<Record<keyof CheckoutForm, string>>;
+const initialAccountIntent: AccountIntentForm = {
+  enabled: false,
+  password: "",
+  confirmPassword: "",
+};
+
+type CheckoutFieldKey =
+  | keyof CheckoutForm
+  | "accountIntentEnabled"
+  | "accountIntentPassword"
+  | "accountIntentConfirmPassword";
+
+type FieldErrors = Partial<Record<CheckoutFieldKey, string>>;
 type CheckoutFieldElement =
   | HTMLInputElement
   | HTMLSelectElement
@@ -121,6 +149,9 @@ const ALLOWED_PAYMENT_PROOF_MIME_TYPES = new Set([
 export default function CheckoutPage() {
   const [cart, setCart] = useState<CartData | null>(null);
   const [form, setForm] = useState<CheckoutForm>(initialForm);
+  const [accountIntent, setAccountIntent] = useState<AccountIntentForm>(initialAccountIntent);
+  const [accountSessionUser, setAccountSessionUser] = useState<AccountSessionUser>(null);
+  const [accountSessionResolved, setAccountSessionResolved] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
   const [paymentPolicy, setPaymentPolicy] = useState<PaymentPolicy | null>(null);
@@ -143,10 +174,10 @@ export default function CheckoutPage() {
   const [statusText, setStatusText] = useState("");
   const [formErrorSummary, setFormErrorSummary] = useState<string[]>([]);
   const idempotencyKeyRef = useRef<string | null>(null);
-  const fieldRefs = useRef<Partial<Record<keyof CheckoutForm, CheckoutFieldElement | null>>>({});
+  const fieldRefs = useRef<Partial<Record<CheckoutFieldKey, CheckoutFieldElement | null>>>({});
   const router = useRouter();
 
-  function setFieldRef(key: keyof CheckoutForm, element: CheckoutFieldElement | null) {
+  function setFieldRef(key: CheckoutFieldKey, element: CheckoutFieldElement | null) {
     fieldRefs.current[key] = element;
   }
 
@@ -164,6 +195,52 @@ export default function CheckoutPage() {
     }
 
     void loadCart();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAccountSession() {
+      try {
+        const response = await fetch("/api/account/auth/me", {
+          cache: "no-store",
+        });
+        const data = (await response.json()) as {
+          ok?: boolean;
+          user?: AccountSessionUser;
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        if (response.ok && data.ok) {
+          const user = data.user ?? null;
+          setAccountSessionUser(user);
+          if (user?.email) {
+            setForm((current) =>
+              current.customerEmail.trim().length > 0
+                ? current
+                : { ...current, customerEmail: user.email ?? "" }
+            );
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setAccountSessionUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setAccountSessionResolved(true);
+        }
+      }
+    }
+
+    void loadAccountSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const isCartEmpty = useMemo(() => !cart || cart.items.length === 0, [cart]);
@@ -202,6 +279,21 @@ export default function CheckoutPage() {
     setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
     setFormErrorSummary([]);
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function onAccountIntentChange<K extends keyof AccountIntentForm>(
+    key: K,
+    value: AccountIntentForm[K]
+  ) {
+    const errorKey =
+      key === "password"
+        ? "accountIntentPassword"
+        : key === "confirmPassword"
+          ? "accountIntentConfirmPassword"
+          : "accountIntentEnabled";
+    setFieldErrors((prev) => ({ ...prev, [errorKey]: undefined }));
+    setFormErrorSummary([]);
+    setAccountIntent((prev) => ({ ...prev, [key]: value }));
   }
 
   function getPromoErrorMessage(code?: string, fallback?: string): string {
@@ -592,6 +684,25 @@ export default function CheckoutPage() {
       }
     }
 
+    if (accountIntent.enabled && !accountSessionUser) {
+      if (!form.customerEmail.trim()) {
+        errors.customerEmail = "Email is required to create an account.";
+      }
+
+      if (accountIntent.password.length < 8) {
+        errors.accountIntentPassword = "Password must be at least 8 characters.";
+      } else if (
+        !/[A-Za-z]/.test(accountIntent.password) ||
+        !/[0-9]/.test(accountIntent.password)
+      ) {
+        errors.accountIntentPassword = "Password must include letters and numbers.";
+      }
+
+      if (accountIntent.password !== accountIntent.confirmPassword) {
+        errors.accountIntentConfirmPassword = "Passwords do not match.";
+      }
+    }
+
     if (!form.country) {
       errors.country = "Country is required.";
     }
@@ -651,12 +762,16 @@ export default function CheckoutPage() {
         "paymentProofUrl",
         "termsAccepted",
       ];
-      const messages = order
+      const accountOrder: CheckoutFieldKey[] = [
+        "accountIntentPassword",
+        "accountIntentConfirmPassword",
+      ];
+      const messages = [...order, ...accountOrder]
         .filter((key) => Boolean(errors[key]))
         .map((key) => errors[key])
         .filter((msg): msg is string => Boolean(msg));
       setFormErrorSummary(messages);
-      const firstInvalid = order.find((key) => Boolean(errors[key]));
+      const firstInvalid = [...order, ...accountOrder].find((key) => Boolean(errors[key]));
       if (firstInvalid) {
         fieldRefs.current[firstInvalid]?.focus();
       }
@@ -687,6 +802,14 @@ export default function CheckoutPage() {
         paymentReference: requiresPrepaidProof
           ? `${selectedTransferMethodId}${form.paymentReference.trim() ? `:${form.paymentReference.trim()}` : ""}`
           : form.paymentReference.trim(),
+        accountIntent:
+          accountIntent.enabled && !accountSessionUser
+            ? {
+                enabled: true,
+                password: accountIntent.password,
+                confirmPassword: accountIntent.confirmPassword,
+              }
+            : undefined,
       };
 
       const response = await fetch("/api/checkout", {
@@ -713,9 +836,21 @@ export default function CheckoutPage() {
         if (Array.isArray(parsedData?.issues)) {
           const nextFieldErrors: FieldErrors = {};
           for (const issue of parsedData.issues) {
-            const pathKey = issue?.path?.[0];
-            if (typeof pathKey === "string" && pathKey in form) {
-              nextFieldErrors[pathKey as keyof CheckoutForm] = issue.message;
+            const rootPath = issue?.path?.[0];
+            const nestedPath = issue?.path?.[1];
+
+            if (rootPath === "accountIntent" && nestedPath === "password") {
+              nextFieldErrors.accountIntentPassword = issue.message;
+              continue;
+            }
+
+            if (rootPath === "accountIntent" && nestedPath === "confirmPassword") {
+              nextFieldErrors.accountIntentConfirmPassword = issue.message;
+              continue;
+            }
+
+            if (typeof rootPath === "string" && rootPath in form) {
+              nextFieldErrors[rootPath as keyof CheckoutForm] = issue.message;
             }
           }
           setFieldErrors(nextFieldErrors);
@@ -723,7 +858,9 @@ export default function CheckoutPage() {
             (msg): msg is string => Boolean(msg)
           );
           setFormErrorSummary(issueMessages);
-          const firstIssueField = Object.keys(nextFieldErrors)[0] as keyof CheckoutForm | undefined;
+          const firstIssueField = Object.keys(nextFieldErrors)[0] as
+            | CheckoutFieldKey
+            | undefined;
           if (firstIssueField) {
             fieldRefs.current[firstIssueField]?.focus();
           }
@@ -766,7 +903,15 @@ export default function CheckoutPage() {
         return;
       }
 
-      router.push(`/order/success/${orderCode}`);
+      const accountIntentStatus = parseCheckoutAccountIntentStatus(
+        response.headers.get(CHECKOUT_ACCOUNT_INTENT_HEADER)
+      );
+      const nextUrl = new URL(`/order/success/${orderCode}`, window.location.origin);
+      if (accountIntentStatus) {
+        nextUrl.searchParams.set(CHECKOUT_ACCOUNT_INTENT_QUERY_PARAM, accountIntentStatus);
+      }
+
+      router.push(`${nextUrl.pathname}${nextUrl.search}`);
     } catch {
       setStatusText("Unexpected error while placing order.");
     } finally {
@@ -855,6 +1000,107 @@ export default function CheckoutPage() {
               />
               {fieldErrors.customerEmail ? <p className="field-error">{fieldErrors.customerEmail}</p> : null}
             </div>
+          </section>
+
+          <section className="form-section">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-charcoal">
+              Account
+            </h3>
+            {!accountSessionResolved ? (
+              <p className="text-xs text-charcoal">Checking account session...</p>
+            ) : accountSessionUser ? (
+              <div className="rounded-none border border-sepia-border/70 bg-parchment p-3 text-sm text-charcoal">
+                <p className="font-semibold text-ink">Signed in as {accountSessionUser.email ?? "customer"}</p>
+                <p className="mt-1">
+                  This order will be linked to your customer account and future signed-in orders
+                  will appear in My Orders.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-none border border-sepia-border/70 bg-parchment p-3">
+                <label className="flex items-start gap-2 text-sm text-charcoal">
+                  <input
+                    ref={(element) => setFieldRef("accountIntentEnabled", element)}
+                    type="checkbox"
+                    checked={accountIntent.enabled}
+                    onChange={(event) => {
+                      const enabled = event.target.checked;
+                      onAccountIntentChange("enabled", enabled);
+                      if (!enabled) {
+                        setAccountIntent((current) => ({
+                          ...current,
+                          password: "",
+                          confirmPassword: "",
+                        }));
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          accountIntentPassword: undefined,
+                          accountIntentConfirmPassword: undefined,
+                        }));
+                      }
+                    }}
+                    className="mt-0.5 h-4 w-4 border border-sepia-border"
+                  />
+                  <span>
+                    Create a customer account with this checkout email so future signed-in orders
+                    appear in My Orders.
+                  </span>
+                </label>
+                <p className="text-xs text-charcoal/85">
+                  Guest checkout stays unchanged if you leave this off.
+                </p>
+                {accountIntent.enabled ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="account-password" className="field-label">
+                        Account Password<span className="field-required">*</span>
+                      </label>
+                      <input
+                        id="account-password"
+                        ref={(element) => setFieldRef("accountIntentPassword", element)}
+                        type="password"
+                        value={accountIntent.password}
+                        onChange={(event) =>
+                          onAccountIntentChange("password", event.target.value)
+                        }
+                        className={`field-input ${
+                          fieldErrors.accountIntentPassword ? "field-input-invalid" : ""
+                        }`}
+                        autoComplete="new-password"
+                        placeholder="At least 8 characters"
+                      />
+                      {fieldErrors.accountIntentPassword ? (
+                        <p className="field-error">{fieldErrors.accountIntentPassword}</p>
+                      ) : null}
+                    </div>
+                    <div>
+                      <label htmlFor="account-confirm-password" className="field-label">
+                        Confirm Password<span className="field-required">*</span>
+                      </label>
+                      <input
+                        id="account-confirm-password"
+                        ref={(element) => setFieldRef("accountIntentConfirmPassword", element)}
+                        type="password"
+                        value={accountIntent.confirmPassword}
+                        onChange={(event) =>
+                          onAccountIntentChange("confirmPassword", event.target.value)
+                        }
+                        className={`field-input ${
+                          fieldErrors.accountIntentConfirmPassword
+                            ? "field-input-invalid"
+                            : ""
+                        }`}
+                        autoComplete="new-password"
+                        placeholder="Repeat your password"
+                      />
+                      {fieldErrors.accountIntentConfirmPassword ? (
+                        <p className="field-error">{fieldErrors.accountIntentConfirmPassword}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </section>
 
           <section className="form-section">

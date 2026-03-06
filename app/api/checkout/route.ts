@@ -1,4 +1,8 @@
 import { attachCartCookie, resolveCartSession } from "@/lib/cart-session";
+import {
+  CHECKOUT_ACCOUNT_INTENT_HEADER,
+  mapCheckoutAccountIntentReasonToStatus,
+} from "@/lib/account/checkout-account-intent";
 import { routeErrorResponse } from "@/lib/api/route-error";
 import { logInfo, logWarn } from "@/lib/observability";
 import { checkoutSchema } from "@/lib/validation/checkout";
@@ -101,6 +105,11 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
+
+    const accountIntentStatus = mapCheckoutAccountIntentReasonToStatus(accountIntentResult.reason);
+    if (accountIntentStatus) {
+      response.headers.set(CHECKOUT_ACCOUNT_INTENT_HEADER, accountIntentStatus);
+    }
 
     // Rotate cart token after successful checkout to avoid reusing converted cart sessions.
     attachCartCookie(response, crypto.randomUUID());

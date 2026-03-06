@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { CHECKOUT_ACCOUNT_INTENT_HEADER } from "@/lib/account/checkout-account-intent";
 import { LEGAL_TERMS_VERSION } from "@/lib/constants/legal";
 
 const mocks = vi.hoisted(() => ({
@@ -126,6 +127,7 @@ describe("checkout route customer linking", () => {
     );
 
     expect(response.status).toBe(201);
+    expect(response.headers.get(CHECKOUT_ACCOUNT_INTENT_HEADER)).toBeNull();
     expect(mocks.createOrderFromCart).toHaveBeenCalledWith(
       "guest-token",
       expect.any(Object),
@@ -204,6 +206,7 @@ describe("checkout route customer linking", () => {
     );
 
     expect(response.status).toBe(201);
+    expect(response.headers.get(CHECKOUT_ACCOUNT_INTENT_HEADER)).toBe("created");
     expect(mocks.createOrderFromCart).toHaveBeenCalledWith(
       "guest-token",
       expect.any(Object),
