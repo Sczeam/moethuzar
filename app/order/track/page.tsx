@@ -2,11 +2,13 @@
 
 import { ORDER_CODE_EXAMPLES, normalizeOrderCode } from "@/lib/order-code";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 export default function OrderTrackPage() {
-  const [orderCode, setOrderCode] = useState("");
+  const searchParams = useSearchParams();
+  const initialCode = searchParams.get("code") ?? "";
+  const [orderCode, setOrderCode] = useState(initialCode);
   const [statusText, setStatusText] = useState("");
   const router = useRouter();
 

@@ -20,11 +20,14 @@ export default async function AccountPage() {
         </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/account/orders" className="btn-primary">
+            My Orders
+          </Link>
           <Link href="/order/track" className="btn-secondary">
             Track Order
           </Link>
           <form action={accountLogoutAction}>
-            <button type="submit" className="btn-primary">
+            <button type="submit" className="btn-secondary">
               Logout
             </button>
           </form>
