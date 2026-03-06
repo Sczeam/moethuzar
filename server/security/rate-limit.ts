@@ -4,6 +4,7 @@ import { rateLimiter, type RateLimitResult } from "@/server/security/rate-limite
 
 type PolicyName =
   | "checkout"
+  | "checkoutAccountIntent"
   | "publicOrderLookup"
   | "adminLogin"
   | "customerLogin"
@@ -19,6 +20,7 @@ type RateLimitPolicy = {
 
 const POLICIES: Record<PolicyName, RateLimitPolicy> = {
   checkout: { windowMs: 60_000, max: 8 },
+  checkoutAccountIntent: { windowMs: 5 * 60_000, max: 3 },
   publicOrderLookup: { windowMs: 60_000, max: 30 },
   adminLogin: { windowMs: 60_000, max: 6 },
   customerLogin: { windowMs: 60_000, max: 5 },

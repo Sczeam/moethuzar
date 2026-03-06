@@ -6,6 +6,12 @@ import {
 } from "@/lib/constants/mm-locations";
 import { LEGAL_TERMS_VERSION } from "@/lib/constants/legal";
 
+const accountIntentSchema = z.object({
+  enabled: z.boolean(),
+  password: z.string().max(256).optional(),
+  confirmPassword: z.string().max(256).optional(),
+});
+
 export const checkoutSchema = z.object({
   country: z.enum(MM_COUNTRIES),
   customerName: z.string().trim().min(2).max(120),
@@ -25,6 +31,47 @@ export const checkoutSchema = z.object({
   paymentProofUrl: z.url().max(1024).optional().or(z.literal("")),
   paymentReference: z.string().trim().max(120).optional(),
   promoCode: z.string().trim().max(64).optional().or(z.literal("")),
+  accountIntent: accountIntentSchema.optional(),
+}).superRefine((input, ctx) => {
+  if (!input.accountIntent?.enabled) {
+    return;
+  }
+
+  if (!input.customerEmail || input.customerEmail.trim().length === 0) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["customerEmail"],
+      message: "Email is required to create an account.",
+    });
+    return;
+  }
+
+  const password = input.accountIntent.password ?? "";
+  const confirmPassword = input.accountIntent.confirmPassword ?? "";
+
+  if (password.length < 8) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["accountIntent", "password"],
+      message: "Password must be at least 8 characters.",
+    });
+  }
+
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["accountIntent", "password"],
+      message: "Password must include letters and numbers.",
+    });
+  }
+
+  if (password !== confirmPassword) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["accountIntent", "confirmPassword"],
+      message: "Passwords do not match.",
+    });
+  }
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
