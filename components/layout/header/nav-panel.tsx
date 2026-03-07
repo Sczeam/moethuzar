@@ -3,11 +3,17 @@ import { useState } from "react";
 import type { RefObject } from "react";
 import { IconClose } from "@/components/layout/header/icons";
 
+type HeaderAccountUser = {
+  id: string;
+  email: string | null;
+} | null;
+
 type HeaderNavPanelProps = {
   menuId: string;
   isOpen: boolean;
   panelRef: RefObject<HTMLDivElement | null>;
   currentPathname: string;
+  accountUser: HeaderAccountUser;
   onClose: () => void;
   onOpenCart: () => void;
 };
@@ -33,6 +39,7 @@ export function HeaderNavPanel({
   isOpen,
   panelRef,
   currentPathname,
+  accountUser,
   onClose,
   onOpenCart,
 }: HeaderNavPanelProps) {
@@ -150,20 +157,24 @@ export function HeaderNavPanel({
       </div>
 
       <div className="mt-12">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Coming Soon</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Account</p>
         <div className="mt-3 grid gap-1.5">
-          {["Favourites", "Account"].map((item) => (
-            <button
-              key={item}
-              type="button"
-              disabled
-              aria-disabled="true"
-              title="Coming soon"
-              className="inline-flex min-h-9 items-center justify-start text-sm uppercase tracking-[0.08em] text-charcoal/55"
-            >
-              {item}
-            </button>
-          ))}
+          <Link
+            href={accountUser ? "/account" : "/account/login?next=%2Faccount"}
+            onClick={onClose}
+            className="inline-flex min-h-9 items-center justify-start text-sm uppercase tracking-[0.08em] text-ink transition hover:text-teak-brown"
+          >
+            {accountUser ? "My Account" : "Sign In / Create Account"}
+          </Link>
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            title="Coming soon"
+            className="inline-flex min-h-9 items-center justify-start text-sm uppercase tracking-[0.08em] text-charcoal/55"
+          >
+            Favourites
+          </button>
         </div>
       </div>
 

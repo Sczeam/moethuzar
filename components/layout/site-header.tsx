@@ -35,6 +35,11 @@ type HeaderCartData = {
   }>;
 };
 
+type HeaderAccountUser = {
+  id: string;
+  email: string | null;
+} | null;
+
 export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -49,6 +54,7 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
   const [cartLoading, setCartLoading] = useState(false);
   const [cartStatusText, setCartStatusText] = useState("");
   const [busyVariantId, setBusyVariantId] = useState<string | null>(null);
+  const [accountUser, setAccountUser] = useState<HeaderAccountUser>(null);
 
   const overlayRef = useRef<HTMLButtonElement | null>(null);
   const menuPanelRef = useRef<HTMLDivElement | null>(null);
@@ -116,12 +122,32 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
     }
   }
 
+  async function loadAccountSession() {
+    try {
+      const response = await fetch("/api/account/auth/me", { cache: "no-store" });
+      const data = await response.json();
+      if (response.ok && data.ok) {
+        setAccountUser(
+          data.user && typeof data.user.id === "string"
+            ? { id: data.user.id, email: data.user.email ?? null }
+            : null
+        );
+      } else {
+        setAccountUser(null);
+      }
+    } catch {
+      setAccountUser(null);
+    }
+  }
+
   useEffect(() => {
     void loadCartMeta();
+    void loadAccountSession();
   }, []);
 
   useEffect(() => {
     void loadCartMeta();
+    void loadAccountSession();
     setActivePanel("none");
     setSearchOpen(false);
   }, [pathname]);
@@ -129,6 +155,7 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
   useEffect(() => {
     const onWindowFocus = () => {
       void loadCartMeta();
+      void loadAccountSession();
       if (activePanel === "cart") {
         void loadCartDetails();
       }
@@ -432,6 +459,7 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         menuControlsId={menuId}
         isMenuOpen={activePanel === "menu"}
         cartItemCount={cartItemCount}
+        accountUser={accountUser}
         onToggleMenu={() => {
           setSearchOpen(false);
           setActivePanel((current) => (current === "menu" ? "none" : "menu"));
@@ -464,6 +492,7 @@ export default function SiteHeader({ onSearchOpen }: SiteHeaderProps) {
         isOpen={activePanel === "menu"}
         panelRef={menuPanelRef}
         currentPathname={pathname}
+        accountUser={accountUser}
         onClose={() => setActivePanel("none")}
         onOpenCart={() => {
           setActivePanel("cart");
