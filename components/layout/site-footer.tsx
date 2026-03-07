@@ -48,12 +48,8 @@ export default function SiteFooter() {
           <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-teak-brown">Support</h3>
           <div className="mt-3 grid gap-2 text-sm text-charcoal">
             <p>Support Hours: 9:00 AM - 7:00 PM</p>
-            <p>Contact: +95 9 000 000 000</p>
             <Link href="/contact" className="hover:text-ink">
               Contact Us
-            </Link>
-            <Link href="/admin/login" className="hover:text-ink">
-              Admin Login
             </Link>
           </div>
         </div>

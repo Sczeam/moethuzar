@@ -48,7 +48,9 @@ export default function ReturnsPage() {
           title: "How to Request a Return",
           content: (
             <>
-              <p>Email: [your email]</p>
+              <p>Email: moethuzar@gmail.com</p>
+              <p>Phone: +959777541818</p>
+              <p>Address: 11 Mingalar Street, Baukhtaw, Yankin, Yangon, Myanmar</p>
               <p>Include order number, item(s), reason, and photos (if faulty).</p>
             </>
           ),

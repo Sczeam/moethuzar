@@ -56,7 +56,7 @@ export default function PrivacyPage() {
           content: (
             <>
               <p>You may request access, correction, or deletion of your personal data where applicable.</p>
-              <p>Contact us at [your email] for privacy requests.</p>
+              <p>Contact us at moethuzar@gmail.com for privacy requests.</p>
             </>
           ),
         },
@@ -64,9 +64,9 @@ export default function PrivacyPage() {
           title: "Contact",
           content: (
             <>
-              <p>Email: [your email]</p>
-              <p>Phone: [your phone] (optional)</p>
-              <p>Address: [your address] (optional)</p>
+              <p>Email: moethuzar@gmail.com</p>
+              <p>Phone: +959777541818</p>
+              <p>Address: 11 Mingalar Street, Baukhtaw, Yankin, Yangon, Myanmar</p>
             </>
           ),
         },
