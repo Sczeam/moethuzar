@@ -11,6 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "admin:a11y:smoke": "node scripts/admin-a11y-smoke.mjs",
+    "ops:backfill-customer-orders": "tsx scripts/backfill-customer-orders.ts",
+    "ops:rollback-customer-order-backfill": "tsx scripts/rollback-customer-order-backfill.ts",
     "check:preflight": "pnpm prisma:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
