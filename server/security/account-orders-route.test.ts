@@ -39,7 +39,8 @@ describe("account orders route", () => {
 
   it("returns requestId + paginated payload for authenticated customer", async () => {
     mocks.requireCustomerSessionUser.mockResolvedValueOnce({
-      id: "8af0f9de-f3f0-4320-8625-6eb046272f63",
+      customerId: "8af0f9de-f3f0-4320-8625-6eb046272f63",
+      authUserId: "auth-user-1",
       email: "customer@example.com",
     });
     mocks.listAccountOrders.mockResolvedValueOnce({
@@ -61,6 +62,11 @@ describe("account orders route", () => {
     expect(payload.nextCursor).toBeNull();
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("vary")).toContain("Cookie");
+    expect(mocks.listAccountOrders).toHaveBeenCalledWith({
+      customerId: "8af0f9de-f3f0-4320-8625-6eb046272f63",
+      pageSize: 20,
+      cursor: undefined,
+    });
   });
 });
 

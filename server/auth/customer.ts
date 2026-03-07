@@ -1,20 +1,25 @@
-import { getCurrentSessionUser } from "@/server/auth/auth-service";
+import { resolveCustomerFromSession } from "@/server/auth/customer-identity";
 import { AppError } from "@/server/errors";
 
 export type CustomerSessionUser = {
-  id: string;
+  customerId: string;
+  authUserId: string;
   email: string | null;
 };
 
 export async function getCustomerSessionUser(request?: Request): Promise<CustomerSessionUser | null> {
-  const user = await getCurrentSessionUser(request);
-  if (!user) {
+  const identity = await resolveCustomerFromSession({
+    requestId: request?.headers.get("x-request-id") ?? null,
+  });
+
+  if (identity.kind !== "customer") {
     return null;
   }
 
   return {
-    id: user.id,
-    email: user.email,
+    customerId: identity.customerId,
+    authUserId: identity.authUserId,
+    email: identity.email,
   };
 }
 
