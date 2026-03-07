@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { IconCart, IconHeart, IconMenu, IconSearch, IconUser } from "./icons";
 
+type HeaderAccountUser = {
+  id: string;
+  email: string | null;
+} | null;
+
 type HeaderNavRailProps = {
   menuControlsId: string;
   isMenuOpen: boolean;
   cartItemCount: number;
+  accountUser: HeaderAccountUser;
   onToggleMenu: () => void;
   onOpenSearch: () => void;
   onOpenCart: () => void;
@@ -14,6 +20,7 @@ export function HeaderNavRail({
   menuControlsId,
   isMenuOpen,
   cartItemCount,
+  accountUser,
   onToggleMenu,
   onOpenSearch,
   onOpenCart,
@@ -73,16 +80,14 @@ export function HeaderNavRail({
           >
             <IconHeart />
           </button>
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            aria-label="Account (coming soon)"
-            title="Account (coming soon)"
-            className="hidden h-11 w-11 items-center justify-center text-charcoal/55 sm:inline-flex"
+          <Link
+            href={accountUser ? "/account" : "/account/login?next=%2Faccount"}
+            aria-label={accountUser ? "Open account" : "Sign in to account"}
+            title={accountUser ? "My account" : "Sign in / create account"}
+            className="hidden h-11 w-11 items-center justify-center text-ink transition hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-antique-brass sm:inline-flex"
           >
             <IconUser />
-          </button>
+          </Link>
           <button
             type="button"
             onClick={onOpenCart}
