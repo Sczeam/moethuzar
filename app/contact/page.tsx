@@ -12,15 +12,15 @@ export default function ContactPage() {
           title: "Customer Support",
           content: (
             <>
-              <p>Email: [your email]</p>
-              <p>Phone: [your phone] (optional)</p>
+              <p>Email: moethuzar@gmail.com</p>
+              <p>Phone: +959777541818</p>
               <p>Support hours: 9:00 AM - 7:00 PM (Myanmar time)</p>
             </>
           ),
         },
         {
           title: "Business Address",
-          content: <p>[your address]</p>,
+          content: <p>11 Mingalar Street, Baukhtaw, Yankin, Yangon, Myanmar</p>,
         },
       ]}
     />
