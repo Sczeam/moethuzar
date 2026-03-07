@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         ok: true,
         user: user
           ? {
-              id: user.id,
+              id: user.authUserId,
               email: user.email,
             }
           : null,

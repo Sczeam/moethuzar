@@ -12,7 +12,7 @@ export default async function AccountOrdersPage() {
   }
 
   const initial = await listAccountOrders({
-    customerId: sessionUser.id,
+    customerId: sessionUser.customerId,
     pageSize: ACCOUNT_ORDERS_PAGE_SIZE,
   });
 

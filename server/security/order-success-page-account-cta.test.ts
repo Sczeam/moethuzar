@@ -101,7 +101,8 @@ describe("order success page account CTA", () => {
 
   it("shows my-account CTA for signed-in customers", async () => {
     mocks.getCustomerSessionUser.mockResolvedValueOnce({
-      id: "auth-user-1",
+      customerId: "customer-1",
+      authUserId: "auth-user-1",
       email: "customer@example.com",
     });
 

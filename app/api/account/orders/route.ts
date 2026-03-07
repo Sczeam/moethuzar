@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     });
 
     const result = await listAccountOrders({
-      customerId: sessionUser.id,
+      customerId: sessionUser.customerId,
       pageSize: query.pageSize,
       cursor: query.cursor,
     });

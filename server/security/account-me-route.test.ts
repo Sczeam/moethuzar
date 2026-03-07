@@ -17,7 +17,8 @@ describe("account me route", () => {
 
   it("returns minimal user payload with no-store caching", async () => {
     getCustomerSessionUserMock.mockResolvedValueOnce({
-      id: "ee2f6077-d4cf-4b8b-8866-e657fcf35921",
+      customerId: "customer-1",
+      authUserId: "ee2f6077-d4cf-4b8b-8866-e657fcf35921",
       email: "customer@example.com",
     });
 
