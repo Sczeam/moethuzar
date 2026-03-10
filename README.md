@@ -6,6 +6,7 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
 
 - MVP scope: `docs/foundation-mvp.md`
 - Frontend architecture: `docs/frontend-architecture.md`
+- Current product audit: `docs/current-product-audit.md`
 - Admin architecture (OCP): `docs/admin-architecture-ocp.md`
 - Admin A2 plan: `docs/admin-a2-order-ops-plan.md`
 - Admin settings copy contract (A6.1): `docs/admin-settings-copy-contract-a6-1.md`
