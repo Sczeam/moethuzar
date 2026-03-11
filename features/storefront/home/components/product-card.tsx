@@ -137,20 +137,23 @@ export default function ProductCard({
       }`}
     >
       <div className="relative aspect-[4/5] bg-parchment">
-        <WishlistHeartButton
-          saved={wishlist.status.saved}
-          pending={wishlist.pending}
-          onToggle={() => void wishlist.toggle()}
-          className="absolute left-auto right-3 top-3 z-30"
-          ariaLabel={
-            wishlist.status.saved
-              ? `Remove ${product.name} from favourites`
-              : `Save ${product.name} to favourites`
-          }
-        />
-        <span className={`absolute left-2 top-2 z-20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${stockClass}`}>
-          {stockLabel}
-        </span>
+        <div className="absolute inset-x-0 top-0 z-30 flex items-start justify-between p-2.5 sm:p-3">
+          <span
+            className={`pointer-events-none px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${stockClass}`}
+          >
+            {stockLabel}
+          </span>
+          <WishlistHeartButton
+            saved={wishlist.status.saved}
+            pending={wishlist.pending}
+            onToggle={() => void wishlist.toggle()}
+            ariaLabel={
+              wishlist.status.saved
+                ? `Remove ${product.name} from favourites`
+                : `Save ${product.name} to favourites`
+            }
+          />
+        </div>
         {cover ? (
           <>
             <Image
