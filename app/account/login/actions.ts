@@ -2,17 +2,18 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { type AccountLoginActionState } from "@/app/account/login/state";
 import { isNextRedirectError } from "@/server/auth/action-errors";
-import { AUTH_COPY_BY_CODE } from "@/server/auth/auth-copy";
 import { mapAuthActionError } from "@/server/auth/auth-action-error";
+import { AUTH_COPY_BY_CODE } from "@/server/auth/auth-copy";
+import { sanitizeNextPath } from "@/server/auth/redirect";
 import { signInWithEmailPassword } from "@/server/auth/auth-service";
 import { authActionFailure } from "@/server/contracts/action-result";
 import { logAuthFailureEvent } from "@/server/observability/auth-events";
-import { sanitizeNextPath } from "@/server/auth/redirect";
 import { getRequestIdFromHeaders } from "@/server/security/request-id";
 import { rateLimitOrResponse } from "@/server/security/rate-limit";
-import { z } from "zod";
+import { mergeWishlistAfterCustomerAuth } from "@/server/services/wishlist-auth-merge.service";
 
 const loginSchema = z.object({
   email: z.string().trim().email(),
@@ -52,9 +53,16 @@ export async function accountLoginAction(
       nextPath: formData.get("nextPath"),
     });
 
-    await signInWithEmailPassword({
+    const sessionUser = await signInWithEmailPassword({
       email: parsed.email,
       password: parsed.password,
+    });
+
+    await mergeWishlistAfterCustomerAuth({
+      requestHeaders: reqHeaders,
+      requestId,
+      authUserId: sessionUser.id,
+      email: sessionUser.email ?? parsed.email,
     });
 
     redirect(sanitizeNextPath(parsed.nextPath, "/account"));
@@ -72,4 +80,3 @@ export async function accountLoginAction(
     return authActionFailure(requestId, mapped.code, mapped.message);
   }
 }
-
