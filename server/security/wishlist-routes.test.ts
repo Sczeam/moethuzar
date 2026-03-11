@@ -43,7 +43,7 @@ vi.mock("@/lib/wishlist/guest-token", () => ({
 
 import { POST as postWishlistItem } from "@/app/api/wishlist/items/route";
 import { DELETE as deleteWishlistItem } from "@/app/api/wishlist/items/[productId]/route";
-import { PATCH as patchWishlistPreferences } from "@/app/api/wishlist/items/[wishlistItemId]/preferences/route";
+import { PATCH as patchWishlistPreferences } from "@/app/api/wishlist/preferences/[wishlistItemId]/route";
 import { GET as getWishlist } from "@/app/api/wishlist/route";
 import { GET as getWishlistStatus } from "@/app/api/wishlist/status/route";
 import { POST as postWishlistMerge } from "@/app/api/wishlist/merge/route";
@@ -163,7 +163,7 @@ describe("wishlist routes", () => {
     });
 
     const response = await patchWishlistPreferences(
-      new Request(`http://localhost:3000/api/wishlist/items/${WISHLIST_ITEM_ID}/preferences`, {
+      new Request(`http://localhost:3000/api/wishlist/preferences/${WISHLIST_ITEM_ID}`, {
         method: "PATCH",
         body: JSON.stringify({ preferredColorValue: "Black", preferredSizeValue: "M" }),
       }),
