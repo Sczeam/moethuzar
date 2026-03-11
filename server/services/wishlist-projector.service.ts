@@ -30,6 +30,11 @@ export type WishlistRebuildResult = {
   deletedOrphanCount: number;
 };
 
+export type WishlistSingleEventProcessResult =
+  | { status: "processed"; eventId: string }
+  | { status: "already_processed"; eventId: string }
+  | { status: "not_found"; eventId: string };
+
 function getProjectionWishlistItemId(event: WishlistProjectionOutboxEvent): string {
   return typeof event.payload.wishlistItemId === "string" ? event.payload.wishlistItemId : event.aggregateId;
 }
@@ -85,6 +90,44 @@ async function handleWishlistOutboxEvent(
   }
 }
 
+async function processWishlistOutboxEvent(
+  event: WishlistProjectionOutboxEvent,
+  dependencies: WishlistProjectorDependencies,
+  processedAt: Date
+): Promise<WishlistSingleEventProcessResult> {
+  if (event.processedAt) {
+    return { status: "already_processed", eventId: event.id };
+  }
+
+  try {
+    await handleWishlistOutboxEvent(event, dependencies, processedAt);
+    await dependencies.repository.markOutboxEventProcessed(event.id, processedAt);
+    return { status: "processed", eventId: event.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected projector error";
+    await dependencies.repository.markOutboxEventFailed(
+      event.id,
+      message,
+      new Date(processedAt.getTime() + WISHLIST_PROJECTOR_RETRY_DELAY_MS)
+    );
+    throw error;
+  }
+}
+
+export async function processWishlistOutboxEventById(
+  eventOutboxId: string,
+  params?: { now?: Date },
+  dependencies: WishlistProjectorDependencies = defaultDependencies
+): Promise<WishlistSingleEventProcessResult> {
+  const now = params?.now ?? new Date();
+  const event = await dependencies.repository.findWishlistOutboxEventById(eventOutboxId);
+  if (!event) {
+    return { status: "not_found", eventId: eventOutboxId };
+  }
+
+  return processWishlistOutboxEvent(event, dependencies, now);
+}
+
 export async function processPendingWishlistOutboxEvents(
   params?: { now?: Date; limit?: number },
   dependencies: WishlistProjectorDependencies = defaultDependencies
@@ -100,17 +143,12 @@ export async function processPendingWishlistOutboxEvents(
 
   for (const event of events) {
     try {
-      await handleWishlistOutboxEvent(event, dependencies, now);
-      await dependencies.repository.markOutboxEventProcessed(event.id, now);
-      succeededCount += 1;
-    } catch (error) {
+      const result = await processWishlistOutboxEvent(event, dependencies, now);
+      if (result.status === "processed" || result.status === "already_processed") {
+        succeededCount += 1;
+      }
+    } catch {
       failureEventIds.push(event.id);
-      const message = error instanceof Error ? error.message : "Unexpected projector error";
-      await dependencies.repository.markOutboxEventFailed(
-        event.id,
-        message,
-        new Date(now.getTime() + WISHLIST_PROJECTOR_RETRY_DELAY_MS)
-      );
     }
   }
 

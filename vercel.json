@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "app/api/queues/wishlist-projector/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "wishlist-projector"
+        }
+      ]
+    }
+  }
+}

@@ -20,6 +20,8 @@ import {
   prismaWishlistRepository,
   type WishlistRepository,
 } from "@/server/repositories/wishlist.repository";
+import { logWishlistQueueEventFailure } from "@/server/observability/wishlist-events";
+import { publishWishlistProjectionEvent } from "@/server/services/wishlist-queue.service";
 
 function assertWishlistProductCanBeSaved(product: { status: ProductStatus | "DRAFT" | "ACTIVE" | "ARCHIVED" }) {
   if (product.status !== ProductStatus.ACTIVE) {
@@ -52,6 +54,13 @@ export type WishlistWriteServiceDependencies = {
 
 const defaultDependencies: WishlistWriteServiceDependencies = {
   repository: prismaWishlistRepository,
+};
+
+type WishlistProjectionPublishEvent = {
+  id: string;
+  eventType: string;
+  aggregateId: string;
+  payload: Record<string, unknown>;
 };
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -151,13 +160,42 @@ async function transferOrDeduplicateGuestItem(params: {
   }
 }
 
+function toProjectionQueueMessage(event: WishlistProjectionPublishEvent) {
+  return {
+    eventOutboxId: event.id,
+    eventType: event.eventType,
+    aggregateId: event.aggregateId,
+    wishlistItemId:
+      typeof event.payload.wishlistItemId === "string" ? event.payload.wishlistItemId : undefined,
+  };
+}
+
+async function publishProjectionEventsAfterCommit(
+  events: WishlistProjectionPublishEvent[],
+  context: { requestId?: string | null; customerId?: string | null }
+) {
+  for (const event of events) {
+    try {
+      await publishWishlistProjectionEvent(toProjectionQueueMessage(event));
+    } catch (error) {
+      logWishlistQueueEventFailure({
+        event: "wishlist.queue.publish_failed",
+        requestId: context.requestId ?? null,
+        customerId: context.customerId ?? null,
+        reasonCode: error instanceof Error ? error.message : "WISHLIST_QUEUE_PUBLISH_FAILED",
+        eventOutboxId: event.id,
+      });
+    }
+  }
+}
+
 export async function saveWishlistItem(
   command: WishlistSaveCommand,
   dependencies: WishlistWriteServiceDependencies = defaultDependencies
 ): Promise<WishlistSaveResult> {
   const now = command.now ?? new Date();
 
-  return dependencies.repository.transaction(async (tx) => {
+  const transactionResult = await dependencies.repository.transaction(async (tx) => {
     const product = await dependencies.repository.getProductSnapshotForSave(
       tx,
       command.productId,
@@ -202,7 +240,7 @@ export async function saveWishlistItem(
       repository: dependencies.repository,
     });
 
-    await dependencies.repository.insertOutboxEvent(
+    const outboxEvent = await dependencies.repository.insertOutboxEvent(
       tx,
       buildWishlistEvent({
         aggregateType: "wishlist.item",
@@ -228,15 +266,25 @@ export async function saveWishlistItem(
     return {
       item,
       created,
+      outboxEvents: [outboxEvent],
     };
   });
+
+  await publishProjectionEventsAfterCommit(transactionResult.outboxEvents, {
+    customerId: command.identity.kind === "customer" ? command.identity.customerId : null,
+  });
+
+  return {
+    item: transactionResult.item,
+    created: transactionResult.created,
+  };
 }
 
 export async function removeWishlistItem(
   command: WishlistRemoveCommand,
   dependencies: WishlistWriteServiceDependencies = defaultDependencies
 ): Promise<WishlistRemoveResult> {
-  return dependencies.repository.transaction(async (tx) => {
+  const transactionResult = await dependencies.repository.transaction(async (tx) => {
     const existing = await dependencies.repository.findItemByIdentityAndProduct(
       tx,
       command.identity,
@@ -247,10 +295,11 @@ export async function removeWishlistItem(
       return {
         removed: false,
         removedItemId: null,
+        outboxEvents: [] as WishlistProjectionPublishEvent[],
       };
     }
 
-    await dependencies.repository.insertOutboxEvent(
+    const outboxEvent = await dependencies.repository.insertOutboxEvent(
       tx,
       buildWishlistEvent({
         aggregateType: "wishlist.item",
@@ -270,8 +319,18 @@ export async function removeWishlistItem(
     return {
       removed: true,
       removedItemId: existing.id,
+      outboxEvents: [outboxEvent],
     };
   });
+
+  await publishProjectionEventsAfterCommit(transactionResult.outboxEvents, {
+    customerId: command.identity.kind === "customer" ? command.identity.customerId : null,
+  });
+
+  return {
+    removed: transactionResult.removed,
+    removedItemId: transactionResult.removedItemId,
+  };
 }
 
 export async function updateWishlistPreferences(
@@ -280,7 +339,7 @@ export async function updateWishlistPreferences(
 ): Promise<WishlistCanonicalItem> {
   const now = command.now ?? new Date();
 
-  return dependencies.repository.transaction(async (tx) => {
+  const transactionResult = await dependencies.repository.transaction(async (tx) => {
     const existing = await dependencies.repository.findItemByIdForIdentity(
       tx,
       command.identity,
@@ -316,7 +375,7 @@ export async function updateWishlistPreferences(
 
     const updated = await dependencies.repository.updateWishlistItem(tx, existing.id, updateData);
 
-    await dependencies.repository.insertOutboxEvent(
+    const outboxEvent = await dependencies.repository.insertOutboxEvent(
       tx,
       buildWishlistEvent({
         aggregateType: "wishlist.item",
@@ -334,8 +393,14 @@ export async function updateWishlistPreferences(
       })
     );
 
-    return updated;
+    return { item: updated, outboxEvents: [outboxEvent] };
   });
+
+  await publishProjectionEventsAfterCommit(transactionResult.outboxEvents, {
+    customerId: command.identity.kind === "customer" ? command.identity.customerId : null,
+  });
+
+  return transactionResult.item;
 }
 
 export async function mergeGuestWishlistIntoCustomer(
@@ -344,10 +409,15 @@ export async function mergeGuestWishlistIntoCustomer(
 ): Promise<WishlistMergeResult> {
   const now = command.now ?? new Date();
 
-  return dependencies.repository.transaction(async (tx) => {
+  const transactionResult = await dependencies.repository.transaction(async (tx) => {
     const guestItems = await dependencies.repository.listGuestItems(tx, command.guestTokenHash);
     if (guestItems.length === 0) {
-      return { mergedCount: 0, transferredCount: 0, deduplicatedCount: 0 };
+      return {
+        mergedCount: 0,
+        transferredCount: 0,
+        deduplicatedCount: 0,
+        outboxEvents: [] as WishlistProjectionPublishEvent[],
+      };
     }
 
     const customerItems = await dependencies.repository.listCustomerItemsByProductIds(
@@ -407,8 +477,9 @@ export async function mergeGuestWishlistIntoCustomer(
     }
 
     const mergedCount = transferredCount + deduplicatedCount;
+    const outboxEvents: WishlistProjectionPublishEvent[] = [];
     if (mergedCount > 0) {
-      await dependencies.repository.insertOutboxEvent(
+      const outboxEvent = await dependencies.repository.insertOutboxEvent(
         tx,
         buildWishlistEvent({
           aggregateType: "wishlist.identity",
@@ -426,12 +497,24 @@ export async function mergeGuestWishlistIntoCustomer(
           },
         })
       );
+      outboxEvents.push(outboxEvent);
     }
 
     return {
       mergedCount,
       transferredCount,
       deduplicatedCount,
+      outboxEvents,
     };
   });
+
+  await publishProjectionEventsAfterCommit(transactionResult.outboxEvents, {
+    customerId: command.customerId,
+  });
+
+  return {
+    mergedCount: transactionResult.mergedCount,
+    transferredCount: transactionResult.transferredCount,
+    deduplicatedCount: transactionResult.deduplicatedCount,
+  };
 }

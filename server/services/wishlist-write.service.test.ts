@@ -6,6 +6,30 @@ import type {
   WishlistProductSnapshot,
 } from "@/server/domain/wishlist-types";
 import type { WishlistRepository } from "@/server/repositories/wishlist.repository";
+
+const mocks = vi.hoisted(() => ({
+  publishWishlistProjectionEvent: vi.fn(async () => ({
+    published: true as const,
+    reason: null,
+    messageId: "msg-1",
+  })),
+  logWishlistQueueEventFailure: vi.fn(),
+}));
+
+vi.mock("@/server/services/wishlist-queue.service", () => ({
+  publishWishlistProjectionEvent: mocks.publishWishlistProjectionEvent,
+}));
+
+vi.mock("@/server/observability/wishlist-events", async () => {
+  const actual = await vi.importActual<typeof import("@/server/observability/wishlist-events")>(
+    "@/server/observability/wishlist-events"
+  );
+  return {
+    ...actual,
+    logWishlistQueueEventFailure: mocks.logWishlistQueueEventFailure,
+  };
+});
+
 import {
   mergeGuestWishlistIntoCustomer,
   removeWishlistItem,
@@ -68,7 +92,12 @@ function createRepositoryDouble() {
     deleteWishlistItem: vi.fn(),
     listGuestItems: vi.fn(),
     listCustomerItemsByProductIds: vi.fn(),
-    insertOutboxEvent: vi.fn(),
+    insertOutboxEvent: vi.fn(async (_tx, event) => ({
+      id: `outbox-${event.eventType}`,
+      eventType: event.eventType,
+      aggregateId: event.aggregateId,
+      payload: event.payload,
+    })),
   };
 }
 
@@ -78,6 +107,8 @@ describe("wishlist-write.service", () => {
 
   beforeEach(() => {
     repository = createRepositoryDouble();
+    mocks.publishWishlistProjectionEvent.mockClear();
+    mocks.logWishlistQueueEventFailure.mockClear();
   });
 
   it("creates a new wishlist item and emits a saved outbox event", async () => {
@@ -123,6 +154,11 @@ describe("wishlist-write.service", () => {
       expect.objectContaining({
         eventType: "wishlist.item.saved",
         aggregateId: "wishlist-item-1",
+      })
+    );
+    expect(mocks.publishWishlistProjectionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventOutboxId: "outbox-wishlist.item.saved",
       })
     );
   });
@@ -392,5 +428,36 @@ describe("wishlist-write.service", () => {
         { repository: repository as unknown as WishlistRepository }
       )
     ).rejects.toMatchObject({ code: "WISHLIST_VARIANT_NOT_FOUND" } satisfies Partial<AppError>);
+  });
+
+  it("does not fail canonical writes when queue publish fails after commit", async () => {
+    repository.getProductSnapshotForSave.mockResolvedValue(makeProduct());
+    repository.findItemByIdentityAndProduct.mockResolvedValue(null);
+    repository.createWishlistItem.mockResolvedValue(
+      makeItem({
+        customerId: "customer-1",
+        guestTokenHash: null,
+        lastInteractedAt: now,
+      })
+    );
+    mocks.publishWishlistProjectionEvent.mockRejectedValueOnce(new Error("queue offline"));
+
+    const result = await saveWishlistItem(
+      {
+        identity: makeIdentity("customer"),
+        productId: "product-1",
+        now,
+      },
+      { repository: repository as unknown as WishlistRepository }
+    );
+
+    expect(result.created).toBe(true);
+    expect(mocks.logWishlistQueueEventFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "wishlist.queue.publish_failed",
+        customerId: "customer-1",
+        reasonCode: "queue offline",
+      })
+    );
   });
 });
