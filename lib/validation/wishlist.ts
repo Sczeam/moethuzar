@@ -56,6 +56,14 @@ export const wishlistMergeSchema = z.object({
   guestToken: z.string().trim().min(1).max(256).optional(),
 });
 
+export const wishlistProductIdParamSchema = z.object({
+  productId: uuid,
+});
+
+export const wishlistItemIdParamSchema = z.object({
+  wishlistItemId: uuid,
+});
+
 export type CreateWishlistItemInput = z.infer<typeof createWishlistItemSchema>;
 export type UpdateWishlistPreferencesInput = z.infer<typeof updateWishlistPreferencesSchema>;
 export type WishlistListQuery = z.infer<typeof wishlistListQuerySchema>;

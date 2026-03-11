@@ -60,6 +60,7 @@ function createRepository(overrides: Partial<WishlistViewRepository> = {}): Wish
   return {
     findWishlistProjectionSourceByItemId: vi.fn(async () => buildSource()),
     listWishlistProjectionSourcesByItemIds: vi.fn(async () => [buildSource()]),
+    listWishlistViewsByIdentity: vi.fn(async () => []),
     listWishlistProjectionSourcesByProductId: vi.fn(async () => [buildSource()]),
     listWishlistProjectionSourcesByPreferredVariantId: vi.fn(async () => [buildSource()]),
     findProductIdByVariantId: vi.fn(async () => "product-1"),
