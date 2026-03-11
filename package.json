@@ -13,6 +13,8 @@
     "admin:a11y:smoke": "node scripts/admin-a11y-smoke.mjs",
     "ops:backfill-customer-orders": "tsx scripts/backfill-customer-orders.ts",
     "ops:rollback-customer-order-backfill": "tsx scripts/rollback-customer-order-backfill.ts",
+    "ops:wishlist-projector": "tsx scripts/run-wishlist-projector.ts",
+    "ops:wishlist-rebuild-view": "tsx scripts/rebuild-wishlist-view.ts",
     "check:preflight": "pnpm prisma:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
