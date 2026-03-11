@@ -58,6 +58,27 @@ enum InventoryChangeType {
   ORDER_CANCELLED
 }
 
+enum WishlistAvailabilityState {
+  AVAILABLE
+  AVAILABLE_WITH_DISCOUNT
+  SOLD_OUT
+  ARCHIVED_PRODUCT
+}
+
+enum WishlistPreferredVariantState {
+  NOT_SET
+  AVAILABLE
+  UNAVAILABLE
+}
+
+enum WishlistBadgeType {
+  NONE
+  PRICE_DROP
+  LOW_STOCK
+  SOLD_OUT
+  ARCHIVED
+}
+
 model AdminUser {
   id              String               @id @default(uuid()) @db.Uuid
   authUserId      String               @unique @db.Uuid
@@ -68,17 +89,19 @@ model AdminUser {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
   confirmedOrders Order[]              @relation("OrderConfirmedBy")
-  statusChanges OrderStatusHistory[] @relation("StatusChangedBy")
+  statusChanges   OrderStatusHistory[] @relation("StatusChangedBy")
 }
 
 model Customer {
-  id            String   @id @default(uuid()) @db.Uuid
-  authUserId    String   @unique @db.Uuid
-  email         String   @unique
+  id            String             @id @default(uuid()) @db.Uuid
+  authUserId    String             @unique @db.Uuid
+  email         String             @unique
   deactivatedAt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   orders        Order[]
+  wishlistItems WishlistItem[]
+  wishlistViews WishlistItemView[]
 }
 
 model Category {
@@ -91,46 +114,50 @@ model Category {
 }
 
 model Product {
-  id          String         @id @default(uuid()) @db.Uuid
-  name        String
-  slug        String         @unique
-  description String?
-  price       Decimal        @db.Decimal(10, 2)
-  currency    String         @default("MMK")
-  status      ProductStatus  @default(DRAFT)
-  categoryId  String         @db.Uuid
-  category    Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  images      ProductImage[]
-  variants    ProductVariant[]
-  orderItems  OrderItem[]
-  logs        InventoryLog[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id            String             @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String             @unique
+  description   String?
+  price         Decimal            @db.Decimal(10, 2)
+  currency      String             @default("MMK")
+  status        ProductStatus      @default(DRAFT)
+  categoryId    String             @db.Uuid
+  category      Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images        ProductImage[]
+  variants      ProductVariant[]
+  wishlistItems WishlistItem[]
+  wishlistViews WishlistItemView[]
+  orderItems    OrderItem[]
+  logs          InventoryLog[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@index([categoryId])
   @@index([status])
 }
 
 model ProductVariant {
-  id             String         @id @default(uuid()) @db.Uuid
-  productId      String         @db.Uuid
-  sku            String         @unique
+  id             String             @id @default(uuid()) @db.Uuid
+  productId      String             @db.Uuid
+  sku            String             @unique
   name           String
   color          String?
   size           String?
   material       String?
-  price          Decimal?       @db.Decimal(10, 2)
-  compareAtPrice Decimal?       @db.Decimal(10, 2)
-  inventory      Int            @default(0)
-  isActive       Boolean        @default(true)
-  sortOrder      Int            @default(0)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price          Decimal?           @db.Decimal(10, 2)
+  compareAtPrice Decimal?           @db.Decimal(10, 2)
+  inventory      Int                @default(0)
+  isActive       Boolean            @default(true)
+  sortOrder      Int                @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  product        Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems      CartItem[]
   orderItems     OrderItem[]
   logs           InventoryLog[]
   images         ProductImage[]
+  wishlistItems  WishlistItem[]
+  wishlistViews  WishlistItemView[]
 
   @@index([productId, isActive])
   @@index([productId, sortOrder])
@@ -179,46 +206,46 @@ model CartItem {
 }
 
 model Order {
-  id                 String              @id @default(uuid()) @db.Uuid
-  orderCode          String              @unique
-  idempotencyKey     String?             @unique
-  status             OrderStatus         @default(PENDING)
-  paymentMethod      PaymentMethod       @default(COD)
-  paymentStatus      PaymentStatus       @default(NOT_REQUIRED)
-  paymentProofUrl    String?
-  paymentReference   String?
-  paymentSubmittedAt DateTime?
-  paymentVerifiedAt  DateTime?
-  promoCode          String?
-  promoDiscountType  PromoDiscountType?
-  promoDiscountValue Int?
-  discountAmount         Decimal             @default(0) @db.Decimal(12, 2)
-  subtotalBeforeDiscount Decimal             @default(0) @db.Decimal(12, 2)
-  subtotalAfterDiscount  Decimal             @default(0) @db.Decimal(12, 2)
-  currency           String              @default("MMK")
-  subtotalAmount     Decimal             @db.Decimal(12, 2)
-  deliveryFeeAmount  Decimal             @default(0) @db.Decimal(12, 2)
-  shippingZoneKey    String?
-  shippingZoneLabel  String?
-  shippingEtaLabel   String?
-  totalAmount        Decimal             @db.Decimal(12, 2)
-  customerName       String
-  customerPhone      String
-  customerEmail      String?
-  customerNote       String?
-  customerId         String?             @db.Uuid
-  confirmedByAdminId String?             @db.Uuid
-  confirmedAt        DateTime?
-  deliveredAt        DateTime?
-  cancelledAt        DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  confirmedBy        AdminUser?            @relation("OrderConfirmedBy", fields: [confirmedByAdminId], references: [id], onDelete: SetNull)
-  customer           Customer?             @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  address            OrderAddress?
-  items              OrderItem[]
-  history            OrderStatusHistory[]
-  logs               InventoryLog[]
+  id                     String               @id @default(uuid()) @db.Uuid
+  orderCode              String               @unique
+  idempotencyKey         String?              @unique
+  status                 OrderStatus          @default(PENDING)
+  paymentMethod          PaymentMethod        @default(COD)
+  paymentStatus          PaymentStatus        @default(NOT_REQUIRED)
+  paymentProofUrl        String?
+  paymentReference       String?
+  paymentSubmittedAt     DateTime?
+  paymentVerifiedAt      DateTime?
+  promoCode              String?
+  promoDiscountType      PromoDiscountType?
+  promoDiscountValue     Int?
+  discountAmount         Decimal              @default(0) @db.Decimal(12, 2)
+  subtotalBeforeDiscount Decimal              @default(0) @db.Decimal(12, 2)
+  subtotalAfterDiscount  Decimal              @default(0) @db.Decimal(12, 2)
+  currency               String               @default("MMK")
+  subtotalAmount         Decimal              @db.Decimal(12, 2)
+  deliveryFeeAmount      Decimal              @default(0) @db.Decimal(12, 2)
+  shippingZoneKey        String?
+  shippingZoneLabel      String?
+  shippingEtaLabel       String?
+  totalAmount            Decimal              @db.Decimal(12, 2)
+  customerName           String
+  customerPhone          String
+  customerEmail          String?
+  customerNote           String?
+  customerId             String?              @db.Uuid
+  confirmedByAdminId     String?              @db.Uuid
+  confirmedAt            DateTime?
+  deliveredAt            DateTime?
+  cancelledAt            DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  confirmedBy            AdminUser?           @relation("OrderConfirmedBy", fields: [confirmedByAdminId], references: [id], onDelete: SetNull)
+  customer               Customer?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  address                OrderAddress?
+  items                  OrderItem[]
+  history                OrderStatusHistory[]
+  logs                   InventoryLog[]
 
   @@index([status, createdAt])
   @@index([paymentStatus, createdAt])
@@ -320,15 +347,15 @@ model OrderItem {
 }
 
 model OrderStatusHistory {
-  id               String      @id @default(uuid()) @db.Uuid
-  orderId          String      @db.Uuid
+  id               String       @id @default(uuid()) @db.Uuid
+  orderId          String       @db.Uuid
   fromStatus       OrderStatus?
   toStatus         OrderStatus
   note             String?
-  changedByAdminId String?     @db.Uuid
-  createdAt        DateTime    @default(now())
-  order            Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  changedByAdmin   AdminUser?  @relation("StatusChangedBy", fields: [changedByAdminId], references: [id], onDelete: SetNull)
+  changedByAdminId String?      @db.Uuid
+  createdAt        DateTime     @default(now())
+  order            Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedByAdmin   AdminUser?   @relation("StatusChangedBy", fields: [changedByAdminId], references: [id], onDelete: SetNull)
 
   @@index([orderId, createdAt])
 }
@@ -349,4 +376,81 @@ model InventoryLog {
   @@index([productId, createdAt])
   @@index([variantId, createdAt])
   @@index([orderId])
+}
+
+model WishlistItem {
+  id                  String            @id @default(uuid()) @db.Uuid
+  customerId          String?           @db.Uuid
+  guestTokenHash      String?
+  productId           String            @db.Uuid
+  preferredVariantId  String?           @db.Uuid
+  preferredColorValue String?
+  preferredSizeValue  String?
+  sourceSurface       String?
+  savedPriceAmount    Decimal           @db.Decimal(12, 2)
+  savedCurrency       String            @default("MMK")
+  lastInteractedAt    DateTime          @default(now())
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  customer            Customer?         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product             Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  preferredVariant    ProductVariant?   @relation(fields: [preferredVariantId], references: [id], onDelete: SetNull)
+  view                WishlistItemView?
+
+  @@unique([customerId, productId])
+  @@unique([guestTokenHash, productId])
+  @@index([customerId, lastInteractedAt(sort: Desc), id(sort: Desc)])
+  @@index([guestTokenHash, lastInteractedAt(sort: Desc), id(sort: Desc)])
+  @@index([productId])
+  @@index([preferredVariantId])
+}
+
+model WishlistItemView {
+  wishlistItemId                    String                        @id @db.Uuid
+  customerId                        String?                       @db.Uuid
+  guestTokenHash                    String?
+  productId                         String                        @db.Uuid
+  preferredVariantId                String?                       @db.Uuid
+  preferredColorValue               String?
+  preferredSizeValue                String?
+  productName                       String
+  productSlug                       String
+  primaryImageUrl                   String?
+  currentPriceAmount                Decimal                       @db.Decimal(12, 2)
+  savedPriceAmount                  Decimal                       @db.Decimal(12, 2)
+  currency                          String                        @default("MMK")
+  availabilityState                 WishlistAvailabilityState
+  preferredVariantAvailabilityState WishlistPreferredVariantState @default(NOT_SET)
+  badgeType                         WishlistBadgeType             @default(NONE)
+  lastInteractedAt                  DateTime
+  projectedAt                       DateTime                      @default(now())
+  updatedAt                         DateTime                      @updatedAt
+  wishlistItem                      WishlistItem                  @relation(fields: [wishlistItemId], references: [id], onDelete: Cascade)
+  customer                          Customer?                     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product                           Product                       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  preferredVariant                  ProductVariant?               @relation(fields: [preferredVariantId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, lastInteractedAt(sort: Desc), wishlistItemId(sort: Desc)])
+  @@index([guestTokenHash, lastInteractedAt(sort: Desc), wishlistItemId(sort: Desc)])
+  @@index([productId])
+  @@index([preferredVariantId])
+}
+
+model EventOutbox {
+  id            String    @id @default(uuid()) @db.Uuid
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  availableAt   DateTime  @default(now())
+  attempts      Int       @default(0)
+  processedAt   DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([aggregateType, aggregateId])
+  @@index([eventType, availableAt])
+  @@index([availableAt, processedAt])
+  @@index([processedAt, availableAt])
 }
