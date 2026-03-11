@@ -35,6 +35,7 @@ export type WishlistViewRepository = {
   ): Promise<WishlistProjectionSource[]>;
   listWishlistProjectionSourcesByProductId(productId: string): Promise<WishlistProjectionSource[]>;
   listWishlistProjectionSourcesByPreferredVariantId(variantId: string): Promise<WishlistProjectionSource[]>;
+  findProductIdByVariantId(variantId: string): Promise<string | null>;
   listWishlistProjectionSourcesForRebuild(params?: {
     cursor?: string | null;
     take?: number;
@@ -238,6 +239,15 @@ export const prismaWishlistViewRepository: WishlistViewRepository = {
     return rows.map(mapWishlistProjectionSource);
   },
 
+  async findProductIdByVariantId(variantId) {
+    const row = await prisma.productVariant.findUnique({
+      where: { id: variantId },
+      select: { productId: true },
+    });
+
+    return row?.productId ?? null;
+  },
+
   async listWishlistProjectionSourcesForRebuild(params) {
     const take = Math.min(Math.max(params?.take ?? 100, 1), 500);
     const rows = await prisma.wishlistItem.findMany({
@@ -255,7 +265,7 @@ export const prismaWishlistViewRepository: WishlistViewRepository = {
     const page = rows.slice(0, take).map(mapWishlistProjectionSource);
     return {
       items: page,
-      nextCursor: rows.length > take ? rows[take].id : null,
+      nextCursor: rows.length > take ? page[page.length - 1]?.wishlistItemId ?? null : null,
     };
   },
 

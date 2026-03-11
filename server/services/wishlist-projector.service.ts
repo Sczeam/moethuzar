@@ -171,7 +171,12 @@ export async function projectCatalogVariantStockChanged(
   dependencies: WishlistProjectorDependencies = defaultDependencies,
   projectedAt = new Date()
 ): Promise<number> {
-  const sources = await dependencies.repository.listWishlistProjectionSourcesByPreferredVariantId(variantId);
+  const productId = await dependencies.repository.findProductIdByVariantId(variantId);
+  if (!productId) {
+    return 0;
+  }
+
+  const sources = await dependencies.repository.listWishlistProjectionSourcesByProductId(productId);
   for (const source of sources) {
     await dependencies.repository.upsertWishlistItemView(deriveWishlistProjection(source, projectedAt));
   }

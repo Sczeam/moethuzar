@@ -62,6 +62,7 @@ function createRepository(overrides: Partial<WishlistViewRepository> = {}): Wish
     listWishlistProjectionSourcesByItemIds: vi.fn(async () => [buildSource()]),
     listWishlistProjectionSourcesByProductId: vi.fn(async () => [buildSource()]),
     listWishlistProjectionSourcesByPreferredVariantId: vi.fn(async () => [buildSource()]),
+    findProductIdByVariantId: vi.fn(async () => "product-1"),
     listWishlistProjectionSourcesForRebuild: vi.fn(async () => ({ items: [buildSource()], nextCursor: null })),
     upsertWishlistItemView: vi.fn(async () => undefined),
     deleteWishlistItemView: vi.fn(async () => undefined),
@@ -171,7 +172,7 @@ describe("rebuildWishlistItemViews", () => {
     const repository = createRepository({
       listWishlistProjectionSourcesForRebuild: vi
         .fn()
-        .mockResolvedValueOnce({ items: [buildSource()], nextCursor: "cursor-1" })
+        .mockResolvedValueOnce({ items: [buildSource()], nextCursor: "wishlist-1" })
         .mockResolvedValueOnce({ items: [buildSource({ wishlistItemId: "wishlist-2", productId: "product-2" })], nextCursor: null }),
       deleteWishlistItemViewsNotInCanonical: vi.fn(async () => 3),
     });
@@ -196,12 +197,27 @@ describe("upstream projector entry points", () => {
   });
 
   it("projects all rows affected by a preferred variant stock change", async () => {
-    const repository = createRepository();
+    const repository = createRepository({
+      findProductIdByVariantId: vi.fn(async () => "product-1"),
+      listWishlistProjectionSourcesByProductId: vi.fn(async () => [buildSource(), buildSource({ wishlistItemId: "wishlist-2" })]),
+    });
 
     const count = await projectCatalogVariantStockChanged("variant-1", { repository });
 
-    expect(count).toBe(1);
-    expect(repository.listWishlistProjectionSourcesByPreferredVariantId).toHaveBeenCalledWith("variant-1");
+    expect(count).toBe(2);
+    expect(repository.findProductIdByVariantId).toHaveBeenCalledWith("variant-1");
+    expect(repository.listWishlistProjectionSourcesByProductId).toHaveBeenCalledWith("product-1");
+  });
+
+  it("returns zero when a changed variant no longer resolves to a product", async () => {
+    const repository = createRepository({
+      findProductIdByVariantId: vi.fn(async () => null),
+    });
+
+    const count = await projectCatalogVariantStockChanged("variant-1", { repository });
+
+    expect(count).toBe(0);
+    expect(repository.upsertWishlistItemView).not.toHaveBeenCalled();
   });
 
   it("projects all rows affected by a promotion effective price change", async () => {
