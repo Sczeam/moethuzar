@@ -24,6 +24,24 @@ export type WishlistProjectionSourcePage = {
   nextCursor: string | null;
 };
 
+export type WishlistViewListItem = {
+  wishlistItemId: string;
+  productId: string;
+  productName: string;
+  productSlug: string;
+  primaryImageUrl: string | null;
+  currentPriceAmount: string;
+  savedPriceAmount: string;
+  currency: string;
+  availabilityState: "AVAILABLE" | "AVAILABLE_WITH_DISCOUNT" | "SOLD_OUT" | "ARCHIVED_PRODUCT";
+  preferredVariantAvailabilityState: "NOT_SET" | "AVAILABLE" | "UNAVAILABLE";
+  badgeType: "NONE" | "PRICE_DROP" | "LOW_STOCK" | "SOLD_OUT" | "ARCHIVED";
+  preferredVariantId: string | null;
+  preferredColorValue: string | null;
+  preferredSizeValue: string | null;
+  lastInteractedAt: Date;
+};
+
 export type WishlistViewRepository = {
   findWishlistProjectionSourceByItemId(
     wishlistItemId: string,
@@ -33,6 +51,13 @@ export type WishlistViewRepository = {
     wishlistItemIds: string[],
     tx?: Prisma.TransactionClient
   ): Promise<WishlistProjectionSource[]>;
+  listWishlistViewsByIdentity(input: {
+    identity:
+      | { kind: "customer"; customerId: string }
+      | { kind: "guest"; guestTokenHash: string };
+    cursor?: { lastInteractedAt: Date; wishlistItemId: string } | null;
+    take: number;
+  }): Promise<WishlistViewListItem[]>;
   listWishlistProjectionSourcesByProductId(productId: string): Promise<WishlistProjectionSource[]>;
   listWishlistProjectionSourcesByPreferredVariantId(variantId: string): Promise<WishlistProjectionSource[]>;
   findProductIdByVariantId(variantId: string): Promise<string | null>;
@@ -111,6 +136,30 @@ function mapWishlistProjectionSource(record: {
         price: variant.price ? variant.price.toFixed(2) : null,
       })),
     },
+  };
+}
+
+function mapWishlistViewListItem(record: {
+  wishlistItemId: string;
+  productId: string;
+  productName: string;
+  productSlug: string;
+  primaryImageUrl: string | null;
+  currentPriceAmount: Prisma.Decimal;
+  savedPriceAmount: Prisma.Decimal;
+  currency: string;
+  availabilityState: "AVAILABLE" | "AVAILABLE_WITH_DISCOUNT" | "SOLD_OUT" | "ARCHIVED_PRODUCT";
+  preferredVariantAvailabilityState: "NOT_SET" | "AVAILABLE" | "UNAVAILABLE";
+  badgeType: "NONE" | "PRICE_DROP" | "LOW_STOCK" | "SOLD_OUT" | "ARCHIVED";
+  preferredVariantId: string | null;
+  preferredColorValue: string | null;
+  preferredSizeValue: string | null;
+  lastInteractedAt: Date;
+}): WishlistViewListItem {
+  return {
+    ...record,
+    currentPriceAmount: record.currentPriceAmount.toFixed(2),
+    savedPriceAmount: record.savedPriceAmount.toFixed(2),
   };
 }
 
@@ -219,6 +268,50 @@ export const prismaWishlistViewRepository: WishlistViewRepository = {
     });
 
     return rows.map(mapWishlistProjectionSource);
+  },
+
+  async listWishlistViewsByIdentity({ identity, cursor, take }) {
+    const rows = await prisma.wishlistItemView.findMany({
+      where: {
+        ...(identity.kind === "customer"
+          ? { customerId: identity.customerId }
+          : { guestTokenHash: identity.guestTokenHash }),
+        ...(cursor
+          ? {
+              OR: [
+                { lastInteractedAt: { lt: cursor.lastInteractedAt } },
+                {
+                  AND: [
+                    { lastInteractedAt: cursor.lastInteractedAt },
+                    { wishlistItemId: { lt: cursor.wishlistItemId } },
+                  ],
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ lastInteractedAt: "desc" }, { wishlistItemId: "desc" }],
+      take,
+      select: {
+        wishlistItemId: true,
+        productId: true,
+        productName: true,
+        productSlug: true,
+        primaryImageUrl: true,
+        currentPriceAmount: true,
+        savedPriceAmount: true,
+        currency: true,
+        availabilityState: true,
+        preferredVariantAvailabilityState: true,
+        badgeType: true,
+        preferredVariantId: true,
+        preferredColorValue: true,
+        preferredSizeValue: true,
+        lastInteractedAt: true,
+      },
+    });
+
+    return rows.map(mapWishlistViewListItem);
   },
 
   async listWishlistProjectionSourcesByProductId(productId) {

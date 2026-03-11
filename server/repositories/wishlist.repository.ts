@@ -40,6 +40,10 @@ export type WishlistRepository = {
     customerId: string,
     productIds: string[]
   ): Promise<WishlistCanonicalItem[]>;
+  listItemsByIdentityAndProductIds(
+    identity: WishlistIdentity,
+    productIds: string[]
+  ): Promise<WishlistCanonicalItem[]>;
   insertOutboxEvent(tx: Prisma.TransactionClient, event: WishlistOutboxEventInput): Promise<void>;
 };
 
@@ -221,6 +225,22 @@ export const prismaWishlistRepository: WishlistRepository = {
     const rows = await tx.wishlistItem.findMany({
       where: {
         customerId,
+        productId: { in: productIds },
+      },
+      select: baseSelect(),
+    });
+
+    return rows.map(mapWishlistItem);
+  },
+
+  async listItemsByIdentityAndProductIds(identity, productIds) {
+    if (productIds.length === 0) {
+      return [];
+    }
+
+    const rows = await prisma.wishlistItem.findMany({
+      where: {
+        ...whereForIdentity(identity),
         productId: { in: productIds },
       },
       select: baseSelect(),
