@@ -12,6 +12,14 @@ const optionalTrimmedString = z
   .min(1)
   .max(100)
   .optional();
+const nullablePreferenceString = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}, z.string().max(100).nullable().optional());
 
 export const wishlistSourceSurfaceSchema = z.enum(WISHLIST_SOURCE_SURFACES);
 
@@ -25,8 +33,8 @@ export const createWishlistItemSchema = z.object({
 
 export const updateWishlistPreferencesSchema = z.object({
   preferredVariantId: uuid.nullable().optional(),
-  preferredColorValue: z.string().trim().max(100).nullable().optional(),
-  preferredSizeValue: z.string().trim().max(100).nullable().optional(),
+  preferredColorValue: nullablePreferenceString,
+  preferredSizeValue: nullablePreferenceString,
   sourceSurface: wishlistSourceSurfaceSchema.optional(),
 });
 
