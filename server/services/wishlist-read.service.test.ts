@@ -26,6 +26,7 @@ function createDependencies() {
 
   const viewRepository: WishlistViewRepository = {
     findWishlistProjectionSourceByItemId: vi.fn(),
+    findWishlistOutboxEventById: vi.fn(),
     listWishlistProjectionSourcesByItemIds: vi.fn(),
     listWishlistViewsByIdentity: vi.fn(async () => []),
     listWishlistProjectionSourcesByProductId: vi.fn(),

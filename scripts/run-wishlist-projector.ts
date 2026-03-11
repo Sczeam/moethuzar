@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { prisma } from "../lib/prisma";
+import { logInfo } from "../lib/observability";
 import { processPendingWishlistOutboxEvents } from "../server/services/wishlist-projector.service";
 
 function readFlag(args: string[], flag: string) {
@@ -16,7 +17,17 @@ async function main() {
     throw new Error("--limit must be a positive integer");
   }
 
+  logInfo({
+    event: "wishlist.replay.started",
+    limit: limit ?? null,
+  });
   const result = await processPendingWishlistOutboxEvents({ limit });
+  logInfo({
+    event: "wishlist.replay.completed",
+    processedCount: result.processedCount,
+    succeededCount: result.succeededCount,
+    failedCount: result.failedCount,
+  });
 
   console.log("Wishlist projector run complete");
   console.table(result);

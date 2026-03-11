@@ -3,6 +3,7 @@ import { WishlistBadgeType } from "@prisma/client";
 import type { WishlistProjectionSource } from "@/server/domain/wishlist-view";
 import {
   processPendingWishlistOutboxEvents,
+  processWishlistOutboxEventById,
   rebuildWishlistItemViews,
   projectCatalogProductUpdated,
   projectCatalogVariantStockChanged,
@@ -59,6 +60,7 @@ function buildEvent(overrides: Partial<WishlistProjectionOutboxEvent> = {}): Wis
 function createRepository(overrides: Partial<WishlistViewRepository> = {}): WishlistViewRepository {
   return {
     findWishlistProjectionSourceByItemId: vi.fn(async () => buildSource()),
+    findWishlistOutboxEventById: vi.fn(async () => buildEvent()),
     listWishlistProjectionSourcesByItemIds: vi.fn(async () => [buildSource()]),
     listWishlistViewsByIdentity: vi.fn(async () => []),
     listWishlistProjectionSourcesByProductId: vi.fn(async () => [buildSource()]),
@@ -165,6 +167,42 @@ describe("processPendingWishlistOutboxEvents", () => {
       "boom",
       new Date(now.getTime() + 60_000)
     );
+  });
+});
+
+describe("processWishlistOutboxEventById", () => {
+  it("processes a single outbox event by id", async () => {
+    const repository = createRepository();
+
+    const result = await processWishlistOutboxEventById("event-1", undefined, { repository });
+
+    expect(result).toEqual({ status: "processed", eventId: "event-1" });
+    expect(repository.findWishlistOutboxEventById).toHaveBeenCalledWith("event-1");
+    expect(repository.markOutboxEventProcessed).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats already processed events as a no-op", async () => {
+    const repository = createRepository({
+      findWishlistOutboxEventById: vi.fn(async () =>
+        buildEvent({ processedAt: new Date("2026-03-11T12:00:00.000Z") })
+      ),
+    });
+
+    const result = await processWishlistOutboxEventById("event-1", undefined, { repository });
+
+    expect(result).toEqual({ status: "already_processed", eventId: "event-1" });
+    expect(repository.upsertWishlistItemView).not.toHaveBeenCalled();
+    expect(repository.markOutboxEventProcessed).not.toHaveBeenCalled();
+  });
+
+  it("returns not_found when the outbox row no longer exists", async () => {
+    const repository = createRepository({
+      findWishlistOutboxEventById: vi.fn(async () => null),
+    });
+
+    const result = await processWishlistOutboxEventById("missing-event", undefined, { repository });
+
+    expect(result).toEqual({ status: "not_found", eventId: "missing-event" });
   });
 });
 

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { prisma } from "../lib/prisma";
+import { logInfo } from "../lib/observability";
 import { rebuildWishlistItemViews } from "../server/services/wishlist-projector.service";
 
 function readFlag(args: string[], flag: string) {
@@ -16,7 +17,16 @@ async function main() {
     throw new Error("--batch-size must be a positive integer");
   }
 
+  logInfo({
+    event: "wishlist.rebuild.started",
+    batchSize: batchSize ?? null,
+  });
   const result = await rebuildWishlistItemViews({ batchSize });
+  logInfo({
+    event: "wishlist.rebuild.completed",
+    rebuiltCount: result.rebuiltCount,
+    deletedOrphanCount: result.deletedOrphanCount,
+  });
 
   console.log("Wishlist view rebuild complete");
   console.table(result);

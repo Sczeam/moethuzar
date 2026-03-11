@@ -44,7 +44,10 @@ export type WishlistRepository = {
     identity: WishlistIdentity,
     productIds: string[]
   ): Promise<WishlistCanonicalItem[]>;
-  insertOutboxEvent(tx: Prisma.TransactionClient, event: WishlistOutboxEventInput): Promise<void>;
+  insertOutboxEvent(
+    tx: Prisma.TransactionClient,
+    event: WishlistOutboxEventInput
+  ): Promise<{ id: string; eventType: string; aggregateId: string; payload: Record<string, unknown> }>;
 };
 
 function mapWishlistItem(record: {
@@ -250,7 +253,7 @@ export const prismaWishlistRepository: WishlistRepository = {
   },
 
   async insertOutboxEvent(tx, event) {
-    await tx.eventOutbox.create({
+    const row = await tx.eventOutbox.create({
       data: {
         aggregateType: event.aggregateType,
         aggregateId: event.aggregateId,
@@ -258,6 +261,19 @@ export const prismaWishlistRepository: WishlistRepository = {
         payload: event.payload as Prisma.InputJsonValue,
         availableAt: event.availableAt ?? new Date(),
       },
+      select: {
+        id: true,
+        eventType: true,
+        aggregateId: true,
+        payload: true,
+      },
     });
+
+    return {
+      id: row.id,
+      eventType: row.eventType,
+      aggregateId: row.aggregateId,
+      payload: row.payload as Record<string, unknown>,
+    };
   },
 };

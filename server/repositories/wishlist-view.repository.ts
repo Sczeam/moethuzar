@@ -47,6 +47,7 @@ export type WishlistViewRepository = {
     wishlistItemId: string,
     tx?: Prisma.TransactionClient
   ): Promise<WishlistProjectionSource | null>;
+  findWishlistOutboxEventById(eventId: string): Promise<WishlistProjectionOutboxEvent | null>;
   listWishlistProjectionSourcesByItemIds(
     wishlistItemIds: string[],
     tx?: Prisma.TransactionClient
@@ -255,6 +256,14 @@ export const prismaWishlistViewRepository: WishlistViewRepository = {
     });
 
     return row ? mapWishlistProjectionSource(row) : null;
+  },
+
+  async findWishlistOutboxEventById(eventId) {
+    const row = await prisma.eventOutbox.findUnique({
+      where: { id: eventId },
+    });
+
+    return row ? mapOutboxEvent(row) : null;
   },
 
   async listWishlistProjectionSourcesByItemIds(wishlistItemIds, tx) {

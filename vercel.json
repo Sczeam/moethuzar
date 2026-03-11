@@ -1,0 +1,9 @@
+{
+  "triggers": [
+    {
+      "type": "queue/v2beta",
+      "queue": "wishlist-projector",
+      "path": "/api/queues/wishlist-projector"
+    }
+  ]
+}
