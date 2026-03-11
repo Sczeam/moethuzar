@@ -54,6 +54,103 @@ const defaultDependencies: WishlistWriteServiceDependencies = {
   repository: prismaWishlistRepository,
 };
 
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
+async function createOrResolveExistingWishlistItem(params: {
+  tx: Parameters<WishlistRepository["findItemByIdentityAndProduct"]>[0];
+  command: WishlistSaveCommand;
+  existing: WishlistCanonicalItem | null;
+  itemData: ReturnType<typeof buildWishlistCreateInput>;
+  repository: WishlistRepository;
+}): Promise<{ item: WishlistCanonicalItem; created: boolean }> {
+  if (params.existing) {
+    const item = await params.repository.updateWishlistItem(params.tx, params.existing.id, params.itemData);
+    return { item, created: false };
+  }
+
+  try {
+    const item = await params.repository.createWishlistItem(
+      params.tx,
+      toCreateData(params.command, params.itemData)
+    );
+    return { item, created: true };
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+
+    const concurrentExisting = await params.repository.findItemByIdentityAndProduct(
+      params.tx,
+      params.command.identity,
+      params.command.productId
+    );
+    if (!concurrentExisting) {
+      throw error;
+    }
+
+    const item = await params.repository.updateWishlistItem(
+      params.tx,
+      concurrentExisting.id,
+      params.itemData
+    );
+    return { item, created: false };
+  }
+}
+
+async function transferOrDeduplicateGuestItem(params: {
+  tx: Parameters<WishlistRepository["findItemByIdentityAndProduct"]>[0];
+  guestItem: WishlistCanonicalItem;
+  customerId: string;
+  customerByProductId: Map<string, WishlistCanonicalItem>;
+  now: Date;
+  repository: WishlistRepository;
+}): Promise<"transferred" | "deduplicated"> {
+  try {
+    const transferred = await params.repository.updateWishlistItem(params.tx, params.guestItem.id, {
+      customerId: params.customerId,
+      guestTokenHash: null,
+      lastInteractedAt:
+        params.guestItem.lastInteractedAt > params.now ? params.guestItem.lastInteractedAt : params.now,
+    });
+    params.customerByProductId.set(params.guestItem.productId, transferred);
+    return "transferred";
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+
+    const [concurrentCustomerItem] = await params.repository.listCustomerItemsByProductIds(
+      params.tx,
+      params.customerId,
+      [params.guestItem.productId]
+    );
+    if (!concurrentCustomerItem) {
+      throw error;
+    }
+
+    const mergedData = mergeWishlistItems({
+      customerItem: concurrentCustomerItem,
+      guestItem: params.guestItem,
+    });
+
+    const updatedCustomer = await params.repository.updateWishlistItem(
+      params.tx,
+      concurrentCustomerItem.id,
+      mergedData
+    );
+    await params.repository.deleteWishlistItem(params.tx, params.guestItem.id);
+    params.customerByProductId.set(params.guestItem.productId, updatedCustomer);
+    return "deduplicated";
+  }
+}
+
 export async function saveWishlistItem(
   command: WishlistSaveCommand,
   dependencies: WishlistWriteServiceDependencies = defaultDependencies
@@ -97,9 +194,13 @@ export async function saveWishlistItem(
       now,
     });
 
-    const item = existing
-      ? await dependencies.repository.updateWishlistItem(tx, existing.id, itemData)
-      : await dependencies.repository.createWishlistItem(tx, toCreateData(command, itemData));
+    const { item, created } = await createOrResolveExistingWishlistItem({
+      tx,
+      command,
+      existing,
+      itemData,
+      repository: dependencies.repository,
+    });
 
     await dependencies.repository.insertOutboxEvent(
       tx,
@@ -119,14 +220,14 @@ export async function saveWishlistItem(
           savedPriceAmount: item.savedPriceAmount,
           savedCurrency: item.savedCurrency,
           lastInteractedAt: item.lastInteractedAt.toISOString(),
-          created: !existing,
+          created,
         },
       })
     );
 
     return {
       item,
-      created: !existing,
+      created,
     };
   });
 }
@@ -265,14 +366,25 @@ export async function mergeGuestWishlistIntoCustomer(
       const existingCustomerItem = customerByProductId.get(guestItem.productId);
 
       if (!existingCustomerItem) {
-        const transferred = await dependencies.repository.updateWishlistItem(tx, guestItem.id, {
+        const result = await transferOrDeduplicateGuestItem({
+          tx,
+          guestItem,
           customerId: command.customerId,
-          guestTokenHash: null,
-          lastInteractedAt: guestItem.lastInteractedAt > now ? guestItem.lastInteractedAt : now,
+          customerByProductId,
+          now,
+          repository: dependencies.repository,
         });
-        customerByProductId.set(guestItem.productId, transferred);
-        transferredCount += 1;
-        mergedItemIds.add(transferred.id);
+        const resolvedCustomerItem = customerByProductId.get(guestItem.productId);
+        if (!resolvedCustomerItem) {
+          throw new AppError("Wishlist merge failed to resolve customer item.", 500, "WISHLIST_MERGE_FAILED");
+        }
+        if (result === "transferred") {
+          transferredCount += 1;
+        } else {
+          deduplicatedCount += 1;
+          removedGuestItemIds.push(guestItem.id);
+        }
+        mergedItemIds.add(resolvedCustomerItem.id);
         continue;
       }
 

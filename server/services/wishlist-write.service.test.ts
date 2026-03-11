@@ -152,6 +152,34 @@ describe("wishlist-write.service", () => {
     );
   });
 
+  it("handles concurrent create conflicts by treating the item as already saved", async () => {
+    repository.getProductSnapshotForSave.mockResolvedValue(makeProduct());
+    repository.findItemByIdentityAndProduct
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(makeItem());
+    repository.createWishlistItem.mockRejectedValueOnce({ code: "P2002" });
+    repository.updateWishlistItem.mockResolvedValue(makeItem({ lastInteractedAt: now }));
+
+    const result = await saveWishlistItem(
+      {
+        identity: makeIdentity("customer"),
+        productId: "product-1",
+        now,
+      },
+      { repository: repository as unknown as WishlistRepository }
+    );
+
+    expect(result.created).toBe(false);
+    expect(repository.findItemByIdentityAndProduct).toHaveBeenCalledTimes(2);
+    expect(repository.updateWishlistItem).toHaveBeenCalledWith(
+      expect.anything(),
+      "wishlist-item-1",
+      expect.objectContaining({
+        savedPriceAmount: "15000.00",
+      })
+    );
+  });
+
   it("returns removed false when removing a product that is not saved", async () => {
     repository.findItemByIdentityAndProduct.mockResolvedValue(null);
 
@@ -284,6 +312,61 @@ describe("wishlist-write.service", () => {
       expect.anything(),
       expect.objectContaining({ eventType: "wishlist.identity.merged" })
     );
+  });
+
+  it("deduplicates when transfer hits a unique constraint race", async () => {
+    repository.listGuestItems.mockResolvedValue([
+      makeItem({
+        id: "guest-race",
+        customerId: null,
+        guestTokenHash: "guest-hash-1",
+        productId: "product-race",
+        preferredVariantId: "variant-race",
+        preferredColorValue: "White",
+        preferredSizeValue: "S",
+        sourceSurface: "PLP",
+        lastInteractedAt: new Date("2026-03-11T11:45:00.000Z"),
+      }),
+    ]);
+    repository.listCustomerItemsByProductIds
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        makeItem({
+          id: "customer-race",
+          productId: "product-race",
+          preferredVariantId: null,
+          preferredColorValue: "Black",
+          preferredSizeValue: null,
+          sourceSurface: null,
+          lastInteractedAt: new Date("2026-03-11T10:00:00.000Z"),
+        }),
+      ]);
+    repository.updateWishlistItem
+      .mockRejectedValueOnce({ code: "P2002" })
+      .mockResolvedValueOnce(
+        makeItem({
+          id: "customer-race",
+          productId: "product-race",
+          preferredVariantId: "variant-race",
+          preferredColorValue: "Black",
+          preferredSizeValue: "S",
+          sourceSurface: "PLP",
+          lastInteractedAt: new Date("2026-03-11T11:45:00.000Z"),
+        })
+      );
+
+    const result = await mergeGuestWishlistIntoCustomer(
+      {
+        customerId: "customer-1",
+        guestTokenHash: "guest-hash-1",
+        now,
+      },
+      { repository: repository as unknown as WishlistRepository }
+    );
+
+    expect(result).toEqual({ mergedCount: 1, transferredCount: 0, deduplicatedCount: 1 });
+    expect(repository.listCustomerItemsByProductIds).toHaveBeenCalledTimes(2);
+    expect(repository.deleteWishlistItem).toHaveBeenCalledWith(expect.anything(), "guest-race");
   });
 
   it("rejects inactive products and missing variants", async () => {
