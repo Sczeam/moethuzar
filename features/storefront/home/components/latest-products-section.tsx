@@ -1,12 +1,12 @@
 import Link from "next/link";
 import ProductListEmptyState from "@/components/storefront/product-list-empty-state";
 import ProductListErrorState from "@/components/storefront/product-list-error-state";
-import ProductCard from "@/features/storefront/home/components/product-card";
 import {
   mapProductToCardData,
   type StorefrontProductCardData,
 } from "@/features/storefront/home/lib/product-card-data";
 import type { StorefrontHomeData } from "@/features/storefront/home/types";
+import { WishlistProductGrid } from "@/features/storefront/wishlist/components/wishlist-product-grid";
 
 type LatestProductsSectionProps = {
   data: StorefrontHomeData;
@@ -58,11 +58,7 @@ export default function LatestProductsSection({ data }: LatestProductsSectionPro
         <ProductListEmptyState />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-0 lg:grid-cols-3 md:border md:border-sepia-border">
-            {productsForCards.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <WishlistProductGrid products={productsForCards} sourceSurface="PLP" />
 
           {data.pagination.totalPages > 1 ? (
             <>

@@ -1,9 +1,9 @@
 import Link from "next/link";
-import ProductCard from "@/features/storefront/home/components/product-card";
 import {
   mapProductToCardData,
   type StorefrontProductCardData,
 } from "@/features/storefront/home/lib/product-card-data";
+import { WishlistProductGrid } from "@/features/storefront/wishlist/components/wishlist-product-grid";
 import { searchActiveProducts } from "@/server/services/product.service";
 import {
   searchProductsQuerySchema,
@@ -418,11 +418,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           ) : null}
 
           {result.products.length > 0 ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-0 lg:grid-cols-3 md:border md:border-sepia-border">
-              {productsForCards.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <WishlistProductGrid products={productsForCards} sourceSurface="SEARCH" />
           ) : (
             <div className="vintage-panel border-dashed p-8">
               <h2 className="text-xl font-semibold text-ink">No products found</h2>
