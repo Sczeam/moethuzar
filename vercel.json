@@ -1,9 +1,12 @@
 {
-  "triggers": [
-    {
-      "type": "queue/v2beta",
-      "queue": "wishlist-projector",
-      "path": "/api/queues/wishlist-projector"
+  "functions": {
+    "app/api/queues/wishlist-projector/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "wishlist-projector"
+        }
+      ]
     }
-  ]
+  }
 }
