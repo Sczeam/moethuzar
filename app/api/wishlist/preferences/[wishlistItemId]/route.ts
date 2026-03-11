@@ -49,6 +49,6 @@ export async function PATCH(
 
     return response;
   } catch (error) {
-    return routeErrorResponse(error, { request, route: "api/wishlist/items/[wishlistItemId]/preferences#PATCH" });
+    return routeErrorResponse(error, { request, route: "api/wishlist/preferences/[wishlistItemId]#PATCH" });
   }
 }

@@ -8,9 +8,18 @@ import {
   getProductCardStockState,
   type StorefrontProductCardData,
 } from "@/features/storefront/home/lib/product-card-data";
+import { WishlistHeartButton } from "@/features/storefront/wishlist/components/wishlist-heart-button";
+import { useWishlistToggle } from "@/features/storefront/wishlist/hooks/use-wishlist-toggle";
+import type {
+  WishlistSourceSurface,
+  WishlistStatusItem,
+} from "@/features/storefront/wishlist/types";
 
 type ProductCardProps = {
   product: StorefrontProductCardData;
+  sourceSurface?: WishlistSourceSurface;
+  wishlistStatus?: WishlistStatusItem | null;
+  onWishlistStatusChange?: (status: WishlistStatusItem) => void;
 };
 
 type ColorOption = {
@@ -65,7 +74,12 @@ function buildColorOptions(product: StorefrontProductCardData): ColorOption[] {
   });
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  sourceSurface = "PLP",
+  wishlistStatus = null,
+  onWishlistStatusChange,
+}: ProductCardProps) {
   const router = useRouter();
 
   const colorOptions = useMemo(() => buildColorOptions(product), [product]);
@@ -85,6 +99,12 @@ export default function ProductCard({ product }: ProductCardProps) {
   const activeColor = hoverColor ?? selectedColor;
   const selectedColorOption = colorOptions.find((option) => option.color === activeColor);
   const selectedColorImage = selectedColorOption?.previewImageUrl ?? null;
+  const wishlist = useWishlistToggle({
+    productId: product.id,
+    initialStatus: wishlistStatus,
+    sourceSurface,
+    onStatusChange: onWishlistStatusChange,
+  });
 
   const cover = selectedColorImage ?? defaultCover;
   const hoverImage = selectedColorImage ? null : defaultHover;
@@ -117,9 +137,23 @@ export default function ProductCard({ product }: ProductCardProps) {
       }`}
     >
       <div className="relative aspect-[4/5] bg-parchment">
-        <span className={`absolute left-2 top-2 z-20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${stockClass}`}>
-          {stockLabel}
-        </span>
+        <div className="absolute inset-x-0 top-0 z-30 flex items-start justify-between p-2.5 sm:p-3">
+          <span
+            className={`pointer-events-none px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${stockClass}`}
+          >
+            {stockLabel}
+          </span>
+          <WishlistHeartButton
+            saved={wishlist.status.saved}
+            pending={wishlist.pending}
+            onToggle={() => void wishlist.toggle()}
+            ariaLabel={
+              wishlist.status.saved
+                ? `Remove ${product.name} from favourites`
+                : `Save ${product.name} to favourites`
+            }
+          />
+        </div>
         {cover ? (
           <>
             <Image
@@ -184,6 +218,12 @@ export default function ProductCard({ product }: ProductCardProps) {
             </span>
           ) : null}
         </div>
+
+        {wishlist.errorText ? (
+          <p className="mt-2 text-xs text-seal-wax" aria-live="polite">
+            {wishlist.errorText}
+          </p>
+        ) : null}
       </div>
     </article>
   );

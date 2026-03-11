@@ -2,6 +2,9 @@
 
 import gsap from "gsap";
 import { IconClose } from "@/components/layout/header/icons";
+import { WishlistHeartButton } from "@/features/storefront/wishlist/components/wishlist-heart-button";
+import { useWishlistStatus } from "@/features/storefront/wishlist/hooks/use-wishlist-status";
+import { useWishlistToggle } from "@/features/storefront/wishlist/hooks/use-wishlist-toggle";
 import { formatMoney } from "@/lib/format";
 import { NAV_MENU_ANIMATION } from "@/lib/animations/nav-menu";
 import { buildProductGalleryImages } from "@/lib/storefront/product-gallery";
@@ -102,6 +105,16 @@ export default function ProductView({ product }: ProductViewProps) {
   const mobilePurchaseCurrentYRef = useRef(0);
   const mobilePurchaseDragStartYRef = useRef(0);
   const mobilePurchaseDragStartOffsetRef = useRef(0);
+  const { statusByProductId, setProductWishlistStatus } = useWishlistStatus([
+    product.id,
+  ]);
+  const wishlistStatus = statusByProductId[product.id] ?? null;
+  const wishlist = useWishlistToggle({
+    productId: product.id,
+    initialStatus: wishlistStatus,
+    sourceSurface: "PDP",
+    onStatusChange: (status) => setProductWishlistStatus(product.id, status),
+  });
 
   const selectedVariant = useMemo(() => {
     const exact = product.variants.find((variant) => {
@@ -512,6 +525,12 @@ export default function ProductView({ product }: ProductViewProps) {
     </div>
   );
 
+  const wishlistPreferences = {
+    preferredVariantId: selectedVariant?.id ?? null,
+    preferredColorValue: selectedColor ?? null,
+    preferredSizeValue: selectedSize ?? null,
+  };
+
   return (
     <main className="mx-auto w-full max-w-[1900px] px-0">
       <h1 className="sr-only">{product.name}</h1>
@@ -519,6 +538,17 @@ export default function ProductView({ product }: ProductViewProps) {
         <section className="relative bg-paper-light lg:border-r lg:border-sepia-border/70">
           {galleryImages.length > 0 ? (
             <div className={isOutOfStock ? "grayscale" : ""}>
+              <WishlistHeartButton
+                saved={wishlist.status.saved}
+                pending={wishlist.pending}
+                onToggle={() => void wishlist.toggle(wishlistPreferences)}
+                className="absolute right-3 top-3 z-20 sm:right-4 sm:top-4"
+                ariaLabel={
+                  wishlist.status.saved
+                    ? `Remove ${product.name} from favourites`
+                    : `Save ${product.name} to favourites`
+                }
+              />
               {galleryImages.map((image, index) => (
                 <div
                   key={`${image.id}-${index}`}
@@ -663,6 +693,12 @@ export default function ProductView({ product }: ProductViewProps) {
                   aria-live="polite"
                 >
                   {status.text}
+                </p>
+              ) : null}
+
+              {wishlist.errorText ? (
+                <p className="text-sm text-seal-wax" aria-live="polite">
+                  {wishlist.errorText}
                 </p>
               ) : null}
 
@@ -924,6 +960,12 @@ export default function ProductView({ product }: ProductViewProps) {
                 ? "Adding..."
                 : "Add to shopping bag"}
           </button>
+
+          {wishlist.errorText ? (
+            <p className="mt-3 text-sm text-seal-wax" aria-live="polite">
+              {wishlist.errorText}
+            </p>
+          ) : null}
 
           <div className="mt-5 space-y-1 text-sm text-charcoal">
             <button

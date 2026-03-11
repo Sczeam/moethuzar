@@ -23,6 +23,9 @@ export default async function AccountPage() {
           <Link href="/account/orders" className="btn-primary">
             My Orders
           </Link>
+          <Link href="/account/wishlist" className="btn-secondary">
+            My Favourites
+          </Link>
           <Link href="/order/track" className="btn-secondary">
             Track Order
           </Link>
