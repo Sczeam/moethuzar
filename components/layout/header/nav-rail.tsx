@@ -70,16 +70,14 @@ export function HeaderNavRail({
           >
             Contact
           </button>
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            aria-label="Favourites (coming soon)"
-            title="Favourites (coming soon)"
-            className="hidden h-11 w-11 items-center justify-center text-charcoal/55 sm:inline-flex"
+          <Link
+            href={accountUser ? "/account/wishlist" : "/account/login?next=%2Faccount%2Fwishlist"}
+            aria-label={accountUser ? "Open favourites" : "Sign in to view favourites"}
+            title={accountUser ? "My favourites" : "Sign in / create account to save favourites"}
+            className="hidden h-11 w-11 items-center justify-center text-ink transition hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-antique-brass sm:inline-flex"
           >
             <IconHeart />
-          </button>
+          </Link>
           <Link
             href={accountUser ? "/account" : "/account/login?next=%2Faccount"}
             aria-label={accountUser ? "Open account" : "Sign in to account"}

@@ -166,15 +166,13 @@ export function HeaderNavPanel({
           >
             {accountUser ? "My Account" : "Sign In / Create Account"}
           </Link>
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            title="Coming soon"
-            className="inline-flex min-h-9 items-center justify-start text-sm uppercase tracking-[0.08em] text-charcoal/55"
+          <Link
+            href={accountUser ? "/account/wishlist" : "/account/login?next=%2Faccount%2Fwishlist"}
+            onClick={onClose}
+            className="inline-flex min-h-9 items-center justify-start text-sm uppercase tracking-[0.08em] text-ink transition hover:text-teak-brown"
           >
             Favourites
-          </button>
+          </Link>
         </div>
       </div>
 

@@ -141,7 +141,7 @@ export default function ProductCard({
           saved={wishlist.status.saved}
           pending={wishlist.pending}
           onToggle={() => void wishlist.toggle()}
-          className="absolute right-2 top-2 z-20"
+          className="absolute left-auto right-3 top-3 z-30"
           ariaLabel={
             wishlist.status.saved
               ? `Remove ${product.name} from favourites`
