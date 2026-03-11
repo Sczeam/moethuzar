@@ -30,7 +30,10 @@ vi.mock("@/lib/observability", () => ({
   logError: mocks.logError,
 }));
 
-import { resolveCustomerFromSession } from "@/server/auth/customer-identity";
+import {
+  resolveCustomerFromAuthUser,
+  resolveCustomerFromSession,
+} from "@/server/auth/customer-identity";
 
 describe("resolveCustomerFromSession", () => {
   beforeEach(() => {
@@ -124,5 +127,26 @@ describe("resolveCustomerFromSession", () => {
       reason: "CUSTOMER_LOOKUP_FAILED",
     });
     expect(mocks.logError).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves a customer directly from auth user input", async () => {
+    mocks.upsert.mockResolvedValueOnce({
+      id: "5f0f0cb7-965d-4fd9-ac55-4d3acdc5e6f4",
+      authUserId: "99e6dd34-9543-48e2-bf18-1844fca41453",
+      email: "aye@example.com",
+    });
+
+    await expect(
+      resolveCustomerFromAuthUser({
+        authUserId: "99e6dd34-9543-48e2-bf18-1844fca41453",
+        email: "Aye@Example.com",
+        requestId: "req-1",
+      })
+    ).resolves.toEqual({
+      kind: "customer",
+      customerId: "5f0f0cb7-965d-4fd9-ac55-4d3acdc5e6f4",
+      authUserId: "99e6dd34-9543-48e2-bf18-1844fca41453",
+      email: "aye@example.com",
+    });
   });
 });

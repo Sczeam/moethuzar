@@ -6,6 +6,12 @@ export type ResolveCustomerFromSessionInput = {
   requestId?: string | null;
 };
 
+export type ResolveCustomerFromAuthUserInput = {
+  authUserId: string;
+  email: string | null | undefined;
+  requestId?: string | null;
+};
+
 export type ResolvedCustomerIdentity =
   | {
       kind: "customer";
@@ -81,6 +87,86 @@ async function upsertCustomerIdentity(authUserId: string, email: string) {
   }
 }
 
+export async function resolveCustomerFromAuthUser(
+  input: ResolveCustomerFromAuthUserInput
+): Promise<ResolvedCustomerIdentity> {
+  const email = normalizeEmail(input.email);
+
+  if (!email) {
+    logWarn({
+      event: "customer_identity.missing_email",
+      requestId: input.requestId ?? null,
+      authUserId: input.authUserId,
+    });
+    return {
+      kind: "guest",
+      customerId: null,
+      authUserId: null,
+      email: null,
+      reason: "MISSING_EMAIL",
+    };
+  }
+
+  try {
+    const customer = await upsertCustomerIdentity(input.authUserId, email);
+
+    if (customer === "IDENTITY_CONFLICT") {
+      logWarn({
+        event: "customer_identity.conflict",
+        requestId: input.requestId ?? null,
+        authUserId: input.authUserId,
+      });
+      return {
+        kind: "guest",
+        customerId: null,
+        authUserId: null,
+        email: null,
+        reason: "IDENTITY_CONFLICT",
+      };
+    }
+
+    if (!customer) {
+      logWarn({
+        event: "customer_identity.lookup_failed",
+        requestId: input.requestId ?? null,
+        authUserId: input.authUserId,
+      });
+      return {
+        kind: "guest",
+        customerId: null,
+        authUserId: null,
+        email: null,
+        reason: "CUSTOMER_LOOKUP_FAILED",
+      };
+    }
+
+    return {
+      kind: "customer",
+      customerId: customer.id,
+      authUserId: customer.authUserId,
+      email: customer.email,
+    };
+  } catch (error) {
+    logError({
+      event: "customer_identity.resolution_failed",
+      requestId: input.requestId ?? null,
+      authUserId: input.authUserId,
+      code:
+        typeof error === "object" && error !== null && "code" in error
+          ? (error as { code?: string }).code ?? null
+          : null,
+    });
+
+    return {
+      kind: "guest",
+      customerId: null,
+      authUserId: null,
+      email: null,
+      reason: "CUSTOMER_LOOKUP_FAILED",
+    };
+  }
+}
+
 export async function resolveCustomerFromSession(
   input: ResolveCustomerFromSessionInput = {}
 ): Promise<ResolvedCustomerIdentity> {
@@ -112,80 +198,9 @@ export async function resolveCustomerFromSession(
     };
   }
 
-  const authUserId = data.user.id;
-  const email = normalizeEmail(data.user.email);
-
-  if (!email) {
-    logWarn({
-      event: "customer_identity.missing_email",
-      requestId: input.requestId ?? null,
-      authUserId,
-    });
-    return {
-      kind: "guest",
-      customerId: null,
-      authUserId: null,
-      email: null,
-      reason: "MISSING_EMAIL",
-    };
-  }
-
-  try {
-    const customer = await upsertCustomerIdentity(authUserId, email);
-
-    if (customer === "IDENTITY_CONFLICT") {
-      logWarn({
-        event: "customer_identity.conflict",
-        requestId: input.requestId ?? null,
-        authUserId,
-      });
-      return {
-        kind: "guest",
-        customerId: null,
-        authUserId: null,
-        email: null,
-        reason: "IDENTITY_CONFLICT",
-      };
-    }
-
-    if (!customer) {
-      logWarn({
-        event: "customer_identity.lookup_failed",
-        requestId: input.requestId ?? null,
-        authUserId,
-      });
-      return {
-        kind: "guest",
-        customerId: null,
-        authUserId: null,
-        email: null,
-        reason: "CUSTOMER_LOOKUP_FAILED",
-      };
-    }
-
-    return {
-      kind: "customer",
-      customerId: customer.id,
-      authUserId: customer.authUserId,
-      email: customer.email,
-    };
-  } catch (error) {
-    logError({
-      event: "customer_identity.resolution_failed",
-      requestId: input.requestId ?? null,
-      authUserId,
-      code:
-        typeof error === "object" && error !== null && "code" in error
-          ? (error as { code?: string }).code ?? null
-          : null,
-    });
-
-    return {
-      kind: "guest",
-      customerId: null,
-      authUserId: null,
-      email: null,
-      reason: "CUSTOMER_LOOKUP_FAILED",
-    };
-  }
+  return resolveCustomerFromAuthUser({
+    authUserId: data.user.id,
+    email: data.user.email,
+    requestId: input.requestId ?? null,
+  });
 }

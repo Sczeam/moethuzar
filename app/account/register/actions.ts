@@ -7,12 +7,13 @@ import { type AccountRegisterActionState } from "@/app/account/register/state";
 import { isNextRedirectError } from "@/server/auth/action-errors";
 import { mapAuthActionError } from "@/server/auth/auth-action-error";
 import { AUTH_COPY_BY_CODE } from "@/server/auth/auth-copy";
+import { sanitizeNextPath } from "@/server/auth/redirect";
 import { registerWithEmailPassword } from "@/server/auth/auth-recovery.service";
 import { authActionFailure } from "@/server/contracts/action-result";
 import { logAuthFailureEvent } from "@/server/observability/auth-events";
-import { sanitizeNextPath } from "@/server/auth/redirect";
 import { getRequestIdFromHeaders } from "@/server/security/request-id";
 import { rateLimitOrResponse } from "@/server/security/rate-limit";
+import { mergeWishlistAfterCustomerAuth } from "@/server/services/wishlist-auth-merge.service";
 
 const registerSchema = z
   .object({
@@ -64,9 +65,16 @@ export async function accountRegisterAction(
       nextPath: formData.get("nextPath"),
     });
 
-    await registerWithEmailPassword({
+    const registeredUser = await registerWithEmailPassword({
       email: parsed.email,
       password: parsed.password,
+    });
+
+    await mergeWishlistAfterCustomerAuth({
+      requestHeaders: reqHeaders,
+      requestId,
+      authUserId: registeredUser.userId,
+      email: parsed.email,
     });
 
     redirect(sanitizeNextPath(parsed.nextPath, "/account"));
@@ -85,4 +93,3 @@ export async function accountRegisterAction(
     return authActionFailure(requestId, mapped.code, mapped.message);
   }
 }
-
