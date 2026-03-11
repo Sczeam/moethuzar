@@ -104,6 +104,53 @@ describe("wishlist queue consumer route", () => {
     expect(mocks.processWishlistOutboxEventById).not.toHaveBeenCalled();
   });
 
+  it("does not require signing keys when qstash processing is disabled", async () => {
+    process.env.WISHLIST_QSTASH_ENABLED = "false";
+    delete process.env.QSTASH_CURRENT_SIGNING_KEY;
+    delete process.env.QSTASH_NEXT_SIGNING_KEY;
+
+    const response = await POST(
+      new Request("http://localhost/api/queues/wishlist-projector", {
+        method: "POST",
+        body: JSON.stringify({
+          eventOutboxId: "event-1",
+          eventType: "wishlist.item.saved",
+          aggregateId: "wishlist-1",
+        }),
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    expect(response.status).toBe(202);
+    expect(mocks.processWishlistOutboxEventById).not.toHaveBeenCalled();
+  });
+
+  it("returns a misconfiguration error when qstash is enabled without signing keys", async () => {
+    delete process.env.QSTASH_CURRENT_SIGNING_KEY;
+    delete process.env.QSTASH_NEXT_SIGNING_KEY;
+
+    const response = await POST(
+      new Request("http://localhost/api/queues/wishlist-projector", {
+        method: "POST",
+        body: JSON.stringify({
+          eventOutboxId: "event-1",
+          eventType: "wishlist.item.saved",
+          aggregateId: "wishlist-1",
+        }),
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    expect(response.status).toBe(500);
+    expect(mocks.processWishlistOutboxEventById).not.toHaveBeenCalled();
+    expect(mocks.logWishlistQueueEventFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "wishlist.qstash.consumer_failed",
+        reasonCode: "WISHLIST_QSTASH_SIGNING_KEYS_MISSING",
+      })
+    );
+  });
+
   it("logs and returns an error response when the consumer fails", async () => {
     mocks.processWishlistOutboxEventById.mockRejectedValueOnce(new Error("projection failed"));
 

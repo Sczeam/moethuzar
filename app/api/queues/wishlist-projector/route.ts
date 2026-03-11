@@ -27,12 +27,42 @@ async function wishlistProjectorHandler(request: Request) {
   }
 }
 
-export const POST = verifySignatureAppRouter(wishlistProjectorHandler, {
-  currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
-  nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
-  url: process.env.APP_BASE_URL
-    ? new URL("/api/queues/wishlist-projector", process.env.APP_BASE_URL).toString()
-    : undefined,
-  clockTolerance: 5,
-});
+function getVerifiedWishlistProjectorHandler() {
+  const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
+  const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
+
+  if (!currentSigningKey || !nextSigningKey) {
+    return null;
+  }
+
+  return verifySignatureAppRouter(wishlistProjectorHandler, {
+    currentSigningKey,
+    nextSigningKey,
+    url: process.env.APP_BASE_URL
+      ? new URL("/api/queues/wishlist-projector", process.env.APP_BASE_URL).toString()
+      : undefined,
+    clockTolerance: 5,
+  });
+}
+
+export async function POST(request: Request) {
+  const verifiedHandler = getVerifiedWishlistProjectorHandler();
+
+  if (!verifiedHandler) {
+    if (!isWishlistQstashEnabled()) {
+      return Response.json({ ok: true, skipped: true }, { status: 202 });
+    }
+
+    logWishlistQueueEventFailure({
+      event: "wishlist.qstash.consumer_failed",
+      requestId: null,
+      reasonCode: "WISHLIST_QSTASH_SIGNING_KEYS_MISSING",
+      eventOutboxId: null,
+    });
+
+    return Response.json({ ok: false, code: "WISHLIST_QSTASH_MISCONFIGURED" }, { status: 500 });
+  }
+
+  return verifiedHandler(request);
+}
 
