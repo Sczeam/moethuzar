@@ -44,6 +44,7 @@ It is intended to verify shipped behavior, not hypothetical future wishlist feat
 ## Route checklist
 
 ### Storefront/customer routes
+
 - `POST /api/wishlist/items`
 - `DELETE /api/wishlist/items/:productId`
 - `PATCH /api/wishlist/preferences/:wishlistItemId`
@@ -52,6 +53,7 @@ It is intended to verify shipped behavior, not hypothetical future wishlist feat
 - `POST /api/wishlist/merge`
 
 ### Account page
+
 - `/account/wishlist`
 
 ## Local operational checklist

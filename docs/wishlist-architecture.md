@@ -72,10 +72,12 @@ Badge copy is not stored as canonical meaning. UI copy is mapped from `badgeType
 Wishlist supports both authenticated customers and guests.
 
 ### Customer identity
+
 - resolved from authenticated customer session
 - persisted with `customerId`
 
 ### Guest identity
+
 - browser stores a raw guest token
 - server hashes that token before persistence
 - only `guestTokenHash` is stored in the database
