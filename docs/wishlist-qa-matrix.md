@@ -11,7 +11,9 @@ It is intended to verify shipped behavior, not hypothetical future wishlist feat
 - wishlist schema migration applied
 - production or local DB reachable
 - customer auth working
-- QStash configured for the target production environment, or local replay/rebuild available
+- local replay/rebuild available
+- for delivery-enabled scenarios only:
+  - QStash configured for the target production environment
 
 ## Verification matrix
 

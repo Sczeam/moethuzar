@@ -121,7 +121,7 @@ Guest-to-customer merge is supported and is triggered from login and register fl
 
 Locked merge rules:
 - customer row wins if both identities saved the same product
-- latest `lastInteractedAt` wins
+- only `lastInteractedAt` uses a latest-wins rule (`max(lastInteractedAt)`)
 - guest metadata only fills missing customer metadata
 - richer customer metadata is never downgraded by weaker guest metadata
 - guest canonical row is hard-deleted after merge resolution
@@ -226,13 +226,22 @@ Prepared, not fully integrated app-wide:
 - `catalog.variant.stock.changed`
 - `promotion.effectivePrice.changed`
 
-Current state:
-- wishlist-origin events are fully wired
-- upstream producers are only wired where practical in the current codebase
+Shipped today:
+- wishlist-origin events are fully wired for projection refresh:
+  - `wishlist.item.saved`
+  - `wishlist.item.removed`
+  - `wishlist.item.preference.updated`
+  - `wishlist.identity.merged`
+- wishlist writes and auth merge flows therefore refresh projection state through the normal outbox + projector path
 
-This means:
-- wishlist writes and auth merge flows are production-ready
-- some future freshness improvements for catalog/promo-driven projection refresh remain follow-up work
+Deferred follow-up wiring:
+- `catalog.product.updated` is prepared in the projector but not wired from catalog mutation producers yet
+- `catalog.variant.stock.changed` is prepared in the projector but not wired from inventory/order-driven stock mutation producers yet
+- `promotion.effectivePrice.changed` is prepared in the projector but not wired from promo/price mutation producers yet
+
+Freshness boundary:
+- production-ready freshness is guaranteed today for wishlist-origin changes and auth-triggered merge flows
+- freshness driven by non-wishlist catalog, stock, or promo mutations remains follow-up work and should not be assumed until those producers are explicitly wired
 
 ## Deferred follow-up work
 
