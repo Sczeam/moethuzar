@@ -537,18 +537,20 @@ export default function ProductView({ product }: ProductViewProps) {
       <div className="grid grid-cols-1 border-y border-sepia-border/70 lg:grid-cols-[minmax(0,1fr)_minmax(420px,48vw)]">
         <section className="relative bg-paper-light lg:border-r lg:border-sepia-border/70">
           {galleryImages.length > 0 ? (
-            <div className={isOutOfStock ? "grayscale" : ""}>
-              <WishlistHeartButton
-                saved={wishlist.status.saved}
-                pending={wishlist.pending}
-                onToggle={() => void wishlist.toggle(wishlistPreferences)}
-                className="absolute right-3 top-3 z-20 sm:right-4 sm:top-4"
-                ariaLabel={
-                  wishlist.status.saved
-                    ? `Remove ${product.name} from favourites`
-                    : `Save ${product.name} to favourites`
-                }
-              />
+            <div className={`relative ${isOutOfStock ? "grayscale" : ""}`}>
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-end p-3 sm:p-4">
+                <WishlistHeartButton
+                  saved={wishlist.status.saved}
+                  pending={wishlist.pending}
+                  onToggle={() => void wishlist.toggle(wishlistPreferences)}
+                  className="pointer-events-auto"
+                  ariaLabel={
+                    wishlist.status.saved
+                      ? `Remove ${product.name} from favourites`
+                      : `Save ${product.name} to favourites`
+                  }
+                />
+              </div>
               {galleryImages.map((image, index) => (
                 <div
                   key={`${image.id}-${index}`}
