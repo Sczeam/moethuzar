@@ -18,6 +18,9 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
 - Phase B rollout checklist: `docs/account-phase-b-rollout-checklist.md`
 - Phase B account orders rollout checklist: `docs/account-orders-rollout-checklist.md`
 - Phase B account orders verification report: `docs/account-orders-verification-report.md`
+- Wishlist architecture: `docs/wishlist-architecture.md`
+- Wishlist QA matrix: `docs/wishlist-qa-matrix.md`
+- Wishlist QStash rollout: `docs/wishlist-qstash-rollout.md`
 - Launch operations runbook: `docs/launch-ops-runbook.md`
 - Manual QA checklist: `docs/mvp-qa-checklist.md`
 
@@ -34,6 +37,11 @@ Production-oriented apparel storefront for Myanmar, built with Next.js App Route
 ## Current MVP Capabilities
 
 - Variant-based catalog (color/size variants, SKU-level inventory)
+- Wishlist / favourites:
+  - guest and signed-in save/remove
+  - guest-to-customer merge on login/register
+  - account wishlist page
+  - QStash-backed projection delivery with replay/rebuild recovery
 - Cart + checkout:
   - COD (zone-based)
   - prepaid transfer with payment-proof upload and admin verification
@@ -123,6 +131,13 @@ Storefront:
 - `/products/[slug]`
 - `/cart`
 - `/checkout`
+- `/account`
+- `/account/orders`
+- `/account/wishlist`
+- `/account/login`
+- `/account/register`
+- `/account/forgot-password`
+- `/account/reset-password`
 - `/order/success/[orderCode]`
 - `/order/track`
 - `/terms`
@@ -161,6 +176,12 @@ Storefront/customer:
 - `POST /api/checkout/payment-proof/upload`
 - `POST /api/checkout/promo`
 - `GET /api/orders/[orderCode]`
+- `POST /api/wishlist/items`
+- `DELETE /api/wishlist/items/:productId`
+- `PATCH /api/wishlist/preferences/:wishlistItemId`
+- `GET /api/wishlist`
+- `GET /api/wishlist/status`
+- `POST /api/wishlist/merge`
 
 Admin:
 
