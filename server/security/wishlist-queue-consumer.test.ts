@@ -108,6 +108,7 @@ describe("wishlist queue consumer route", () => {
     process.env.WISHLIST_QSTASH_ENABLED = "false";
     delete process.env.QSTASH_CURRENT_SIGNING_KEY;
     delete process.env.QSTASH_NEXT_SIGNING_KEY;
+    process.env.APP_BASE_URL = "://invalid";
 
     const response = await POST(
       new Request("http://localhost/api/queues/wishlist-projector", {

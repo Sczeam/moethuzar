@@ -46,12 +46,12 @@ function getVerifiedWishlistProjectorHandler() {
 }
 
 export async function POST(request: Request) {
-  const verifiedHandler = getVerifiedWishlistProjectorHandler();
+  if (!isWishlistQstashEnabled()) {
+    return Response.json({ ok: true, skipped: true }, { status: 202 });
+  }
 
+  const verifiedHandler = getVerifiedWishlistProjectorHandler();
   if (!verifiedHandler) {
-    if (!isWishlistQstashEnabled()) {
-      return Response.json({ ok: true, skipped: true }, { status: 202 });
-    }
 
     logWishlistQueueEventFailure({
       event: "wishlist.qstash.consumer_failed",
