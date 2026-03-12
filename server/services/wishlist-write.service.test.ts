@@ -454,7 +454,7 @@ describe("wishlist-write.service", () => {
     expect(result.created).toBe(true);
     expect(mocks.logWishlistQueueEventFailure).toHaveBeenCalledWith(
       expect.objectContaining({
-        event: "wishlist.queue.publish_failed",
+        event: "wishlist.qstash.publish_failed",
         customerId: "customer-1",
         reasonCode: "queue offline",
       })

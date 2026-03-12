@@ -179,10 +179,10 @@ async function publishProjectionEventsAfterCommit(
       await publishWishlistProjectionEvent(toProjectionQueueMessage(event));
     } catch (error) {
       logWishlistQueueEventFailure({
-        event: "wishlist.queue.publish_failed",
+        event: "wishlist.qstash.publish_failed",
         requestId: context.requestId ?? null,
         customerId: context.customerId ?? null,
-        reasonCode: error instanceof Error ? error.message : "WISHLIST_QUEUE_PUBLISH_FAILED",
+        reasonCode: error instanceof Error ? error.message : "WISHLIST_QSTASH_PUBLISH_FAILED",
         eventOutboxId: event.id,
       });
     }

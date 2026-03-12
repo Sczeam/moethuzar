@@ -1,6 +1,4 @@
-import { send } from "@vercel/queue";
-
-export const WISHLIST_PROJECTOR_QUEUE_TOPIC = "wishlist-projector";
+import { Client } from "@upstash/qstash";
 
 export type WishlistProjectionQueueMessage = {
   eventOutboxId: string;
@@ -9,28 +7,53 @@ export type WishlistProjectionQueueMessage = {
   wishlistItemId?: string;
 };
 
-type QueueSendOptions = {
-  idempotencyKey?: string;
-};
-
 export type WishlistQueueServiceDependencies = {
-  sendMessage: (
-    topicName: string,
+  publishJson: (
     payload: WishlistProjectionQueueMessage,
-    options?: QueueSendOptions
+    options?: { idempotencyKey?: string }
   ) => Promise<{ messageId: string | null }>;
 };
 
-const defaultDependencies: WishlistQueueServiceDependencies = {
-  sendMessage: send,
-};
+function getWishlistProjectorDestinationUrl() {
+  const baseUrl = process.env.APP_BASE_URL;
+  if (!baseUrl) {
+    throw new Error("APP_BASE_URL is required when wishlist QStash delivery is enabled");
+  }
 
-function isPreviewQueueAllowed() {
-  return process.env.WISHLIST_QUEUE_ALLOW_PREVIEW === "true";
+  return new URL("/api/queues/wishlist-projector", baseUrl).toString();
 }
 
-export function isWishlistQueueEnabled() {
-  if (process.env.WISHLIST_QUEUE_ENABLED !== "true") {
+function createQstashClient() {
+  const token = process.env.QSTASH_TOKEN;
+  if (!token) {
+    throw new Error("QSTASH_TOKEN is required when wishlist QStash delivery is enabled");
+  }
+
+  return new Client({ token });
+}
+
+const defaultDependencies: WishlistQueueServiceDependencies = {
+  publishJson: async (payload, options) => {
+    const client = createQstashClient();
+    const response = await client.publishJSON({
+      url: getWishlistProjectorDestinationUrl(),
+      body: payload,
+      headers: {
+        "Upstash-Method": "POST",
+      },
+      deduplicationId: options?.idempotencyKey,
+    });
+
+    return { messageId: response.messageId ?? null };
+  },
+};
+
+function isPreviewQstashAllowed() {
+  return process.env.WISHLIST_QSTASH_ALLOW_PREVIEW === "true";
+}
+
+export function isWishlistQstashEnabled() {
+  if (process.env.WISHLIST_QSTASH_ENABLED !== "true") {
     return false;
   }
 
@@ -39,7 +62,7 @@ export function isWishlistQueueEnabled() {
   }
 
   if (process.env.VERCEL_ENV === "preview") {
-    return isPreviewQueueAllowed();
+    return isPreviewQstashAllowed();
   }
 
   return false;
@@ -49,11 +72,11 @@ export async function publishWishlistProjectionEvent(
   message: WishlistProjectionQueueMessage,
   dependencies: WishlistQueueServiceDependencies = defaultDependencies
 ) {
-  if (!isWishlistQueueEnabled()) {
+  if (!isWishlistQstashEnabled()) {
     return { published: false as const, reason: "DISABLED", messageId: null };
   }
 
-  const result = await dependencies.sendMessage(WISHLIST_PROJECTOR_QUEUE_TOPIC, message, {
+  const result = await dependencies.publishJson(message, {
     idempotencyKey: message.eventOutboxId,
   });
 
