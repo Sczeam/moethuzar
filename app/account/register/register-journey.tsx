@@ -54,11 +54,7 @@ export default function RegisterJourney({ nextPath }: RegisterJourneyProps) {
   }
 
   return (
-    <RegisterJourneyShell
-      title="Create your account"
-      subtitle="Start with your email to unlock faster checkout, order tracking, and saved favourites."
-      aside={<RegisterBenefitsList />}
-    >
+    <RegisterJourneyShell title="Enter your email" aside={<RegisterBenefitsList />}>
       <RegisterEmailStep nextPath={nextPath} defaultEmail={email} onContinue={handleContinue} />
     </RegisterJourneyShell>
   );

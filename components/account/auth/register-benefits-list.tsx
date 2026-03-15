@@ -9,21 +9,20 @@ const REGISTER_BENEFITS = [
 
 export function RegisterBenefitsList() {
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-charcoal/70">
-          Why create an account
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold text-ink">A smoother way to shop Moethuzar</h2>
-      </div>
+    <div className="space-y-6">
+      <p className="text-sm leading-7 text-charcoal">
+        Enjoy a more complete shopping experience with your personal account.
+      </p>
 
-      <ul className="space-y-3 text-sm leading-6 text-charcoal">
+      <ul className="space-y-4 text-sm leading-7 text-charcoal">
         {REGISTER_BENEFITS.map((benefit) => (
-          <li key={benefit} className="flex items-start gap-3">
+          <li key={benefit} className="flex items-start gap-4">
             <span
               aria-hidden="true"
-              className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-antique-brass"
-            />
+              className="mt-[0.22rem] inline-flex h-7 w-7 flex-none items-center justify-center border border-sepia-border text-[0.8rem] text-antique-brass"
+            >
+              +
+            </span>
             <span>{benefit}</span>
           </li>
         ))}
