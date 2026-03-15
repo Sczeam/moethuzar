@@ -1,26 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { accountRegisterCheckEmailAction } from "@/app/account/register/check-email/actions";
+import { initialAccountRegisterEmailCheckState } from "@/app/account/register/check-email/state";
+import { AuthFormStatus } from "@/components/account/auth/auth-form-status";
 
 type RegisterEmailStepProps = {
   defaultEmail?: string;
   nextPath: string;
-  onContinue: (email: string) => void;
+  onEmailAvailable: (email: string) => void;
+  onEmailExists: (email: string) => void;
 };
 
 export default function RegisterEmailStep({
   defaultEmail = "",
   nextPath,
-  onContinue,
+  onEmailAvailable,
+  onEmailExists,
 }: RegisterEmailStepProps) {
   const [email, setEmail] = useState(defaultEmail);
   const [error, setError] = useState("");
   const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const [state, formAction, pending] = useActionState(
+    accountRegisterCheckEmailAction,
+    initialAccountRegisterEmailCheckState
+  );
 
   useEffect(() => {
     emailInputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (!state.ok || !state.data) {
+      return;
+    }
+
+    if (state.data.status === "exists") {
+      onEmailExists(state.data.email);
+      return;
+    }
+
+    onEmailAvailable(state.data.email);
+  }, [onEmailAvailable, onEmailExists, state]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,7 +62,9 @@ export default function RegisterEmailStep({
     }
 
     setError("");
-    onContinue(trimmed);
+    const nextFormData = new FormData();
+    nextFormData.set("email", trimmed);
+    formAction(nextFormData);
   }
 
   return (
@@ -64,12 +88,14 @@ export default function RegisterEmailStep({
           {error}
         </p>
       ) : null}
+      {!error ? <AuthFormStatus error={state.error} /> : null}
 
       <button
         type="submit"
+        disabled={pending}
         className="inline-flex min-h-14 w-full items-center justify-center rounded-none border border-antique-brass bg-antique-brass px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-ink transition hover:bg-aged-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-parchment"
       >
-        Next
+        {pending ? "Checking..." : "Next"}
       </button>
 
       <div className="text-sm text-charcoal">
