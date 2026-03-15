@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type RegisterEmailStepProps = {
   defaultEmail?: string;
@@ -16,6 +16,11 @@ export default function RegisterEmailStep({
 }: RegisterEmailStepProps) {
   const [email, setEmail] = useState(defaultEmail);
   const [error, setError] = useState("");
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    emailInputRef.current?.focus();
+  }, []);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -23,12 +28,14 @@ export default function RegisterEmailStep({
     const trimmed = email.trim();
     if (!trimmed) {
       setError("Enter your email.");
+      emailInputRef.current?.focus();
       return;
     }
 
     const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
     if (!emailIsValid) {
       setError("Enter a valid email address.");
+      emailInputRef.current?.focus();
       return;
     }
 
@@ -43,6 +50,7 @@ export default function RegisterEmailStep({
       </label>
       <input
         id="register-email"
+        ref={emailInputRef}
         name="email"
         type="email"
         autoComplete="email"
@@ -54,7 +62,7 @@ export default function RegisterEmailStep({
         aria-describedby={error ? "register-email-error" : undefined}
       />
       {error ? (
-        <p id="register-email-error" className="field-error">
+        <p id="register-email-error" role="alert" className="field-error">
           {error}
         </p>
       ) : null}

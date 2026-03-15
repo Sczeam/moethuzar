@@ -23,17 +23,34 @@ export default function AccountRegisterForm({
   return (
     <form action={formAction} className="max-w-xl">
       <input type="hidden" name="nextPath" value={nextPath} />
-      <input type="hidden" name="email" value={email} />
+      <input
+        name="email"
+        type="email"
+        autoComplete="username"
+        value={email}
+        readOnly
+        tabIndex={-1}
+        aria-hidden="true"
+        className="sr-only"
+      />
 
       <div className="space-y-3">
+        <label htmlFor="register-password" className="field-label">
+          Password
+        </label>
         <AuthInput
+          id="register-password"
           name="password"
           type="password"
           required
           autoComplete="new-password"
           placeholder="Create password"
         />
+        <label htmlFor="register-confirm-password" className="field-label">
+          Confirm password
+        </label>
         <AuthInput
+          id="register-confirm-password"
           name="confirmPassword"
           type="password"
           required

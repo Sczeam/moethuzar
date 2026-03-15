@@ -1,6 +1,7 @@
 "use client";
 
 type AuthInputProps = {
+  id?: string;
   name: string;
   type: string;
   placeholder: string;
@@ -10,6 +11,7 @@ type AuthInputProps = {
 };
 
 export function AuthInput({
+  id,
   name,
   type,
   placeholder,
@@ -19,6 +21,7 @@ export function AuthInput({
 }: AuthInputProps) {
   return (
     <input
+      id={id}
       name={name}
       type={type}
       required={required}
