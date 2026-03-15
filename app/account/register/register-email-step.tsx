@@ -45,15 +45,13 @@ export default function RegisterEmailStep({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-6">
-      <label htmlFor="register-email" className="block text-sm font-medium text-charcoal">
-        E-mail address
-      </label>
       <input
         id="register-email"
         ref={emailInputRef}
         name="email"
         type="email"
         autoComplete="email"
+        aria-label="E-mail address"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         placeholder="E-mail address*"
