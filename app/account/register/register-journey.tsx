@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { RegisterBenefitsList } from "@/components/account/auth/register-benefits-list";
 import { RegisterJourneyShell } from "@/components/account/auth/register-journey-shell";
 import AccountRegisterForm from "./register-form";
@@ -15,19 +15,19 @@ export default function RegisterJourney({ nextPath }: RegisterJourneyProps) {
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"email" | "details" | "existing">("email");
 
-  function handleAvailableEmail(nextEmail: string) {
+  const handleAvailableEmail = useCallback((nextEmail: string) => {
     setEmail(nextEmail);
     setStep("details");
-  }
+  }, []);
 
-  function handleExistingEmail(nextEmail: string) {
+  const handleExistingEmail = useCallback((nextEmail: string) => {
     setEmail(nextEmail);
     setStep("existing");
-  }
+  }, []);
 
-  function handleEditEmail() {
+  const handleEditEmail = useCallback(() => {
     setStep("email");
-  }
+  }, []);
 
   if (step === "details") {
     return (

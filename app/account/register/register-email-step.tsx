@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { accountRegisterCheckEmailAction } from "@/app/account/register/check-email/actions";
 import { initialAccountRegisterEmailCheckState } from "@/app/account/register/check-email/state";
 import { AuthFormStatus } from "@/components/account/auth/auth-form-status";
@@ -64,7 +64,9 @@ export default function RegisterEmailStep({
     setError("");
     const nextFormData = new FormData();
     nextFormData.set("email", trimmed);
-    formAction(nextFormData);
+    startTransition(() => {
+      formAction(nextFormData);
+    });
   }
 
   return (
@@ -75,9 +77,17 @@ export default function RegisterEmailStep({
         name="email"
         type="email"
         autoComplete="email"
+        disabled={pending}
+        aria-busy={pending}
         aria-label="E-mail address"
         value={email}
-        onChange={(event) => setEmail(event.target.value)}
+        onChange={(event) => {
+          if (pending) {
+            return;
+          }
+
+          setEmail(event.target.value);
+        }}
         placeholder="E-mail address*"
         className={`w-full rounded-none border border-sepia-border bg-parchment px-4 py-4 text-base text-ink outline-none transition focus:border-antique-brass focus:ring-2 focus:ring-antique-brass/20 ${error ? "border-seal-wax/80 focus:border-seal-wax focus:ring-seal-wax/20" : ""}`}
         aria-invalid={error ? "true" : "false"}

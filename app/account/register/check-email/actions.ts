@@ -9,10 +9,18 @@ import { authActionFailure, authActionSuccess } from "@/server/contracts/action-
 import { mapAuthActionError } from "@/server/auth/auth-action-error";
 import { logAuthFailureEvent } from "@/server/observability/auth-events";
 import { getRequestIdFromHeaders } from "@/server/security/request-id";
+import { rateLimitOrResponse } from "@/server/security/rate-limit";
 
 const emailCheckSchema = z.object({
   email: z.string().trim().email(),
 });
+
+function buildActionRequest(pathname: string, reqHeaders: Headers): Request {
+  return new Request(`http://localhost${pathname}`, {
+    method: "POST",
+    headers: reqHeaders,
+  });
+}
 
 export async function accountRegisterCheckEmailAction(
   _previousState: AccountRegisterEmailCheckState,
@@ -22,6 +30,18 @@ export async function accountRegisterCheckEmailAction(
   const requestId = getRequestIdFromHeaders(reqHeaders);
 
   try {
+    const request = buildActionRequest("/account/register/check-email", reqHeaders);
+    const limitedResponse = rateLimitOrResponse(request, "customerRegisterCheckEmail");
+    if (limitedResponse) {
+      logAuthFailureEvent({
+        event: "auth.customer_register.check_email_failed",
+        requestId,
+        reasonCode: "RATE_LIMITED",
+      });
+
+      return authActionFailure(requestId, "RATE_LIMITED", AUTH_COPY_BY_CODE.RATE_LIMITED);
+    }
+
     const parsed = emailCheckSchema.parse({
       email: formData.get("email"),
     });

@@ -75,7 +75,7 @@ export default function AccountRegisterForm({
       </div>
 
       <AuthSubmitButton idleLabel="Create account" pendingLabel="Creating account..." />
-      <AuthFormStatus error={state.error} />
+      {state.code !== "EMAIL_ALREADY_REGISTERED" ? <AuthFormStatus error={state.error} /> : null}
       <div className="mt-4 space-y-2 text-sm text-charcoal">
         {state.code === "EMAIL_ALREADY_REGISTERED" ? (
           <div className="space-y-2 border border-sepia-border bg-paper-light px-4 py-4">

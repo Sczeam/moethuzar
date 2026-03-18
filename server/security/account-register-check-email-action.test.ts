@@ -5,6 +5,7 @@ import { AppError } from "@/server/errors";
 const mocks = vi.hoisted(() => ({
   headers: vi.fn(),
   checkCustomerEmailAvailability: vi.fn(),
+  rateLimitOrResponse: vi.fn(),
   mapAuthActionError: vi.fn(),
   logAuthFailureEvent: vi.fn(),
 }));
@@ -15,6 +16,10 @@ vi.mock("next/headers", () => ({
 
 vi.mock("@/server/auth/account-discovery.service", () => ({
   checkCustomerEmailAvailability: mocks.checkCustomerEmailAvailability,
+}));
+
+vi.mock("@/server/security/rate-limit", () => ({
+  rateLimitOrResponse: mocks.rateLimitOrResponse,
 }));
 
 vi.mock("@/server/auth/auth-action-error", () => ({
@@ -32,10 +37,12 @@ describe("accountRegisterCheckEmailAction", () => {
   beforeEach(() => {
     mocks.headers.mockReset();
     mocks.checkCustomerEmailAvailability.mockReset();
+    mocks.rateLimitOrResponse.mockReset();
     mocks.mapAuthActionError.mockReset();
     mocks.logAuthFailureEvent.mockReset();
 
     mocks.headers.mockResolvedValue(new Headers([["x-request-id", "req-1"]]));
+    mocks.rateLimitOrResponse.mockReturnValue(null);
   });
 
   it("returns available when the customer email does not exist", async () => {
@@ -106,6 +113,29 @@ describe("accountRegisterCheckEmailAction", () => {
       event: "auth.customer_register.check_email_failed",
       requestId: "req-1",
       reasonCode: "VALIDATION_ERROR",
+    });
+  });
+
+  it("returns rate limited when the precheck policy blocks the request", async () => {
+    mocks.rateLimitOrResponse.mockReturnValueOnce(new Response(null, { status: 429 }));
+
+    const formData = new FormData();
+    formData.set("email", "customer@example.com");
+
+    await expect(
+      accountRegisterCheckEmailAction(initialAccountRegisterEmailCheckState, formData)
+    ).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMITED",
+      error: AUTH_COPY_BY_CODE.RATE_LIMITED,
+      requestId: "req-1",
+    });
+
+    expect(mocks.checkCustomerEmailAvailability).not.toHaveBeenCalled();
+    expect(mocks.logAuthFailureEvent).toHaveBeenCalledWith({
+      event: "auth.customer_register.check_email_failed",
+      requestId: "req-1",
+      reasonCode: "RATE_LIMITED",
     });
   });
 
