@@ -98,7 +98,7 @@ export default function RegisterEmailStep({
           {error}
         </p>
       ) : null}
-      {!error ? <AuthFormStatus error={state.error} /> : null}
+      {state.error && !error && !pending ? <AuthFormStatus error={state.error} /> : null}
 
       <button
         type="submit"

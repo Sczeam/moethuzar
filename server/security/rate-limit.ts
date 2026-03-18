@@ -26,7 +26,7 @@ const POLICIES: Record<PolicyName, RateLimitPolicy> = {
   adminLogin: { windowMs: 60_000, max: 6 },
   customerLogin: { windowMs: 60_000, max: 5 },
   customerRegister: { windowMs: 10 * 60_000, max: 3 },
-  customerRegisterCheckEmail: { windowMs: 5 * 60_000, max: 8 },
+  customerRegisterCheckEmail: { windowMs: 10 * 60_000, max: 3 },
   customerForgotPassword: { windowMs: 15 * 60_000, max: 3 },
   customerResetPassword: { windowMs: 15 * 60_000, max: 6 },
   accountMe: { windowMs: 60_000, max: 60 },
