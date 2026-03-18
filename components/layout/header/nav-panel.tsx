@@ -160,11 +160,11 @@ export function HeaderNavPanel({
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/75">Account</p>
         <div className="mt-3 grid gap-1.5">
           <Link
-            href={accountUser ? "/account" : "/account/login?next=%2Faccount"}
+            href={accountUser ? "/account" : "/account/register?next=%2Faccount"}
             onClick={onClose}
             className="inline-flex min-h-9 items-center justify-start text-sm uppercase tracking-[0.08em] text-ink transition hover:text-teak-brown"
           >
-            {accountUser ? "My Account" : "Sign In / Create Account"}
+            {accountUser ? "My Account" : "Create Account / Sign In"}
           </Link>
           <Link
             href={accountUser ? "/account/wishlist" : "/account/login?next=%2Faccount%2Fwishlist"}
