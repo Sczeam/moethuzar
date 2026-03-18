@@ -45,7 +45,7 @@ export default function RegisterJourney({ nextPath }: RegisterJourneyProps) {
     return (
       <RegisterJourneyShell
         title="This email is already registered"
-        subtitle="Use the existing account for this email, or reset the password if needed."
+        subtitle="Sign in with the existing account for this email, or edit the address to continue creating a new one."
         aside={<RegisterBenefitsList />}
       >
         <RegisterExistingAccount email={email} nextPath={nextPath} onEdit={handleEditEmail} />
