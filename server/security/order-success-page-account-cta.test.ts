@@ -134,7 +134,7 @@ describe("order success page account CTA", () => {
     const html = await renderPage("failed");
 
     expect(html).toContain("account creation did not complete");
-    expect(html).toContain("Create Account");
+    expect(html).toContain("Create your account");
     expect(html).not.toContain("Reset Password");
   });
 
@@ -142,7 +142,7 @@ describe("order success page account CTA", () => {
     const html = await renderPage();
 
     expect(html).toContain("Want faster checkout next time");
-    expect(html).toContain("Create Account");
+    expect(html).toContain("Create your account");
     expect(html).toContain("Sign In");
   });
 });

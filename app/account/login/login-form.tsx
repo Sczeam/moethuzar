@@ -45,8 +45,11 @@ export default function AccountLoginForm({ nextPath }: { nextPath: string }) {
         </p>
         <p className="mt-2 text-sm text-charcoal">
           No account yet?{" "}
-          <Link href={`/account/register?next=${encodeURIComponent(nextPath)}`} className="underline hover:text-ink">
-            Create one
+          <Link
+            href={`/account/register?next=${encodeURIComponent(nextPath)}`}
+            className="underline hover:text-ink"
+          >
+            Create your account
           </Link>
         </p>
       </form>
