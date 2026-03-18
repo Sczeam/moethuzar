@@ -43,6 +43,21 @@ Environment prerequisites:
 | B2-07 | Logout is idempotent | Call logout signed in, then again signed out | No crash; ends unauthenticated both times |
 | B2-08 | Me endpoint is minimal and uncached | Call `GET /api/account/auth/me` | `200`, `Cache-Control: no-store`, payload contains only `id` and `email` or `null` |
 
+## B2 Register Journey Upgrade
+
+| ID | Scenario | Steps | Expected Result |
+|---|---|---|---|
+| B2R-01 | Step 1 blocks empty email | Visit `/account/register`, click `Next` with empty field | Inline `Enter your email.` error; no step change |
+| B2R-02 | Step 1 blocks invalid email format | Enter invalid email, click `Next` | Inline `Enter a valid email address.` error; no server-side step advance |
+| B2R-03 | Available email advances to step 2 | Enter a new email, pass precheck | Premium step 2 renders with email summary card and password fields |
+| B2R-04 | Existing email branches to recovery state | Enter an email already linked to a customer record, pass precheck | Existing-account panel renders with `Sign in`, `Forgot password`, and `Edit` actions |
+| B2R-05 | Edit email returns to step 1 with prefilled value | From step 2 or existing-account state, click `Edit` | Step 1 returns, email remains prefilled, passwords are cleared |
+| B2R-06 | Refresh on step 2 resets the journey | Reach step 2, then refresh the page | Journey returns to step 1 intentionally; email is not persisted in URL or storage |
+| B2R-07 | Existing email recovery is actionable after final submit fallback | Submit step 2 while backend returns `EMAIL_ALREADY_REGISTERED` | Dedicated recovery panel appears with strong `Sign in` and `Forgot password` CTAs |
+| B2R-08 | Register precheck respects abuse controls | Exceed register-email precheck threshold from one IP | Stable `RATE_LIMITED` error is returned; no server crash |
+| B2R-09 | Successful register redirect remains unchanged | Complete registration from step 2 with valid new account | Redirect matches sanitized `next` or `/account`; backend contract unchanged |
+| B2R-10 | Wishlist merge remains best effort after successful register | Complete registration with and without guest wishlist token | Register still succeeds; merge result does not block redirect |
+
 ## B3 Checkout Order Linking
 
 | ID | Scenario | Steps | Expected Result |
@@ -84,6 +99,7 @@ Environment prerequisites:
 - Checkout success JSON body shape remains unchanged.
 - No provider/internal error strings are leaked to customer auth forms.
 - Rate-limit responses remain deterministic and include `requestId`.
+- Register journey remains register-specific and does not change login, forgot-password, or reset-password backend behavior.
 
 ## Sign-off Criteria
 

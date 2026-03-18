@@ -117,7 +117,7 @@ export default async function OrderSuccessPage({
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/account/register?next=%2Faccount" className="btn-primary">
-                Create Account
+                Create your account
               </Link>
             </div>
           </>
@@ -129,7 +129,7 @@ export default async function OrderSuccessPage({
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/account/register?next=%2Faccount" className="btn-primary">
-                Create Account
+                Create your account
               </Link>
               <Link href="/account/login?next=%2Faccount" className="btn-secondary">
                 Sign In
